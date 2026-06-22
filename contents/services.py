@@ -4,52 +4,54 @@ import time
 
 from django.conf import settings
 from django.core.cache import cache
+
 from openai import (
     APIConnectionError,
-    APIStatusError,
+    APIError,
+    APITimeoutError,
     OpenAI,
     RateLimitError,
 )
 
 from .models import (
     AppSettings,
+    Audience,
     BlockedKeyword,
     Content,
+    ContentRule,
     GenerationJob,
     GenerationJobLog,
+    Goal,
+    Language,
+    PromptTemplate,
+    Topic,
 )
 
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
-def add_job_log(job, level, message):
+def log_job(job, level, message):
     GenerationJobLog.objects.create(
         job=job,
         level=level,
         message=message,
     )
 
+    print(f"[Job #{job.id}] {level.upper()}: {message}")
+
 
 def fail_job(job, message):
     job.status = "failed"
     job.error_message = message
-    job.save()
+    job.save(
+        update_fields=[
+            "status",
+            "error_message",
+        ]
+    )
 
-    add_job_log(job, "error", message)
-
-    print("Generation job failed:", message)
-
-
-def stop_job(job):
-    job.status = "stopped"
-    job.error_message = "Job stopped by admin."
-    job.should_stop = False
-    job.save()
-
-    add_job_log(job, "warning", "Job stopped by admin.")
-
-    print("Generation job stopped by admin.")
+    log_job(job, "error", message)
 
 
 def get_app_settings():
@@ -60,23 +62,19 @@ def get_app_settings():
     if app_settings:
         return app_settings
 
-    app_settings = AppSettings.objects.filter(
-        is_active=True,
-    ).first()
+    app_settings = AppSettings.objects.filter(is_active=True).first()
 
     if not app_settings:
         app_settings = AppSettings.objects.create(
+            min_words=45,
+            max_words=70,
             max_output_tokens=1200,
             temperature=1.05,
             model_name="gpt-4.1-mini",
             is_active=True,
         )
 
-    cache.set(
-        cache_key,
-        app_settings,
-        timeout=300,
-    )
+    cache.set(cache_key, app_settings, 300)
 
     return app_settings
 
@@ -84,151 +82,154 @@ def get_app_settings():
 def get_blocked_keywords():
     cache_key = "active_blocked_keywords"
 
-    blocked_keywords = cache.get(cache_key)
+    keywords = cache.get(cache_key)
 
-    if blocked_keywords is not None:
-        return blocked_keywords
+    if keywords is not None:
+        return keywords
 
-    blocked_keywords = list(
+    keywords = list(
         BlockedKeyword.objects
         .filter(is_active=True)
         .values_list("keyword", flat=True)
     )
 
-    cache.set(
-        cache_key,
-        blocked_keywords,
-        timeout=300,
+    cache.set(cache_key, keywords, 300)
+
+    return keywords
+
+
+def normalize(text):
+    return re.sub(r"\s+", " ", text or "").strip().casefold()
+
+
+def contains_blocked_keyword(text):
+    normalized_text = normalize(text)
+
+    for keyword in get_blocked_keywords():
+        if normalize(keyword) in normalized_text:
+            return True, keyword
+
+    return False, None
+
+
+class SafeFormatDict(dict):
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
+def render_template(template_text, context):
+    return (template_text or "").format_map(
+        SafeFormatDict(**context)
     )
 
-    return blocked_keywords
+
+def get_weight(obj):
+    weight = getattr(obj, "weight", 1) or 1
+
+    try:
+        weight = int(weight)
+    except (TypeError, ValueError):
+        weight = 1
+
+    return max(weight, 1)
 
 
-def is_safe(text):
-    if not text:
-        return True
+def weighted_choice(items):
+    items = list(items)
 
-    text = text.lower()
+    if not items:
+        return None
 
-    for word in get_blocked_keywords():
-        if re.search(r"\b" + re.escape(word.lower()) + r"\b", text):
-            return False
-
-    return True
-
-
-def validate_content(title, content):
-    if not title or not title.strip():
-        return False, "Missing title."
-
-    if not content or not content.strip():
-        return False, "Missing content."
-
-    if not is_safe(title) or not is_safe(content):
-        return False, "Content contains blocked keywords."
-
-    return True, None
-
-
-def clean_content(content):
-    if not content:
-        return ""
-
-    content = content.replace("\\n", "\n")
-    content = re.sub(r"[ \t]+", " ", content)
-    content = re.sub(r"\n\s*\n+", "\n\n", content)
-
-    return content.strip()
-
-
-def extract_title_and_content(text):
-    text = text.strip()
-
-    title = ""
-    content = text
-
-    title_match = re.search(
-        r"Title:\s*(.*?)(?:\n|Content:)",
-        text,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    content_match = re.search(
-        r"Content:\s*(.*)",
-        text,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    if title_match:
-        title = title_match.group(1).strip()
-        title = title.replace("**", "").strip()
-
-    if content_match:
-        content = content_match.group(1).strip()
-        content = content.replace("**", "").strip()
-
-    if not title:
-        lines = text.splitlines()
-        first_line = lines[0].strip() if lines else ""
-        title = first_line.replace("**", "").replace("Title:", "").strip()
-
-    if content.lower().startswith("content:"):
-        content = content[8:].strip()
-
-    return title, content
-
-
-def is_duplicate_title(title):
-    if not title:
-        return False
-
-    return Content.objects.filter(
-        title__iexact=title.strip(),
-    ).exists()
-
-
-def build_rules_text(rules):
-    active_rules = [
-        rule.prompt_text
-        for rule in rules
-        if rule.is_active
+    weights = [
+        get_weight(item)
+        for item in items
     ]
 
-    if not active_rules:
-        return ""
+    return random.choices(
+        items,
+        weights=weights,
+        k=1,
+    )[0]
 
-    return "\n".join(f"- {rule_text}" for rule_text in active_rules)
+
+def weighted_sample(items, max_count=3):
+    items = list(items)
+
+    if not items or max_count <= 0:
+        return []
+
+    selected = []
+    remaining = items[:]
+
+    count = min(max_count, len(remaining))
+
+    for _ in range(count):
+        picked = weighted_choice(remaining)
+
+        if not picked:
+            break
+
+        selected.append(picked)
+        remaining.remove(picked)
+
+    return selected
 
 
-def render_template(
-    template_text,
-    language,
-    topic,
-    audience,
-    goal,
-    rules_text,
-):
-    return template_text.format(
-        language=language.name,
-        language_name=language.name,
-        language_code=language.code,
-        topic=topic.name,
-        audience=audience.name,
-        goal=goal.name,
-        rules=rules_text,
+def get_required_pool(model, model_name):
+    pool = list(
+        model.objects
+        .filter(is_active=True)
+        .filter(weight__gt=0)
+        .order_by("-weight", "id")
+    )
+
+    if not pool:
+        raise ValueError(f"No active {model_name} found.")
+
+    return pool
+
+
+def get_optional_pool(model):
+    return list(
+        model.objects
+        .filter(is_active=True)
+        .filter(weight__gt=0)
+        .order_by("-weight", "id")
     )
 
 
-def generate_content(
-    system_prompt,
-    user_prompt=None,
-    max_retries=3,
-):
-    app_settings = get_app_settings()
+def get_response_text_from_content(content):
+    if isinstance(content, dict):
+        return content.get("text", "")
 
-    if user_prompt is None:
-        user_prompt = system_prompt
-        system_prompt = ""
+    return getattr(content, "text", "")
+
+
+def extract_response_text(response):
+    output_text = getattr(response, "output_text", None)
+
+    if output_text:
+        return output_text.strip()
+
+    parts = []
+
+    for item in getattr(response, "output", []) or []:
+        item_content = getattr(item, "content", None)
+
+        if item_content is None and isinstance(item, dict):
+            item_content = item.get("content", [])
+
+        for content in item_content or []:
+            text = get_response_text_from_content(content)
+
+            if text:
+                parts.append(text)
+
+    return "\n".join(parts).strip()
+
+
+def generate_content(system_prompt, user_prompt=None, max_retries=3):
+    app_settings = get_app_settings()
 
     last_error = None
 
@@ -237,360 +238,343 @@ def generate_content(
             response = client.responses.create(
                 model=app_settings.model_name,
                 instructions=system_prompt,
-                input=user_prompt,
+                input=user_prompt or "",
                 max_output_tokens=app_settings.max_output_tokens,
                 temperature=app_settings.temperature,
             )
 
-            raw_text = clean_content(response.output_text.strip())
+            text = extract_response_text(response)
 
-            title, content = extract_title_and_content(raw_text)
+            if not text:
+                raise ValueError("OpenAI returned empty output.")
 
-            is_valid, error = validate_content(title, content)
-
-            if not is_valid:
-                return None, None, error
-
-            return title, content, None
+            return text
 
         except (
-            RateLimitError,
             APIConnectionError,
-            APIStatusError,
-        ) as e:
-            last_error = str(e)
+            APIError,
+            APITimeoutError,
+            RateLimitError,
+            ValueError,
+        ) as exc:
+            last_error = exc
 
             print(
-                f"Retry {attempt}/{max_retries}: "
-                f"{last_error}"
+                f"OpenAI generation failed "
+                f"(attempt {attempt}/{max_retries}): {exc}"
             )
 
             if attempt < max_retries:
-                time.sleep(attempt * 3)
-                continue
+                time.sleep(2 * attempt)
 
-            return (
-                None,
-                None,
-                f"OpenAI error after {max_retries} retries: {last_error}",
-            )
-
-        except Exception as e:
-            return (
-                None,
-                None,
-                f"Unexpected OpenAI error: {str(e)}",
-            )
+    raise RuntimeError(f"OpenAI generation failed: {last_error}")
 
 
-def weighted_choice(items, value_field, weight_field="percentage"):
-    population = []
-    weights = []
+def extract_title_and_content(text, fallback_title):
+    text = (text or "").strip()
 
-    for item in items:
-        value = getattr(item, value_field)
-        weight = getattr(item, weight_field, 0)
+    if not text:
+        return fallback_title[:255], ""
 
-        if weight > 0:
-            population.append(value)
-            weights.append(weight)
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip()
+    ]
 
-    if not population:
-        return None
+    title = fallback_title
+    content = text
 
-    return random.choices(
-        population=population,
-        weights=weights,
-        k=1,
-    )[0]
+    if lines:
+        first_line = lines[0]
+
+        if first_line.lower().startswith("title:"):
+            title = first_line.split(":", 1)[1].strip()
+            content = "\n".join(lines[1:]).strip() or text
+
+        elif first_line.startswith("#"):
+            title = first_line.lstrip("#").strip()
+            content = "\n".join(lines[1:]).strip() or text
+
+    if not title:
+        title = fallback_title
+
+    return title[:255], content
 
 
-def run_generation_job(job_id):
-    job = GenerationJob.objects.get(id=job_id)
+def build_context(
+    app_settings,
+    language,
+    topic,
+    audience,
+    goal,
+    selected_rules,
+):
+    rules_text = "\n".join(
+        f"- {rule.prompt_text}"
+        for rule in selected_rules
+        if rule.prompt_text
+    )
 
+    if not rules_text:
+        rules_text = "- No additional rules."
+
+    return {
+        "language": language.name,
+        "language_name": language.name,
+        "language_code": language.code,
+        "topic": topic.name,
+        "audience": audience.name,
+        "goal": goal.name,
+        "rules": rules_text,
+        "min_words": app_settings.min_words,
+        "max_words": app_settings.max_words,
+    }
+
+
+def reset_job_for_start(job):
     job.status = "running"
+    job.error_message = ""
     job.generated_count = 0
     job.skipped_count = 0
     job.current_step = 0
-    job.error_message = ""
-    job.should_stop = False
-    job.save()
-
-    add_job_log(job, "info", "Job started.")
-
-    languages = list(job.languages.filter(is_active=True))
-
-    language_distributions = list(
-        job.language_distributions
-        .filter(
-            language__is_active=True,
-            percentage__gt=0,
-        )
-        .select_related("language")
-    )
-
-    topics = list(job.topics.filter(is_active=True))
-
-    topic_distributions = list(
-        job.topic_distributions
-        .filter(
-            topic__is_active=True,
-            percentage__gt=0,
-        )
-        .select_related("topic")
-    )
-
-    audiences = list(job.audiences.filter(is_active=True))
-
-    audience_distributions = list(
-        job.audience_distributions
-        .filter(
-            audience__is_active=True,
-            percentage__gt=0,
-        )
-        .select_related("audience")
-    )
-
-    goals = list(job.goals.filter(is_active=True))
-
-    goal_distributions = list(
-        job.goal_distributions
-        .filter(
-            goal__is_active=True,
-            percentage__gt=0,
-        )
-        .select_related("goal")
-    )
-
-    rules = list(job.rules.filter(is_active=True))
-
-    if not job.prompt_template or not job.prompt_template.is_active:
-        fail_job(job, "No active prompt template selected.")
-        return
-
-    if not languages and not language_distributions:
-        fail_job(job, "No active languages selected.")
-        return
-
-    if not topics and not topic_distributions:
-        fail_job(job, "No active topics selected.")
-        return
-
-    if not audiences and not audience_distributions:
-        fail_job(job, "No active audiences selected.")
-        return
-
-    if not goals and not goal_distributions:
-        fail_job(job, "No active goals selected.")
-        return
-
-    skipped_count = 0
-    last_error = ""
-
-    for i in range(job.count):
-        job.refresh_from_db()
-
-        if job.should_stop:
-            stop_job(job)
-            return
-
-        job.current_step = i + 1
-        job.save(update_fields=["current_step"])
-
-        if language_distributions:
-            selected_language = weighted_choice(
-                language_distributions,
-                "language",
-            )
-        else:
-            selected_language = random.choice(languages)
-
-        if topic_distributions:
-            selected_topic = weighted_choice(
-                topic_distributions,
-                "topic",
-            )
-        else:
-            selected_topic = random.choice(topics)
-
-        if audience_distributions:
-            selected_audience = weighted_choice(
-                audience_distributions,
-                "audience",
-            )
-        else:
-            selected_audience = random.choice(audiences)
-
-        if goal_distributions:
-            selected_goal = weighted_choice(
-                goal_distributions,
-                "goal",
-            )
-        else:
-            selected_goal = random.choice(goals)
-
-        rules_text = build_rules_text(rules)
-
-        try:
-            system_prompt = render_template(
-                job.prompt_template.system_prompt,
-                selected_language,
-                selected_topic,
-                selected_audience,
-                selected_goal,
-                rules_text,
-            )
-
-            user_prompt = render_template(
-                job.prompt_template.user_prompt_template,
-                selected_language,
-                selected_topic,
-                selected_audience,
-                selected_goal,
-                rules_text,
-            )
-
-            title, content_text, error = generate_content(
-                system_prompt,
-                user_prompt,
-            )
-
-            job.refresh_from_db()
-
-            if job.should_stop:
-                stop_job(job)
-                return
-
-            if error:
-                skipped_count += 1
-                last_error = f"Item {i + 1}: {error}"
-
-                job.skipped_count = skipped_count
-                job.error_message = (
-                    f"Skipped items: {skipped_count}. "
-                    f"Last error: {last_error}"
-                )
-                job.save(
-                    update_fields=[
-                        "skipped_count",
-                        "error_message",
-                    ]
-                )
-
-                add_job_log(job, "warning", last_error)
-
-                print("Skipped:", last_error)
-                continue
-
-            if is_duplicate_title(title):
-                skipped_count += 1
-                last_error = f"Item {i + 1}: Duplicate title: {title}"
-
-                job.skipped_count = skipped_count
-                job.error_message = (
-                    f"Skipped items: {skipped_count}. "
-                    f"Last error: {last_error}"
-                )
-                job.save(
-                    update_fields=[
-                        "skipped_count",
-                        "error_message",
-                    ]
-                )
-
-                add_job_log(job, "warning", last_error)
-
-                print("Skipped duplicate:", last_error)
-                continue
-
-            content = Content.objects.create(
-                title=title or (
-                    f"{selected_topic.name} - "
-                    f"{selected_goal.name} - "
-                    f"{selected_language.name}"
-                ),
-                language=selected_language,
-                topic=selected_topic,
-                audience=selected_audience,
-                goal=selected_goal,
-                prompt_template=job.prompt_template,
-                prompt=user_prompt,
-                generated_content=content_text,
-                status="generated",
-            )
-
-            content.rules.set(rules)
-
-            job.generated_count += 1
-            job.error_message = (
-                f"Skipped items: {skipped_count}. "
-                f"Last error: {last_error}"
-                if skipped_count
-                else ""
-            )
-            job.save(
-                update_fields=[
-                    "generated_count",
-                    "error_message",
-                ]
-            )
-
-            add_job_log(
-                job,
-                "success",
-                f"Content #{content.id} generated.",
-            )
-
-            if job.delay_seconds:
-                time.sleep(job.delay_seconds)
-
-        except Exception as e:
-            job.refresh_from_db()
-
-            if job.should_stop:
-                stop_job(job)
-                return
-
-            skipped_count += 1
-            last_error = f"Item {i + 1}: {str(e)}"
-
-            job.skipped_count = skipped_count
-            job.error_message = (
-                f"Skipped items: {skipped_count}. "
-                f"Last error: {last_error}"
-            )
-            job.save(
-                update_fields=[
-                    "skipped_count",
-                    "error_message",
-                ]
-            )
-
-            add_job_log(job, "error", last_error)
-
-            print("Skipped with exception:", last_error)
-            continue
-
-    job.refresh_from_db()
-
-    if job.should_stop:
-        stop_job(job)
-        return
-
-    job.status = "completed"
-    job.error_message = (
-        f"Completed with skipped items: {skipped_count}. "
-        f"Last error: {last_error}"
-        if skipped_count
-        else ""
-    )
     job.should_stop = False
     job.save(
         update_fields=[
             "status",
             "error_message",
+            "generated_count",
+            "skipped_count",
+            "current_step",
             "should_stop",
         ]
     )
 
-    add_job_log(job, "success", "Job completed.")
+
+def mark_job_completed(job):
+    job.status = "completed"
+    job.error_message = ""
+    job.save(
+        update_fields=[
+            "status",
+            "error_message",
+        ]
+    )
+
+    log_job(job, "success", "Job completed successfully.")
+
+
+def mark_job_stopped(job):
+    job.status = "stopped"
+    job.error_message = "Job stopped by admin."
+    job.save(
+        update_fields=[
+            "status",
+            "error_message",
+        ]
+    )
+
+    log_job(job, "warning", "Job stopped by admin.")
+
+
+def increment_skipped(job):
+    job.skipped_count += 1
+    job.current_step += 1
+    job.save(
+        update_fields=[
+            "skipped_count",
+            "current_step",
+        ]
+    )
+
+
+def increment_generated(job):
+    job.generated_count += 1
+    job.current_step += 1
+    job.save(
+        update_fields=[
+            "generated_count",
+            "current_step",
+        ]
+    )
+
+
+def run_generation_job(job_id):
+    job = GenerationJob.objects.get(id=job_id)
+
+    if job.status == "running":
+        log_job(job, "warning", "Job is already running.")
+        return
+
+    reset_job_for_start(job)
+
+    log_job(job, "info", "Job started.")
+
+    try:
+        app_settings = get_app_settings()
+
+        languages = get_required_pool(Language, "languages")
+        topics = get_required_pool(Topic, "topics")
+        audiences = get_required_pool(Audience, "audiences")
+        goals = get_required_pool(Goal, "goals")
+        prompt_templates = get_required_pool(
+            PromptTemplate,
+            "prompt templates",
+        )
+        content_rules = get_optional_pool(ContentRule)
+
+        target_count = job.count
+        max_attempts = max(target_count * 3, target_count)
+        attempts = 0
+
+        log_job(
+            job,
+            "info",
+            (
+                "Using global weighted pools. "
+                f"Languages: {len(languages)}, "
+                f"Topics: {len(topics)}, "
+                f"Audiences: {len(audiences)}, "
+                f"Goals: {len(goals)}, "
+                f"PromptTemplates: {len(prompt_templates)}, "
+                f"ContentRules: {len(content_rules)}."
+            ),
+        )
+
+        while job.generated_count < target_count and attempts < max_attempts:
+            attempts += 1
+
+            job.refresh_from_db()
+
+            if job.should_stop:
+                mark_job_stopped(job)
+                return
+
+            language = weighted_choice(languages)
+            topic = weighted_choice(topics)
+            audience = weighted_choice(audiences)
+            goal = weighted_choice(goals)
+            prompt_template = weighted_choice(prompt_templates)
+
+            selected_rules = weighted_sample(
+                content_rules,
+                max_count=3,
+            )
+
+            context = build_context(
+                app_settings=app_settings,
+                language=language,
+                topic=topic,
+                audience=audience,
+                goal=goal,
+                selected_rules=selected_rules,
+            )
+
+            system_prompt = render_template(
+                prompt_template.system_prompt,
+                context,
+            )
+
+            user_prompt = render_template(
+                prompt_template.user_prompt_template,
+                context,
+            )
+
+            fallback_title = f"{topic.name} for {audience.name}"
+
+            try:
+                generated_text = generate_content(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                )
+            except Exception as exc:
+                increment_skipped(job)
+
+                log_job(
+                    job,
+                    "error",
+                    f"Generation attempt failed: {exc}",
+                )
+
+                continue
+
+            has_blocked_keyword, blocked_keyword = contains_blocked_keyword(
+                generated_text
+            )
+
+            if has_blocked_keyword:
+                increment_skipped(job)
+
+                log_job(
+                    job,
+                    "warning",
+                    f"Skipped because blocked keyword was found: {blocked_keyword}",
+                )
+
+                continue
+
+            title, content_body = extract_title_and_content(
+                generated_text,
+                fallback_title,
+            )
+
+            if Content.objects.filter(title__iexact=title).exists():
+                increment_skipped(job)
+
+                log_job(
+                    job,
+                    "warning",
+                    f"Skipped duplicate title: {title}",
+                )
+
+                continue
+
+            content = Content.objects.create(
+                title=title,
+                language=language,
+                topic=topic,
+                audience=audience,
+                goal=goal,
+                prompt_template=prompt_template,
+                prompt=user_prompt,
+                generated_content=content_body,
+                status="generated",
+            )
+
+            if selected_rules:
+                content.rules.set(selected_rules)
+
+            increment_generated(job)
+
+            log_job(
+                job,
+                "success",
+                (
+                    f"Generated content #{content.id}: "
+                    f"{language.name} | {topic.name} | "
+                    f"{audience.name} | {goal.name} | "
+                    f"{prompt_template.name}"
+                ),
+            )
+
+            if job.delay_seconds:
+                time.sleep(job.delay_seconds)
+
+        job.refresh_from_db()
+
+        if job.generated_count >= target_count:
+            mark_job_completed(job)
+            return
+
+        fail_job(
+            job,
+            (
+                f"Job failed before reaching target. "
+                f"Generated: {job.generated_count}/{target_count}. "
+                f"Skipped: {job.skipped_count}. "
+                f"Attempts: {attempts}/{max_attempts}."
+            ),
+        )
+
+    except Exception as exc:
+        fail_job(job, str(exc))
