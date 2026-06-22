@@ -3,6 +3,9 @@ from django.contrib import admin, messages
 from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.urls import path, reverse
+from django.shortcuts import redirect
+from django.contrib import admin, messages
 
 from .models import (
     AppSettings,
@@ -69,24 +72,82 @@ class ContentRuleAdmin(admin.ModelAdmin):
 
 @admin.register(AppSettings)
 class AppSettingsAdmin(admin.ModelAdmin):
+
+    actions = [
+        "generate_new_api_token",
+        "clear_api_token",
+    ]
+
     list_display = (
         "id",
         "model_name",
-        "min_words",
-        "max_words",
         "max_output_tokens",
         "temperature",
+        "has_api_key",
+        "auto_generate_api_key",
         "is_active",
     )
 
+    @admin.action(description="Generate New API Token")
+    def generate_new_api_token(self, request, queryset):
+        import secrets
 
-@admin.register(PromptTemplate)
-class PromptTemplateAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "is_active", "created_at")
-    list_filter = ("is_active",)
-    search_fields = ("name", "system_prompt", "user_prompt_template")
+        for obj in queryset:
+            obj.api_secret_key = secrets.token_urlsafe(48)
+            obj.save(update_fields=["api_secret_key"])
 
+        self.message_user(
+            request,
+            "API token regenerated successfully."
+        )
 
+    @admin.action(description="Clear API Token")
+    def clear_api_token(self, request, queryset):
+        for obj in queryset:
+            obj.api_secret_key = ""
+            obj.save(update_fields=["api_secret_key"])
+
+        self.message_user(
+            request,
+            "API token cleared successfully."
+        )
+
+    def has_api_key(self, obj):
+        return bool(obj.api_secret_key)
+
+    has_api_key.boolean = True
+    has_api_key.short_description = "API Key"
+
+    fieldsets = (
+        (
+            "OpenAI Settings",
+            {
+                "fields": (
+                    "model_name",
+                    "max_output_tokens",
+                    "temperature",
+                )
+            },
+        ),
+(
+    "API Settings",
+    {
+        "fields": (
+            "api_secret_key",
+            "auto_generate_api_key",
+            "default_generation_job",
+        )
+    },
+),
+        (
+            "Status",
+            {
+                "fields": (
+                    "is_active",
+                )
+            },
+        ),
+    )
 @admin.register(Content)
 class ContentAdmin(admin.ModelAdmin):
     list_display = (

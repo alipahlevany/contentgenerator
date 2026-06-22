@@ -1,3 +1,5 @@
+from django.conf import settings
+from .models import AppSettings
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -9,6 +11,25 @@ from .services import generate_content
 from .tasks import run_generation_job_task
 
 
+def check_api_key(request):
+    api_key = request.headers.get("X-API-Key")
+
+    if not api_key:
+        return False
+
+    return api_key == settings.API_SECRET_KEY
+
+
+def invalid_api_key_response():
+    return Response(
+        {
+            "success": False,
+            "detail": "Invalid or missing API key.",
+        },
+        status=401,
+    )
+
+
 class ContentListAPIView(generics.ListAPIView):
     queryset = Content.objects.all().order_by("-created_at")
     serializer_class = ContentSerializer
@@ -16,6 +37,9 @@ class ContentListAPIView(generics.ListAPIView):
 
 class GenerateContentAPIView(APIView):
     def post(self, request):
+        if not check_api_key(request):
+            return invalid_api_key_response()
+
         title = request.data.get("title")
         prompt = request.data.get("prompt")
 
@@ -50,6 +74,9 @@ class GenerateContentAPIView(APIView):
 
 @api_view(["POST"])
 def start_job_api(request, job_id):
+    if not check_api_key(request):
+        return invalid_api_key_response()
+
     try:
         job = GenerationJob.objects.get(id=job_id)
     except GenerationJob.DoesNotExist:
@@ -76,7 +103,16 @@ def start_job_api(request, job_id):
     job.generated_count = 0
     job.skipped_count = 0
     job.current_step = 0
-    job.save()
+    job.save(
+        update_fields=[
+            "status",
+            "should_stop",
+            "error_message",
+            "generated_count",
+            "skipped_count",
+            "current_step",
+        ]
+    )
 
     run_generation_job_task.delay(job.id)
 
@@ -91,6 +127,9 @@ def start_job_api(request, job_id):
 
 @api_view(["POST"])
 def stop_job_api(request, job_id):
+    if not check_api_key(request):
+        return invalid_api_key_response()
+
     try:
         job = GenerationJob.objects.get(id=job_id)
     except GenerationJob.DoesNotExist:
@@ -103,7 +142,15 @@ def stop_job_api(request, job_id):
         )
 
     job.should_stop = True
-    job.save()
+    job.status = "stopped"
+    job.error_message = "Job stopped by API."
+    job.save(
+        update_fields=[
+            "should_stop",
+            "status",
+            "error_message",
+        ]
+    )
 
     return Response(
         {
@@ -116,6 +163,9 @@ def stop_job_api(request, job_id):
 
 @api_view(["GET"])
 def job_status_api(request, job_id):
+    if not check_api_key(request):
+        return invalid_api_key_response()
+
     try:
         job = GenerationJob.objects.get(id=job_id)
     except GenerationJob.DoesNotExist:
@@ -137,5 +187,37 @@ def job_status_api(request, job_id):
             "skipped_count": job.skipped_count,
             "current_step": job.current_step,
             "error_message": job.error_message,
+        }
+    )
+@api_view(["POST"])
+def run_default_job_api(request):
+    if not check_api_key(request):
+        return invalid_api_key_response()
+
+    app_settings = AppSettings.objects.filter(
+        is_active=True
+    ).first()
+
+    if not app_settings:
+        return Response(
+            {"detail": "Active app settings not found."},
+            status=400,
+        )
+
+    job = app_settings.default_generation_job
+
+    if not job:
+        return Response(
+            {"detail": "Default generation job is not configured."},
+            status=400,
+        )
+
+    run_generation_job_task.delay(job.id)
+
+    return Response(
+        {
+            "success": True,
+            "job_id": job.id,
+            "message": "Default job started.",
         }
     )

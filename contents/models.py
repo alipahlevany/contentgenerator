@@ -1,5 +1,5 @@
 from django.db import models
-
+import secrets
 
 class Topic(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -47,15 +47,61 @@ class BlockedKeyword(models.Model):
         return self.keyword
 
 
+import secrets
+
+from django.db import models
+
+
 class AppSettings(models.Model):
     min_words = models.PositiveIntegerField(default=45)
+
     max_words = models.PositiveIntegerField(default=70)
-    max_output_tokens = models.PositiveIntegerField(default=1200)
+
+    max_output_tokens = models.PositiveIntegerField(
+        default=1200
+    )
+
     temperature = models.FloatField(default=1.05)
-    model_name = models.CharField(max_length=100, default="gpt-4.1-mini")
+
+    model_name = models.CharField(
+        max_length=100,
+        default="gpt-4.1-mini",
+    )
+
+    api_secret_key = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+    )
+
+    auto_generate_api_key = models.BooleanField(
+        default=True
+    )
+    default_generation_job = models.ForeignKey(
+    "GenerationJob",
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+)
+
     is_active = models.BooleanField(default=True)
 
-    def __str__(self):
+def save(self, *args, **kwargs):
+    if (
+        self.auto_generate_api_key
+        and not self.pk
+        and not self.api_secret_key
+    ):
+        self.api_secret_key = secrets.token_urlsafe(48)
+
+    super().save(*args, **kwargs)
+
+def __str__(self):
+    return f"Settings #{self.id}"
+
+auto_generate_api_key = models.BooleanField(default=True)
+
+def __str__(self):
         return "App Settings"
 
 

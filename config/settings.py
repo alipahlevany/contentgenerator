@@ -140,3 +140,14 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API for starting, stopping, and checking generation jobs.",
     "VERSION": "1.0.0",
 }
+API_SECRET_KEY = "change-this-secret-key"
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://localhost:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "TIMEOUT": 300,
+    }
+}

@@ -3,6 +3,7 @@ import re
 import time
 
 from django.conf import settings
+from django.core.cache import cache
 from openai import (
     APIConnectionError,
     APIStatusError,
@@ -34,7 +35,9 @@ def fail_job(job, message):
     job.status = "failed"
     job.error_message = message
     job.save()
+
     add_job_log(job, "error", message)
+
     print("Generation job failed:", message)
 
 
@@ -43,12 +46,23 @@ def stop_job(job):
     job.error_message = "Job stopped by admin."
     job.should_stop = False
     job.save()
+
     add_job_log(job, "warning", "Job stopped by admin.")
+
     print("Generation job stopped by admin.")
 
 
 def get_app_settings():
-    app_settings = AppSettings.objects.filter(is_active=True).first()
+    cache_key = "active_app_settings"
+
+    app_settings = cache.get(cache_key)
+
+    if app_settings:
+        return app_settings
+
+    app_settings = AppSettings.objects.filter(
+        is_active=True,
+    ).first()
 
     if not app_settings:
         app_settings = AppSettings.objects.create(
@@ -58,15 +72,36 @@ def get_app_settings():
             is_active=True,
         )
 
+    cache.set(
+        cache_key,
+        app_settings,
+        timeout=300,
+    )
+
     return app_settings
 
 
 def get_blocked_keywords():
-    return list(
+    cache_key = "active_blocked_keywords"
+
+    blocked_keywords = cache.get(cache_key)
+
+    if blocked_keywords is not None:
+        return blocked_keywords
+
+    blocked_keywords = list(
         BlockedKeyword.objects
         .filter(is_active=True)
         .values_list("keyword", flat=True)
     )
+
+    cache.set(
+        cache_key,
+        blocked_keywords,
+        timeout=300,
+    )
+
+    return blocked_keywords
 
 
 def is_safe(text):
@@ -102,6 +137,7 @@ def clean_content(content):
     content = content.replace("\\n", "\n")
     content = re.sub(r"[ \t]+", " ", content)
     content = re.sub(r"\n\s*\n+", "\n\n", content)
+
     return content.strip()
 
 
@@ -147,12 +183,16 @@ def is_duplicate_title(title):
         return False
 
     return Content.objects.filter(
-        title__iexact=title.strip()
+        title__iexact=title.strip(),
     ).exists()
 
 
 def build_rules_text(rules):
-    active_rules = [rule.prompt_text for rule in rules if rule.is_active]
+    active_rules = [
+        rule.prompt_text
+        for rule in rules
+        if rule.is_active
+    ]
 
     if not active_rules:
         return ""
@@ -181,10 +221,15 @@ def render_template(
 
 def generate_content(
     system_prompt,
-    user_prompt,
+    user_prompt=None,
     max_retries=3,
 ):
     app_settings = get_app_settings()
+
+    if user_prompt is None:
+        user_prompt = system_prompt
+        system_prompt = ""
+
     last_error = None
 
     for attempt in range(1, max_retries + 1):
@@ -198,6 +243,7 @@ def generate_content(
             )
 
             raw_text = clean_content(response.output_text.strip())
+
             title, content = extract_title_and_content(raw_text)
 
             is_valid, error = validate_content(title, content)
@@ -276,7 +322,10 @@ def run_generation_job(job_id):
 
     language_distributions = list(
         job.language_distributions
-        .filter(language__is_active=True, percentage__gt=0)
+        .filter(
+            language__is_active=True,
+            percentage__gt=0,
+        )
         .select_related("language")
     )
 
@@ -284,7 +333,10 @@ def run_generation_job(job_id):
 
     topic_distributions = list(
         job.topic_distributions
-        .filter(topic__is_active=True, percentage__gt=0)
+        .filter(
+            topic__is_active=True,
+            percentage__gt=0,
+        )
         .select_related("topic")
     )
 
@@ -292,7 +344,10 @@ def run_generation_job(job_id):
 
     audience_distributions = list(
         job.audience_distributions
-        .filter(audience__is_active=True, percentage__gt=0)
+        .filter(
+            audience__is_active=True,
+            percentage__gt=0,
+        )
         .select_related("audience")
     )
 
@@ -300,7 +355,10 @@ def run_generation_job(job_id):
 
     goal_distributions = list(
         job.goal_distributions
-        .filter(goal__is_active=True, percentage__gt=0)
+        .filter(
+            goal__is_active=True,
+            percentage__gt=0,
+        )
         .select_related("goal")
     )
 
@@ -412,7 +470,12 @@ def run_generation_job(job_id):
                     f"Skipped items: {skipped_count}. "
                     f"Last error: {last_error}"
                 )
-                job.save(update_fields=["skipped_count", "error_message"])
+                job.save(
+                    update_fields=[
+                        "skipped_count",
+                        "error_message",
+                    ]
+                )
 
                 add_job_log(job, "warning", last_error)
 
@@ -428,7 +491,12 @@ def run_generation_job(job_id):
                     f"Skipped items: {skipped_count}. "
                     f"Last error: {last_error}"
                 )
-                job.save(update_fields=["skipped_count", "error_message"])
+                job.save(
+                    update_fields=[
+                        "skipped_count",
+                        "error_message",
+                    ]
+                )
 
                 add_job_log(job, "warning", last_error)
 
@@ -460,7 +528,12 @@ def run_generation_job(job_id):
                 if skipped_count
                 else ""
             )
-            job.save(update_fields=["generated_count", "error_message"])
+            job.save(
+                update_fields=[
+                    "generated_count",
+                    "error_message",
+                ]
+            )
 
             add_job_log(
                 job,
@@ -486,7 +559,12 @@ def run_generation_job(job_id):
                 f"Skipped items: {skipped_count}. "
                 f"Last error: {last_error}"
             )
-            job.save(update_fields=["skipped_count", "error_message"])
+            job.save(
+                update_fields=[
+                    "skipped_count",
+                    "error_message",
+                ]
+            )
 
             add_job_log(job, "error", last_error)
 
@@ -507,6 +585,12 @@ def run_generation_job(job_id):
         else ""
     )
     job.should_stop = False
-    job.save(update_fields=["status", "error_message", "should_stop"])
+    job.save(
+        update_fields=[
+            "status",
+            "error_message",
+            "should_stop",
+        ]
+    )
 
     add_job_log(job, "success", "Job completed.")

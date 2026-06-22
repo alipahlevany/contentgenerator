@@ -15,6 +15,7 @@ click-plugins==1.1.1.2
 click-repl==0.3.0
 distro==1.9.0
 Django==4.2.30
+django-redis==6.0.0
 djangorestframework==3.16.1
 dnspython==2.7.0
 drf-spectacular==0.29.0
