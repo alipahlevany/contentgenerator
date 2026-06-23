@@ -1,21 +1,55 @@
 from django.urls import path
 
 from .views import (
+    ContentDetailAPIView,
     ContentListAPIView,
-    GenerateContentAPIView,
-    start_job_api,
-    stop_job_api,
-    job_status_api,
-    run_default_job_api,
+    GenerationJobDetailAPIView,
+    GenerationJobListCreateAPIView,
+    GenerationJobStartAPIView,
+    GenerationJobStopAPIView,
+    HealthCheckAPIView,
 )
 
+
+app_name = "contents"
+
+
 urlpatterns = [
-    path("contents/", ContentListAPIView.as_view(), name="content-list"),
-    path("generate-content/", GenerateContentAPIView.as_view(), name="generate-content"),
+    path(
+        "health/",
+        HealthCheckAPIView.as_view(),
+        name="api-health",
+    ),
 
-    path("run/", run_default_job_api, name="default-job-run"),
+    path(
+        "generation-jobs/",
+        GenerationJobListCreateAPIView.as_view(),
+        name="api-generation-job-list-create",
+    ),
+    path(
+        "generation-jobs/<int:pk>/",
+        GenerationJobDetailAPIView.as_view(),
+        name="api-generation-job-detail",
+    ),
+    path(
+        "generation-jobs/<int:job_id>/start/",
+        GenerationJobStartAPIView.as_view(),
+        name="api-generation-job-start",
+    ),
+    path(
+        "generation-jobs/<int:job_id>/stop/",
+        GenerationJobStopAPIView.as_view(),
+        name="api-generation-job-stop",
+    ),
 
-    path("jobs/<int:job_id>/start/", start_job_api, name="job-start"),
-    path("jobs/<int:job_id>/stop/", stop_job_api, name="job-stop"),
-    path("jobs/<int:job_id>/status/", job_status_api, name="job-status"),
+    path(
+        "contents/",
+        ContentListAPIView.as_view(),
+        name="api-content-list",
+    ),
+    path(
+        "contents/<int:pk>/",
+        ContentDetailAPIView.as_view(),
+        name="api-content-detail",
+    ),
 ]
