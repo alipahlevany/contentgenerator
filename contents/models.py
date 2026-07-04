@@ -172,6 +172,12 @@ class Content(models.Model):
 
     generated_content = models.TextField(blank=True)
 
+    content_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+    )
+
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -215,60 +221,27 @@ class GenerationJob(models.Model):
         help_text="If selected, one active template will be chosen by weight for each generated content.",
     )
 
-    use_all_prompt_templates = models.BooleanField(
-        default=False,
-        help_text="Use all active prompt templates instead of selected prompt templates.",
-    )
+    use_all_prompt_templates = models.BooleanField(default=False)
 
-    use_all_languages = models.BooleanField(
-        default=False,
-        help_text="Use all active languages instead of selected languages.",
-    )
+    use_all_languages = models.BooleanField(default=False)
 
-    use_all_topics = models.BooleanField(
-        default=False,
-        help_text="Use all active topics instead of selected topics.",
-    )
+    use_all_topics = models.BooleanField(default=False)
 
-    use_all_audiences = models.BooleanField(
-        default=False,
-        help_text="Use all active audiences instead of selected audiences.",
-    )
+    use_all_audiences = models.BooleanField(default=False)
 
-    use_all_goals = models.BooleanField(
-        default=False,
-        help_text="Use all active goals instead of selected goals.",
-    )
+    use_all_goals = models.BooleanField(default=False)
 
-    use_all_rules = models.BooleanField(
-        default=False,
-        help_text="Use all active content rules instead of selected rules.",
-    )
+    use_all_rules = models.BooleanField(default=False)
 
-    languages = models.ManyToManyField(
-        Language,
-        blank=True,
-    )
+    languages = models.ManyToManyField(Language, blank=True)
 
-    topics = models.ManyToManyField(
-        Topic,
-        blank=True,
-    )
+    topics = models.ManyToManyField(Topic, blank=True)
 
-    audiences = models.ManyToManyField(
-        Audience,
-        blank=True,
-    )
+    audiences = models.ManyToManyField(Audience, blank=True)
 
-    goals = models.ManyToManyField(
-        Goal,
-        blank=True,
-    )
+    goals = models.ManyToManyField(Goal, blank=True)
 
-    rules = models.ManyToManyField(
-        ContentRule,
-        blank=True,
-    )
+    rules = models.ManyToManyField(ContentRule, blank=True)
 
     generated_count = models.PositiveIntegerField(default=0)
 
@@ -276,10 +249,7 @@ class GenerationJob(models.Model):
 
     current_step = models.PositiveIntegerField(default=0)
 
-    error_message = models.TextField(
-        blank=True,
-        default="",
-    )
+    error_message = models.TextField(blank=True, default="")
 
     status = models.CharField(
         max_length=20,
@@ -318,10 +288,7 @@ class AppSettings(models.Model):
         help_text="Generated automatically. Leave empty only when External API access is disabled.",
     )
 
-    auto_generate_api_key = models.BooleanField(
-        default=True,
-        help_text="When enabled, an API key will be generated automatically if missing.",
-    )
+    auto_generate_api_key = models.BooleanField(default=True)
 
     default_generation_job = models.ForeignKey(
         GenerationJob,
@@ -330,45 +297,31 @@ class AppSettings(models.Model):
         blank=True,
     )
 
-    auto_daily_generation_enabled = models.BooleanField(
-        default=False,
-        help_text="Enable automatic daily content generation.",
-    )
+    auto_daily_generation_enabled = models.BooleanField(default=False)
 
     daily_generation_count = models.PositiveIntegerField(
         default=10,
         validators=[MinValueValidator(1)],
-        help_text="How many contents should be generated each day.",
     )
 
     daily_generation_delay_seconds = models.FloatField(
         default=1.0,
         validators=[MinValueValidator(0)],
-        help_text="Delay between each generated content in the daily job.",
     )
 
     daily_generation_hour = models.PositiveSmallIntegerField(
         default=2,
-        validators=[
-            MinValueValidator(0),
-            MaxValueValidator(23),
-        ],
-        help_text="Daily generation hour in server time. Example: 2 means 02:00.",
+        validators=[MinValueValidator(0), MaxValueValidator(23)],
     )
 
     daily_generation_minute = models.PositiveSmallIntegerField(
         default=0,
-        validators=[
-            MinValueValidator(0),
-            MaxValueValidator(59),
-        ],
-        help_text="Daily generation minute in server time.",
+        validators=[MinValueValidator(0), MaxValueValidator(59)],
     )
 
     last_daily_generation_date = models.DateField(
         null=True,
         blank=True,
-        help_text="Last date when the automatic daily generation ran.",
     )
 
     is_active = models.BooleanField(default=True)
@@ -390,10 +343,7 @@ class GenerationJobLanguageDistribution(models.Model):
         related_name="language_distributions",
     )
 
-    language = models.ForeignKey(
-        Language,
-        on_delete=models.CASCADE,
-    )
+    language = models.ForeignKey(Language, on_delete=models.CASCADE)
 
     percentage = models.PositiveIntegerField(default=1)
 
@@ -411,10 +361,7 @@ class GenerationJobTopicDistribution(models.Model):
         related_name="topic_distributions",
     )
 
-    topic = models.ForeignKey(
-        Topic,
-        on_delete=models.CASCADE,
-    )
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
 
     percentage = models.PositiveIntegerField(default=1)
 
@@ -432,10 +379,7 @@ class GenerationJobAudienceDistribution(models.Model):
         related_name="audience_distributions",
     )
 
-    audience = models.ForeignKey(
-        Audience,
-        on_delete=models.CASCADE,
-    )
+    audience = models.ForeignKey(Audience, on_delete=models.CASCADE)
 
     percentage = models.PositiveIntegerField(default=1)
 
@@ -453,10 +397,7 @@ class GenerationJobGoalDistribution(models.Model):
         related_name="goal_distributions",
     )
 
-    goal = models.ForeignKey(
-        Goal,
-        on_delete=models.CASCADE,
-    )
+    goal = models.ForeignKey(Goal, on_delete=models.CASCADE)
 
     percentage = models.PositiveIntegerField(default=1)
 
