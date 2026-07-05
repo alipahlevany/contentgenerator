@@ -308,6 +308,17 @@ class AppSettings(models.Model):
         default=1.0,
         validators=[MinValueValidator(0)],
     )
+    auto_refill_enabled = models.BooleanField(
+    default=True,
+    )
+    auto_refill_skip_threshold = models.PositiveIntegerField(
+    default=50,
+    validators=[MinValueValidator(1)],
+    )
+    auto_refill_item_count = models.PositiveIntegerField(
+    default=100,
+    validators=[MinValueValidator(1)],
+    )
 
     daily_generation_hour = models.PositiveSmallIntegerField(
         default=2,

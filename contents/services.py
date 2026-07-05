@@ -1,4 +1,5 @@
 from .core_services.ai import generate_content
+from .core_services.dataset_manager import run_dataset_refill
 from .core_services.cache import get_app_settings, get_blocked_keywords
 from .core_services.cleaner import normalize
 from .core_services.duplicate import is_duplicate_content
@@ -125,6 +126,12 @@ def run_generation_job(job_id):
             except Exception as exc:
                 increment_skipped(job)
                 log_job(job, "error", f"Generation attempt failed: {exc}")
+
+                run_dataset_refill(
+                    job=job,
+                    app_settings=app_settings,
+                )
+
                 continue
 
             has_blocked_keyword, blocked_keyword = contains_blocked_keyword(
@@ -133,11 +140,18 @@ def run_generation_job(job_id):
 
             if has_blocked_keyword:
                 increment_skipped(job)
+
                 log_job(
                     job,
                     "warning",
                     f"Skipped because blocked keyword was found: {blocked_keyword}",
                 )
+
+                run_auto_refill(
+                    job=job,
+                    app_settings=app_settings,
+                )
+
                 continue
 
             title, content_body = extract_title_and_content(
@@ -152,11 +166,18 @@ def run_generation_job(job_id):
 
             if is_duplicate:
                 increment_skipped(job)
+
                 log_job(
                     job,
                     "warning",
                     f"Skipped {duplicate_reason}: {title}",
                 )
+
+                run_auto_refill(
+                    job=job,
+                    app_settings=app_settings,
+                )
+
                 continue
 
             content = Content.objects.create(
