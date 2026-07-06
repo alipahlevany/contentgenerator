@@ -1,17 +1,10 @@
-import time
-
 from django.conf import settings
 
-from openai import (
-    APIConnectionError,
-    APIError,
-    APITimeoutError,
-    OpenAI,
-    RateLimitError,
-)
+from openai import OpenAI
 
 from contents.core_services.cache import get_app_settings
 from contents.core_services.cleaner import clean_generated_content
+from contents.core_services.retry import RETRYABLE_ERRORS, sleep_before_retry
 
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -68,21 +61,20 @@ def generate_content(system_prompt, user_prompt=None, max_retries=3):
 
             return clean_generated_content(text)
 
-        except (
-            APIConnectionError,
-            APIError,
-            APITimeoutError,
-            RateLimitError,
-            ValueError,
-        ) as exc:
+        except RETRYABLE_ERRORS as exc:
             last_error = exc
 
             print(
-                f"OpenAI generation failed "
+                f"OpenAI retryable error "
                 f"(attempt {attempt}/{max_retries}): {exc}"
             )
 
             if attempt < max_retries:
-                time.sleep(2 * attempt)
+                delay = sleep_before_retry(exc, attempt)
+                print(f"Retrying OpenAI request in {delay} seconds.")
+
+        except ValueError as exc:
+            last_error = exc
+            break
 
     raise RuntimeError(f"OpenAI generation failed: {last_error}")

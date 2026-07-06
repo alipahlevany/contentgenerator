@@ -1,0 +1,129 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Content Intelligence Dashboard</h1>
+
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:20px 0;">
+    <div style="padding:16px;background:#f6f8fa;border-radius:8px;">
+        <strong>Total Items</strong>
+        <h2>{{ health.total_items }}</h2>
+    </div>
+
+    <div style="padding:16px;background:#e8f5e9;border-radius:8px;">
+        <strong>Average Quality</strong>
+        <h2>{{ health.average_quality }}%</h2>
+    </div>
+
+    <div style="padding:16px;background:#fff3cd;border-radius:8px;">
+        <strong>Weak Items</strong>
+        <h2>{{ health.weak_items }}</h2>
+    </div>
+
+    <div style="padding:16px;background:#e7f1ff;border-radius:8px;">
+        <strong>Strong Items</strong>
+        <h2>{{ health.strong_items }}</h2>
+    </div>
+</div>
+
+<h2>Best Dataset Items</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Item ID</th>
+            <th>Quality</th>
+            <th>Success</th>
+            <th>Skipped</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in best_items %}
+        <tr>
+            <td>{{ item.item_type }}</td>
+            <td>{{ item.item_id }}</td>
+            <td>{{ item.quality_score }}</td>
+            <td>{{ item.success_count }}</td>
+            <td>{{ item.skip_count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Worst Dataset Items</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Item ID</th>
+            <th>Quality</th>
+            <th>Duplicate</th>
+            <th>Blocked</th>
+            <th>Error</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in worst_items %}
+        <tr>
+            <td>{{ item.item_type }}</td>
+            <td>{{ item.item_id }}</td>
+            <td>{{ item.quality_score }}</td>
+            <td>{{ item.duplicate_count }}</td>
+            <td>{{ item.blocked_count }}</td>
+            <td>{{ item.error_count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Best Generation Patterns</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Language</th>
+            <th>Topic</th>
+            <th>Audience</th>
+            <th>Goal</th>
+            <th>Quality</th>
+            <th>Confidence</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pattern in best_patterns %}
+        <tr>
+            <td>{{ pattern.language }}</td>
+            <td>{{ pattern.topic }}</td>
+            <td>{{ pattern.audience }}</td>
+            <td>{{ pattern.goal }}</td>
+            <td>{{ pattern.quality_score }}</td>
+            <td>{{ pattern.confidence }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Worst Generation Patterns</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Language</th>
+            <th>Topic</th>
+            <th>Audience</th>
+            <th>Goal</th>
+            <th>Quality</th>
+            <th>Confidence</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pattern in worst_patterns %}
+        <tr>
+            <td>{{ pattern.language }}</td>
+            <td>{{ pattern.topic }}</td>
+            <td>{{ pattern.audience }}</td>
+            <td>{{ pattern.goal }}</td>
+            <td>{{ pattern.quality_score }}</td>
+            <td>{{ pattern.confidence }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

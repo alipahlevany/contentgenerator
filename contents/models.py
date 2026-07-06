@@ -251,6 +251,11 @@ class GenerationJob(models.Model):
 
     error_message = models.TextField(blank=True, default="")
 
+    retry_count = models.PositiveIntegerField(default=0)
+
+    max_retries = models.PositiveIntegerField(default=3)
+
+
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -308,16 +313,19 @@ class AppSettings(models.Model):
         default=1.0,
         validators=[MinValueValidator(0)],
     )
+
     auto_refill_enabled = models.BooleanField(
-    default=True,
+        default=True,
     )
+
     auto_refill_skip_threshold = models.PositiveIntegerField(
-    default=50,
-    validators=[MinValueValidator(1)],
+        default=50,
+        validators=[MinValueValidator(1)],
     )
+
     auto_refill_item_count = models.PositiveIntegerField(
-    default=100,
-    validators=[MinValueValidator(1)],
+        default=100,
+        validators=[MinValueValidator(1)],
     )
 
     daily_generation_hour = models.PositiveSmallIntegerField(
@@ -419,6 +427,212 @@ class GenerationJobGoalDistribution(models.Model):
         return f"{self.goal.name} - {self.percentage}%"
 
 
+class DatasetPerformance(models.Model):
+    ITEM_TYPE_CHOICES = [
+        ("topic", "Topic"),
+        ("audience", "Audience"),
+        ("goal", "Goal"),
+    ]
+
+    item_type = models.CharField(
+        max_length=20,
+        choices=ITEM_TYPE_CHOICES,
+    )
+
+    item_id = models.PositiveIntegerField()
+
+    success_count = models.PositiveIntegerField(default=0)
+
+    skip_count = models.PositiveIntegerField(default=0)
+
+    duplicate_count = models.PositiveIntegerField(default=0)
+
+    blocked_count = models.PositiveIntegerField(default=0)
+
+    error_count = models.PositiveIntegerField(default=0)
+
+    quality_score = models.FloatField(default=100)
+
+    last_used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("item_type", "item_id")
+
+    def __str__(self):
+        return f"{self.item_type} #{self.item_id} - {self.quality_score}"
+
+
+class DatasetEvent(models.Model):
+    EVENT_TYPE_CHOICES = [
+        ("success", "Success"),
+        ("duplicate", "Duplicate"),
+        ("blocked", "Blocked"),
+        ("error", "Error"),
+        ("skip", "Skip"),
+    ]
+
+    item_type = models.CharField(
+        max_length=20,
+        choices=DatasetPerformance.ITEM_TYPE_CHOICES,
+    )
+
+    item_id = models.PositiveIntegerField()
+
+    event_type = models.CharField(
+        max_length=20,
+        choices=EVENT_TYPE_CHOICES,
+    )
+
+    job = models.ForeignKey(
+        GenerationJob,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    content = models.ForeignKey(
+        Content,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    message = models.TextField(
+        blank=True,
+        default="",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["item_type", "item_id"]),
+            models.Index(fields=["event_type"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.item_type} #{self.item_id} - {self.event_type}"
+
+class GenerationPattern(models.Model):
+    language = models.ForeignKey(
+        Language,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    audience = models.ForeignKey(
+        Audience,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    goal = models.ForeignKey(
+        Goal,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    prompt_template = models.ForeignKey(
+        PromptTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    success_count = models.PositiveIntegerField(default=0)
+    skip_count = models.PositiveIntegerField(default=0)
+    duplicate_count = models.PositiveIntegerField(default=0)
+    blocked_count = models.PositiveIntegerField(default=0)
+    error_count = models.PositiveIntegerField(default=0)
+
+    quality_score = models.FloatField(default=100)
+    confidence = models.FloatField(default=0)
+
+    last_used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["topic", "audience", "goal"]),
+            models.Index(fields=["language", "prompt_template"]),
+            models.Index(fields=["quality_score"]),
+            models.Index(fields=["confidence"]),
+            models.Index(fields=["updated_at"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.language} | {self.topic} | {self.audience} | "
+            f"{self.goal} | {self.prompt_template}"
+        )
+
+
+class AIUsageLog(models.Model):
+    PURPOSE_CHOICES = [
+        ("content_generation", "Content Generation"),
+        ("dataset_generation", "Dataset Generation"),
+        ("intelligence", "Intelligence"),
+        ("title_generation", "Title Generation"),
+        ("other", "Other"),
+    ]
+
+    provider = models.CharField(
+        max_length=50,
+        default="openai",
+    )
+
+    model_name = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+
+    purpose = models.CharField(
+        max_length=50,
+        choices=PURPOSE_CHOICES,
+        default="content_generation",
+    )
+
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+
+    estimated_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=6,
+        default=0,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["provider"]),
+            models.Index(fields=["purpose"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.provider} | {self.purpose} | ${self.estimated_cost}"
+
 class GenerationJobLog(models.Model):
     LOG_LEVEL_CHOICES = [
         ("info", "Info"),
@@ -442,6 +656,10 @@ class GenerationJobLog(models.Model):
     message = models.TextField()
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "System Settings"
+        verbose_name_plural = "System Settings"
 
     def __str__(self):
         return f"Job #{self.job_id} - {self.level}"

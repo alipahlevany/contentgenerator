@@ -1,0 +1,145 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<style>
+.ai-dashboard{display:flex;flex-direction:column;gap:24px}
+.ai-hero{background:linear-gradient(135deg,#111827,#1f2937);color:white;border-radius:18px;padding:28px}
+.ai-hero h1{margin:0;font-size:30px;font-weight:800}
+.ai-hero p{margin:8px 0 0;color:#d1d5db;font-size:14px}
+.ai-card-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.ai-card,.ai-panel{background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.ai-card-label{color:#6b7280;font-size:13px;font-weight:700;text-transform:uppercase}
+.ai-card-value{margin-top:8px;font-size:30px;font-weight:900;color:#111827}
+.ai-progress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:14px}
+.ai-progress-fill{height:100%;background:#16a34a;border-radius:999px}
+.ai-actions{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.ai-action{display:block;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;text-decoration:none;color:#111827;font-weight:800;text-align:center;box-shadow:0 6px 18px rgba(15,23,42,.05)}
+.ai-action:hover{background:#f8fafc}
+.ai-section-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.ai-panel h2{margin-top:0;font-size:18px;color:#111827}
+.ai-table{width:100%;border-collapse:collapse}
+.ai-table th{text-align:left;color:#6b7280;font-size:12px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;padding:10px 8px}
+.ai-table td{padding:11px 8px;border-bottom:1px solid #f3f4f6;color:#111827}
+.ai-badge{display:inline-block;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:800}
+.ai-badge-good{background:#dcfce7;color:#166534}
+.ai-badge-bad{background:#fee2e2;color:#991b1b}
+.ai-badge-neutral{background:#e0f2fe;color:#075985}
+@media(max-width:1100px){.ai-card-grid,.ai-section-grid,.ai-actions{grid-template-columns:1fr}}
+</style>
+
+<div class="ai-dashboard">
+    <div class="ai-hero">
+        <h1>AI Content Generator</h1>
+        <p>Content Intelligence overview, dataset health, learning patterns, and admin controls.</p>
+    </div>
+
+    <div class="ai-card-grid">
+        <div class="ai-card">
+            <div class="ai-card-label">Total Intelligence Items</div>
+            <div class="ai-card-value">{{ health.total_items }}</div>
+        </div>
+        <div class="ai-card">
+            <div class="ai-card-label">Average Quality</div>
+            <div class="ai-card-value">{{ health.average_quality }}%</div>
+            <div class="ai-progress"><div class="ai-progress-fill" style="width: {{ health.average_quality }}%;"></div></div>
+        </div>
+        <div class="ai-card">
+            <div class="ai-card-label">Weak Items</div>
+            <div class="ai-card-value">{{ health.weak_items }}</div>
+        </div>
+        <div class="ai-card">
+            <div class="ai-card-label">Strong Items</div>
+            <div class="ai-card-value">{{ health.strong_items }}</div>
+        </div>
+    </div>
+
+    <div class="ai-actions">
+        <a class="ai-action" href="/admin/contents/generationjob/add/">➕ New Job</a>
+        <a class="ai-action" href="/admin/contents/content/">📄 Contents</a>
+        <a class="ai-action" href="/admin/contents/generationjob/">⚙️ Jobs</a>
+        <a class="ai-action" href="/admin/contents/systemsettings/">🔧 Settings</a>
+        <a class="ai-action" href="/swagger/">🔌 Swagger</a>
+        <a class="ai-action" href="/admin/contents/generationjoblog/">📜 Logs</a>
+    </div>
+
+    <div class="ai-section-grid">
+        <div class="ai-panel">
+            <h2>Best Dataset Items</h2>
+            <table class="ai-table">
+                <thead><tr><th>Type</th><th>ID</th><th>Quality</th><th>Success</th></tr></thead>
+                <tbody>
+                {% for item in best_items %}
+                    <tr>
+                        <td><span class="ai-badge ai-badge-neutral">{{ item.item_type }}</span></td>
+                        <td>{{ item.item_id }}</td>
+                        <td><span class="ai-badge ai-badge-good">{{ item.quality_score }}%</span></td>
+                        <td>{{ item.success_count }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4">No data yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ai-panel">
+            <h2>Weak Dataset Items</h2>
+            <table class="ai-table">
+                <thead><tr><th>Type</th><th>ID</th><th>Quality</th><th>Skipped</th></tr></thead>
+                <tbody>
+                {% for item in worst_items %}
+                    <tr>
+                        <td><span class="ai-badge ai-badge-neutral">{{ item.item_type }}</span></td>
+                        <td>{{ item.item_id }}</td>
+                        <td><span class="ai-badge ai-badge-bad">{{ item.quality_score }}%</span></td>
+                        <td>{{ item.skip_count }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4">No data yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ai-section-grid">
+        <div class="ai-panel">
+            <h2>Best Generation Patterns</h2>
+            <table class="ai-table">
+                <thead><tr><th>Topic</th><th>Audience</th><th>Goal</th><th>Quality</th></tr></thead>
+                <tbody>
+                {% for pattern in best_patterns %}
+                    <tr>
+                        <td>{{ pattern.topic }}</td>
+                        <td>{{ pattern.audience }}</td>
+                        <td>{{ pattern.goal }}</td>
+                        <td><span class="ai-badge ai-badge-good">{{ pattern.quality_score }}%</span></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4">No data yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ai-panel">
+            <h2>Weak Generation Patterns</h2>
+            <table class="ai-table">
+                <thead><tr><th>Topic</th><th>Audience</th><th>Goal</th><th>Quality</th></tr></thead>
+                <tbody>
+                {% for pattern in worst_patterns %}
+                    <tr>
+                        <td>{{ pattern.topic }}</td>
+                        <td>{{ pattern.audience }}</td>
+                        <td>{{ pattern.goal }}</td>
+                        <td><span class="ai-badge ai-badge-bad">{{ pattern.quality_score }}%</span></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4">No data yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

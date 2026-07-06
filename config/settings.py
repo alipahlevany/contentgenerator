@@ -228,6 +228,10 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 60.0,
         "args": (False,),
     },
+    "recover-stuck-generation-jobs-every-5-minutes": {
+        "task": "contents.tasks.recover_stuck_generation_jobs",
+        "schedule": 300.0,
+    },
 }
 
 

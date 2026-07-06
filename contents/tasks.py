@@ -2,6 +2,8 @@ from celery import shared_task
 from django.core.cache import cache
 from django.utils import timezone
 
+from contents.core_services.job_health import recover_stuck_jobs
+
 from .models import AppSettings, GenerationJob
 from .services import run_generation_job
 
@@ -78,3 +80,8 @@ def run_daily_generation_task(force=False):
 
     finally:
         cache.delete(lock_key)
+
+
+@shared_task
+def recover_stuck_generation_jobs():
+    return recover_stuck_jobs()

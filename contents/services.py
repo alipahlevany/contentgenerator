@@ -1,8 +1,11 @@
 from .core_services.ai import generate_content
-from .core_services.dataset_manager import run_dataset_refill
 from .core_services.cache import get_app_settings, get_blocked_keywords
 from .core_services.cleaner import normalize
 from .core_services.duplicate import is_duplicate_content
+from .core_services.generation_outcome import (
+    handle_generation_failure,
+    handle_generation_success,
+)
 from .core_services.logger import fail_job, log_job
 from .core_services.prompt import (
     build_context,
@@ -11,7 +14,6 @@ from .core_services.prompt import (
 )
 from .core_services.runner import (
     increment_generated,
-    increment_skipped,
     mark_job_completed,
     mark_job_stopped,
     reset_job_for_start,
@@ -19,7 +21,7 @@ from .core_services.runner import (
 from .core_services.selector import (
     get_optional_pool,
     get_required_pool,
-    weighted_choice,
+    intelligent_generation_choice,
     weighted_sample,
 )
 from .models import (
@@ -72,7 +74,7 @@ def run_generation_job(job_id):
             job,
             "info",
             (
-                "Using global weighted pools. "
+                "Using intelligent generation pool. "
                 f"Languages: {len(languages)}, "
                 f"Topics: {len(topics)}, "
                 f"Audiences: {len(audiences)}, "
@@ -90,11 +92,16 @@ def run_generation_job(job_id):
                 mark_job_stopped(job)
                 return
 
-            language = weighted_choice(languages)
-            topic = weighted_choice(topics)
-            audience = weighted_choice(audiences)
-            goal = weighted_choice(goals)
-            prompt_template = weighted_choice(prompt_templates)
+            language, topic, audience, goal, prompt_template = (
+                intelligent_generation_choice(
+                    languages=languages,
+                    topics=topics,
+                    audiences=audiences,
+                    goals=goals,
+                    prompt_templates=prompt_templates,
+                )
+            )
+
             selected_rules = weighted_sample(content_rules, max_count=3)
 
             context = build_context(
@@ -124,14 +131,17 @@ def run_generation_job(job_id):
                     user_prompt=user_prompt,
                 )
             except Exception as exc:
-                increment_skipped(job)
-                log_job(job, "error", f"Generation attempt failed: {exc}")
-
-                run_dataset_refill(
+                handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
+                    event_type="error",
+                    language=language,
+                    topic=topic,
+                    audience=audience,
+                    goal=goal,
+                    prompt_template=prompt_template,
+                    message=f"Generation attempt failed: {exc}",
                 )
-
                 continue
 
             has_blocked_keyword, blocked_keyword = contains_blocked_keyword(
@@ -139,19 +149,17 @@ def run_generation_job(job_id):
             )
 
             if has_blocked_keyword:
-                increment_skipped(job)
-
-                log_job(
-                    job,
-                    "warning",
-                    f"Skipped because blocked keyword was found: {blocked_keyword}",
-                )
-
-                run_auto_refill(
+                handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
+                    event_type="blocked",
+                    language=language,
+                    topic=topic,
+                    audience=audience,
+                    goal=goal,
+                    prompt_template=prompt_template,
+                    message=f"Blocked keyword: {blocked_keyword}",
                 )
-
                 continue
 
             title, content_body = extract_title_and_content(
@@ -165,19 +173,17 @@ def run_generation_job(job_id):
             )
 
             if is_duplicate:
-                increment_skipped(job)
-
-                log_job(
-                    job,
-                    "warning",
-                    f"Skipped {duplicate_reason}: {title}",
-                )
-
-                run_auto_refill(
+                handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
+                    event_type="duplicate",
+                    language=language,
+                    topic=topic,
+                    audience=audience,
+                    goal=goal,
+                    prompt_template=prompt_template,
+                    message=f"Duplicate reason: {duplicate_reason}",
                 )
-
                 continue
 
             content = Content.objects.create(
@@ -196,18 +202,17 @@ def run_generation_job(job_id):
             if selected_rules:
                 content.rules.set(selected_rules)
 
-            increment_generated(job)
-
-            log_job(
-                job,
-                "success",
-                (
-                    f"Generated content #{content.id}: "
-                    f"{language.name} | {topic.name} | "
-                    f"{audience.name} | {goal.name} | "
-                    f"{prompt_template.name}"
-                ),
+            handle_generation_success(
+                job=job,
+                language=language,
+                topic=topic,
+                audience=audience,
+                goal=goal,
+                prompt_template=prompt_template,
+                content=content,
             )
+
+            increment_generated(job)
 
             if job.delay_seconds:
                 import time
