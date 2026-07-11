@@ -259,11 +259,22 @@ REST_FRAMEWORK = {
 
 # API DOCUMENTATION
 
+# API DOCUMENTATION
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Content Generator API",
-    "DESCRIPTION": "API for starting, stopping, and checking generation jobs.",
+    "DESCRIPTION": (
+        "API for starting, stopping, and checking generation jobs."
+    ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+
+    "ENUM_NAME_OVERRIDES": {
+        "ContentStatusEnum": "contents.models.Content.STATUS_CHOICES",
+        "GenerationJobStatusEnum": (
+            "contents.models.GenerationJob.STATUS_CHOICES"
+        ),
+    },
 }
 
 

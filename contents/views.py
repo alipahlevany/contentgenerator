@@ -3,8 +3,13 @@ from django.shortcuts import get_object_or_404
 
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
+
 from rest_framework import status
-from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.generics import (
+    GenericAPIView,
+    ListAPIView,
+    RetrieveAPIView,
+)
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -28,7 +33,7 @@ API_KEY_HEADER = OpenApiParameter(
     type=OpenApiTypes.STR,
     location=OpenApiParameter.HEADER,
     required=True,
-    description="External API key from Admin → App Settings.",
+    description="External API key from Admin → System Settings.",
 )
 
 
@@ -46,7 +51,8 @@ class HealthCheckAPIView(APIView):
             {
                 "status": "ok",
                 "service": "content-generator",
-            }
+            },
+            status=status.HTTP_200_OK,
         )
 
 
@@ -59,7 +65,7 @@ class GenerationJobListCreateAPIView(APIView):
 
     @extend_schema(
         summary="List generation jobs",
-        description="Returns the latest generation jobs.",
+        description="Returns up to 100 of the latest generation jobs.",
         responses={
             200: GenerationJobSerializer(many=True),
             403: APIErrorSerializer,
@@ -72,9 +78,15 @@ class GenerationJobListCreateAPIView(APIView):
             .order_by("-created_at")[:100]
         )
 
-        serializer = GenerationJobSerializer(jobs, many=True)
+        serializer = GenerationJobSerializer(
+            jobs,
+            many=True,
+        )
 
-        return Response(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         summary="Create and start a generation job",
@@ -90,7 +102,9 @@ class GenerationJobListCreateAPIView(APIView):
         },
     )
     def post(self, request):
-        serializer = GenerationJobCreateSerializer(data=request.data)
+        serializer = GenerationJobCreateSerializer(
+            data=request.data,
+        )
         serializer.is_valid(raise_exception=True)
 
         job = serializer.save()
@@ -101,6 +115,7 @@ class GenerationJobListCreateAPIView(APIView):
         job.generated_count = 0
         job.skipped_count = 0
         job.current_step = 0
+
         job.save(
             update_fields=[
                 "status",
@@ -114,11 +129,17 @@ class GenerationJobListCreateAPIView(APIView):
 
         run_generation_job_task.delay(job.id)
 
-        return Response(
+        response_serializer = GenerationJobActionResponseSerializer(
             {
-                "message": f"Generation job #{job.id} created and started.",
-                "job": GenerationJobSerializer(job).data,
-            },
+                "message": (
+                    f"Generation job #{job.id} created and started."
+                ),
+                "job": job,
+            }
+        )
+
+        return Response(
+            response_serializer.data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -142,12 +163,15 @@ class GenerationJobDetailAPIView(RetrieveAPIView):
     tags=["Generation Jobs"],
     parameters=[API_KEY_HEADER],
 )
-class GenerationJobStartAPIView(APIView):
+class GenerationJobStartAPIView(GenericAPIView):
     permission_classes = [HasValidAPIKey]
+    serializer_class = GenerationJobActionResponseSerializer
+    queryset = GenerationJob.objects.all()
 
     @extend_schema(
         summary="Start a generation job",
         description="Starts an existing generation job asynchronously.",
+        request=None,
         responses={
             200: GenerationJobActionResponseSerializer,
             400: APIErrorSerializer,
@@ -156,12 +180,17 @@ class GenerationJobStartAPIView(APIView):
         },
     )
     def post(self, request, job_id):
-        job = get_object_or_404(GenerationJob, id=job_id)
+        job = get_object_or_404(
+            GenerationJob,
+            id=job_id,
+        )
 
         if job.status == "running":
             return Response(
                 {
-                    "detail": f"Job #{job.id} is already running."
+                    "detail": (
+                        f"Job #{job.id} is already running."
+                    )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -172,6 +201,7 @@ class GenerationJobStartAPIView(APIView):
         job.generated_count = 0
         job.skipped_count = 0
         job.current_step = 0
+
         job.save(
             update_fields=[
                 "status",
@@ -185,11 +215,18 @@ class GenerationJobStartAPIView(APIView):
 
         run_generation_job_task.delay(job.id)
 
-        return Response(
+        response_serializer = self.get_serializer(
             {
-                "message": f"Generation job #{job.id} started.",
-                "job": GenerationJobSerializer(job).data,
+                "message": (
+                    f"Generation job #{job.id} started."
+                ),
+                "job": job,
             }
+        )
+
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_200_OK,
         )
 
 
@@ -197,12 +234,15 @@ class GenerationJobStartAPIView(APIView):
     tags=["Generation Jobs"],
     parameters=[API_KEY_HEADER],
 )
-class GenerationJobStopAPIView(APIView):
+class GenerationJobStopAPIView(GenericAPIView):
     permission_classes = [HasValidAPIKey]
+    serializer_class = GenerationJobActionResponseSerializer
+    queryset = GenerationJob.objects.all()
 
     @extend_schema(
         summary="Stop a running generation job",
         description="Requests a running generation job to stop.",
+        request=None,
         responses={
             200: GenerationJobActionResponseSerializer,
             400: APIErrorSerializer,
@@ -211,12 +251,17 @@ class GenerationJobStopAPIView(APIView):
         },
     )
     def post(self, request, job_id):
-        job = get_object_or_404(GenerationJob, id=job_id)
+        job = get_object_or_404(
+            GenerationJob,
+            id=job_id,
+        )
 
         if job.status != "running":
             return Response(
                 {
-                    "detail": f"Job #{job.id} is not running."
+                    "detail": (
+                        f"Job #{job.id} is not running."
+                    )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -224,6 +269,7 @@ class GenerationJobStopAPIView(APIView):
         job.should_stop = True
         job.status = "stopped"
         job.error_message = "Job stopped by external API."
+
         job.save(
             update_fields=[
                 "should_stop",
@@ -232,11 +278,18 @@ class GenerationJobStopAPIView(APIView):
             ]
         )
 
-        return Response(
+        response_serializer = self.get_serializer(
             {
-                "message": f"Generation job #{job.id} stopped.",
-                "job": GenerationJobSerializer(job).data,
+                "message": (
+                    f"Generation job #{job.id} stopped."
+                ),
+                "job": job,
             }
+        )
+
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_200_OK,
         )
 
 
@@ -256,7 +309,9 @@ class GenerationJobStopAPIView(APIView):
             type=OpenApiTypes.STR,
             location=OpenApiParameter.QUERY,
             required=False,
-            description="Search in title, prompt, and generated content.",
+            description=(
+                "Search in title, prompt, and generated content."
+            ),
         ),
     ],
     responses={
@@ -282,17 +337,26 @@ class ContentListAPIView(ListAPIView):
             .order_by("-created_at")
         )
 
-        content_status = self.request.query_params.get("status")
-        search_query = self.request.query_params.get("q")
+        content_status = self.request.query_params.get(
+            "status"
+        )
+
+        search_query = self.request.query_params.get(
+            "q"
+        )
 
         if content_status:
-            queryset = queryset.filter(status=content_status)
+            queryset = queryset.filter(
+                status=content_status,
+            )
 
         if search_query:
             queryset = queryset.filter(
                 Q(title__icontains=search_query)
                 | Q(prompt__icontains=search_query)
-                | Q(generated_content__icontains=search_query)
+                | Q(
+                    generated_content__icontains=search_query
+                )
             )
 
         return queryset[:100]

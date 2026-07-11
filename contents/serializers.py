@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Content, GenerationJob
@@ -17,7 +18,10 @@ class GenerationJobCreateSerializer(serializers.Serializer):
         min_value=1,
         max_value=100,
         default=1,
-        help_text="Number of contents to generate. Maximum is 100 per API request.",
+        help_text=(
+            "Number of contents to generate. "
+            "Maximum is 100 per API request."
+        ),
     )
 
     delay_seconds = serializers.FloatField(
@@ -52,13 +56,17 @@ class GenerationJobSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
         read_only_fields = fields
 
+    @extend_schema_field(serializers.IntegerField())
     def get_progress_percent(self, obj):
         if not obj.count:
             return 0
 
-        return int((obj.generated_count / obj.count) * 100)
+        return int(
+            (obj.generated_count / obj.count) * 100
+        )
 
 
 class GenerationJobActionResponseSerializer(serializers.Serializer):
@@ -75,6 +83,7 @@ class ContentListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Content
+
         fields = (
             "id",
             "title",
@@ -88,30 +97,55 @@ class ContentListSerializer(serializers.ModelSerializer):
             "updated_at",
         )
 
+    @extend_schema_field(
+        serializers.CharField(
+            allow_null=True,
+        )
+    )
     def get_language(self, obj):
         if obj.language:
             return obj.language.name
 
         return None
 
+    @extend_schema_field(
+        serializers.CharField(
+            allow_null=True,
+        )
+    )
     def get_topic(self, obj):
         if obj.topic:
             return obj.topic.name
 
         return None
 
+    @extend_schema_field(
+        serializers.CharField(
+            allow_null=True,
+        )
+    )
     def get_audience(self, obj):
         if obj.audience:
             return obj.audience.name
 
         return None
 
+    @extend_schema_field(
+        serializers.CharField(
+            allow_null=True,
+        )
+    )
     def get_goal(self, obj):
         if obj.goal:
             return obj.goal.name
 
         return None
 
+    @extend_schema_field(
+        serializers.CharField(
+            allow_null=True,
+        )
+    )
     def get_prompt_template(self, obj):
         if obj.prompt_template:
             return obj.prompt_template.name
@@ -129,6 +163,11 @@ class ContentDetailSerializer(ContentListSerializer):
             "rules",
         )
 
+    @extend_schema_field(
+        serializers.ListField(
+            child=serializers.CharField(),
+        )
+    )
     def get_rules(self, obj):
         return [
             rule.name
