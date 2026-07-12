@@ -1031,16 +1031,22 @@ class AppSettingsAdmin(admin.ModelAdmin):
         color,
     ):
         return format_html(
-            (
-                '<span style="'
-                "background:{};"
-                "color:{};"
-                "padding:5px 10px;"
-                "border-radius:999px;"
-                "font-weight:800;"
-                "white-space:nowrap;"
-                '">{}</span>'
-            ),
+            """
+            <span style="
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                background:{};
+                color:{};
+                padding:5px 10px;
+                border-radius:999px;
+                font-weight:800;
+                white-space:nowrap;
+                line-height:1.2;
+            ">
+                {}
+            </span>
+            """,
             bg,
             color,
             text,
@@ -1051,7 +1057,18 @@ class AppSettingsAdmin(admin.ModelAdmin):
         obj,
     ):
         return format_html(
-            "{} {}",
+            """
+            <div style="
+                display:inline-flex;
+                align-items:center;
+                gap:6px;
+                flex-wrap:nowrap;
+                white-space:nowrap;
+            ">
+                {}
+                {}
+            </div>
+            """,
             self.badge(
                 f"{obj.max_output_tokens} tokens",
                 "#e0f2fe",
@@ -1065,6 +1082,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
         )
 
     tokens_badge.short_description = "AI Settings"
+
 
     def daily_badge(
         self,
