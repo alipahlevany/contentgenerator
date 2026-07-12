@@ -1,0 +1,545 @@
+openapi: 3.0.3
+info:
+  title: Content Generator API
+  version: 1.0.0
+  description: API for starting, stopping, and checking generation jobs.
+paths:
+  /api/v1/contents/:
+    get:
+      operationId: v1_contents_list
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key from Admin → System Settings.
+        required: true
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search in title, prompt, and generated content.
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter contents by status.
+      tags:
+      - Contents
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+  /api/v1/contents/{id}/:
+    get:
+      operationId: v1_contents_retrieve
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key from Admin → System Settings.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Contents
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentDetail'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+  /api/v1/generation-jobs/:
+    get:
+      operationId: v1_generation_jobs_list
+      description: Returns up to 100 of the latest generation jobs.
+      summary: List generation jobs
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key from Admin → System Settings.
+        required: true
+      tags:
+      - Generation Jobs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GenerationJob'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+    post:
+      operationId: v1_generation_jobs_create
+      description: Creates a new generation job and starts it asynchronously using
+        Celery.
+      summary: Create and start a generation job
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key from Admin → System Settings.
+        required: true
+      tags:
+      - Generation Jobs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationJobCreate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationJobActionResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+  /api/v1/generation-jobs/{job_id}/start/:
+    post:
+      operationId: v1_generation_jobs_start_create
+      description: Starts an existing generation job asynchronously.
+      summary: Start a generation job
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key from Admin → System Settings.
+        required: true
+      - in: path
+        name: job_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Generation Jobs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationJobActionResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+  /api/v1/generation-jobs/{job_id}/stop/:
+    post:
+      operationId: v1_generation_jobs_stop_create
+      description: Requests a running generation job to stop.
+      summary: Stop a running generation job
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key from Admin → System Settings.
+        required: true
+      - in: path
+        name: job_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Generation Jobs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationJobActionResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+  /api/v1/generation-jobs/{id}/:
+    get:
+      operationId: v1_generation_jobs_retrieve
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key from Admin → System Settings.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Generation Jobs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationJob'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: ''
+  /api/v1/health/:
+    get:
+      operationId: v1_health_retrieve
+      tags:
+      - System
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+          description: ''
+components:
+  schemas:
+    APIError:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    ContentDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        language:
+          type: string
+          nullable: true
+          readOnly: true
+        topic:
+          type: string
+          nullable: true
+          readOnly: true
+        audience:
+          type: string
+          nullable: true
+          readOnly: true
+        goal:
+          type: string
+          nullable: true
+          readOnly: true
+        prompt_template:
+          type: string
+          nullable: true
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/ContentStatusEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        prompt:
+          type: string
+        generated_content:
+          type: string
+        rules:
+          type: array
+          items:
+            type: string
+          readOnly: true
+      required:
+      - audience
+      - created_at
+      - goal
+      - id
+      - language
+      - prompt
+      - prompt_template
+      - rules
+      - title
+      - topic
+      - updated_at
+    ContentList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        language:
+          type: string
+          nullable: true
+          readOnly: true
+        topic:
+          type: string
+          nullable: true
+          readOnly: true
+        audience:
+          type: string
+          nullable: true
+          readOnly: true
+        goal:
+          type: string
+          nullable: true
+          readOnly: true
+        prompt_template:
+          type: string
+          nullable: true
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/ContentStatusEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - audience
+      - created_at
+      - goal
+      - id
+      - language
+      - prompt_template
+      - title
+      - topic
+      - updated_at
+    ContentStatusEnum:
+      enum:
+      - draft
+      - generated
+      - published
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `generated` - Generated
+        * `published` - Published
+    GenerationJob:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        count:
+          type: integer
+          readOnly: true
+        delay_seconds:
+          type: number
+          format: double
+          readOnly: true
+        generated_count:
+          type: integer
+          readOnly: true
+        skipped_count:
+          type: integer
+          readOnly: true
+        current_step:
+          type: integer
+          readOnly: true
+        progress_percent:
+          type: integer
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/GenerationJobStatusEnum'
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - count
+      - created_at
+      - current_step
+      - delay_seconds
+      - error_message
+      - generated_count
+      - id
+      - progress_percent
+      - skipped_count
+      - status
+      - updated_at
+    GenerationJobActionResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        job:
+          $ref: '#/components/schemas/GenerationJob'
+      required:
+      - job
+      - message
+    GenerationJobCreate:
+      type: object
+      properties:
+        count:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 1
+          description: Number of contents to generate. Maximum is 100 per API request.
+        delay_seconds:
+          type: number
+          format: double
+          maximum: 60
+          minimum: 0
+          default: 1.0
+          description: Delay between each generated content.
+    GenerationJobStatusEnum:
+      enum:
+      - pending
+      - running
+      - completed
+      - failed
+      - stopped
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `running` - Running
+        * `completed` - Completed
+        * `failed` - Failed
+        * `stopped` - Stopped
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+      required:
+      - service
+      - status
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

@@ -1,7 +1,7 @@
 import secrets
 
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 
 
 class Topic(models.Model):
@@ -188,6 +188,27 @@ class Content(models.Model):
 
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+
+        super().save(*args, **kwargs)
+
+        if is_new:
+            title = self.title
+            generated_content = self.generated_content
+            topic_name = self.topic.name if self.topic else ""
+
+            def send_model_data():
+                from .tasks import send_model_data_to_api
+
+                send_model_data_to_api.delay(
+                    title,
+                    generated_content,
+                    topic_name,
+                )
+
+            transaction.on_commit(send_model_data)
+
     def __str__(self):
         return self.title
 
@@ -211,14 +232,20 @@ class GenerationJob(models.Model):
         null=True,
         blank=True,
         related_name="single_generation_jobs",
-        help_text="Fallback prompt template. Used when weighted prompt templates are empty.",
+        help_text=(
+            "Fallback prompt template. "
+            "Used when weighted prompt templates are empty."
+        ),
     )
 
     prompt_templates = models.ManyToManyField(
         PromptTemplate,
         blank=True,
         related_name="weighted_generation_jobs",
-        help_text="If selected, one active template will be chosen by weight for each generated content.",
+        help_text=(
+            "If selected, one active template will be chosen "
+            "by weight for each generated content."
+        ),
     )
 
     use_all_prompt_templates = models.BooleanField(default=False)
@@ -233,15 +260,30 @@ class GenerationJob(models.Model):
 
     use_all_rules = models.BooleanField(default=False)
 
-    languages = models.ManyToManyField(Language, blank=True)
+    languages = models.ManyToManyField(
+        Language,
+        blank=True,
+    )
 
-    topics = models.ManyToManyField(Topic, blank=True)
+    topics = models.ManyToManyField(
+        Topic,
+        blank=True,
+    )
 
-    audiences = models.ManyToManyField(Audience, blank=True)
+    audiences = models.ManyToManyField(
+        Audience,
+        blank=True,
+    )
 
-    goals = models.ManyToManyField(Goal, blank=True)
+    goals = models.ManyToManyField(
+        Goal,
+        blank=True,
+    )
 
-    rules = models.ManyToManyField(ContentRule, blank=True)
+    rules = models.ManyToManyField(
+        ContentRule,
+        blank=True,
+    )
 
     generated_count = models.PositiveIntegerField(default=0)
 
@@ -249,12 +291,14 @@ class GenerationJob(models.Model):
 
     current_step = models.PositiveIntegerField(default=0)
 
-    error_message = models.TextField(blank=True, default="")
+    error_message = models.TextField(
+        blank=True,
+        default="",
+    )
 
     retry_count = models.PositiveIntegerField(default=0)
 
     max_retries = models.PositiveIntegerField(default=3)
-
 
     status = models.CharField(
         max_length=20,
@@ -290,7 +334,10 @@ class AppSettings(models.Model):
         max_length=255,
         blank=True,
         default="",
-        help_text="Generated automatically. Leave empty only when External API access is disabled.",
+        help_text=(
+            "Generated automatically. Leave empty only when "
+            "External API access is disabled."
+        ),
     )
 
     auto_generate_api_key = models.BooleanField(default=True)
@@ -314,9 +361,7 @@ class AppSettings(models.Model):
         validators=[MinValueValidator(0)],
     )
 
-    auto_refill_enabled = models.BooleanField(
-        default=True,
-    )
+    auto_refill_enabled = models.BooleanField(default=True)
 
     auto_refill_skip_threshold = models.PositiveIntegerField(
         default=50,
@@ -330,12 +375,18 @@ class AppSettings(models.Model):
 
     daily_generation_hour = models.PositiveSmallIntegerField(
         default=2,
-        validators=[MinValueValidator(0), MaxValueValidator(23)],
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(23),
+        ],
     )
 
     daily_generation_minute = models.PositiveSmallIntegerField(
         default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(59)],
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(59),
+        ],
     )
 
     last_daily_generation_date = models.DateField(
@@ -362,12 +413,18 @@ class GenerationJobLanguageDistribution(models.Model):
         related_name="language_distributions",
     )
 
-    language = models.ForeignKey(Language, on_delete=models.CASCADE)
+    language = models.ForeignKey(
+        Language,
+        on_delete=models.CASCADE,
+    )
 
     percentage = models.PositiveIntegerField(default=1)
 
     class Meta:
-        unique_together = ("job", "language")
+        unique_together = (
+            "job",
+            "language",
+        )
 
     def __str__(self):
         return f"{self.language.name} - {self.percentage}%"
@@ -380,12 +437,18 @@ class GenerationJobTopicDistribution(models.Model):
         related_name="topic_distributions",
     )
 
-    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.CASCADE,
+    )
 
     percentage = models.PositiveIntegerField(default=1)
 
     class Meta:
-        unique_together = ("job", "topic")
+        unique_together = (
+            "job",
+            "topic",
+        )
 
     def __str__(self):
         return f"{self.topic.name} - {self.percentage}%"
@@ -398,12 +461,18 @@ class GenerationJobAudienceDistribution(models.Model):
         related_name="audience_distributions",
     )
 
-    audience = models.ForeignKey(Audience, on_delete=models.CASCADE)
+    audience = models.ForeignKey(
+        Audience,
+        on_delete=models.CASCADE,
+    )
 
     percentage = models.PositiveIntegerField(default=1)
 
     class Meta:
-        unique_together = ("job", "audience")
+        unique_together = (
+            "job",
+            "audience",
+        )
 
     def __str__(self):
         return f"{self.audience.name} - {self.percentage}%"
@@ -416,12 +485,18 @@ class GenerationJobGoalDistribution(models.Model):
         related_name="goal_distributions",
     )
 
-    goal = models.ForeignKey(Goal, on_delete=models.CASCADE)
+    goal = models.ForeignKey(
+        Goal,
+        on_delete=models.CASCADE,
+    )
 
     percentage = models.PositiveIntegerField(default=1)
 
     class Meta:
-        unique_together = ("job", "goal")
+        unique_together = (
+            "job",
+            "goal",
+        )
 
     def __str__(self):
         return f"{self.goal.name} - {self.percentage}%"
@@ -461,10 +536,16 @@ class DatasetPerformance(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("item_type", "item_id")
+        unique_together = (
+            "item_type",
+            "item_id",
+        )
 
     def __str__(self):
-        return f"{self.item_type} #{self.item_id} - {self.quality_score}"
+        return (
+            f"{self.item_type} #{self.item_id} - "
+            f"{self.quality_score}"
+        )
 
 
 class DatasetEvent(models.Model):
@@ -511,13 +592,22 @@ class DatasetEvent(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=["item_type", "item_id"]),
+            models.Index(
+                fields=[
+                    "item_type",
+                    "item_id",
+                ],
+            ),
             models.Index(fields=["event_type"]),
             models.Index(fields=["created_at"]),
         ]
 
     def __str__(self):
-        return f"{self.item_type} #{self.item_id} - {self.event_type}"
+        return (
+            f"{self.item_type} #{self.item_id} - "
+            f"{self.event_type}"
+        )
+
 
 class GenerationPattern(models.Model):
     language = models.ForeignKey(
@@ -556,12 +646,17 @@ class GenerationPattern(models.Model):
     )
 
     success_count = models.PositiveIntegerField(default=0)
+
     skip_count = models.PositiveIntegerField(default=0)
+
     duplicate_count = models.PositiveIntegerField(default=0)
+
     blocked_count = models.PositiveIntegerField(default=0)
+
     error_count = models.PositiveIntegerField(default=0)
 
     quality_score = models.FloatField(default=100)
+
     confidence = models.FloatField(default=0)
 
     last_used_at = models.DateTimeField(
@@ -573,8 +668,19 @@ class GenerationPattern(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=["topic", "audience", "goal"]),
-            models.Index(fields=["language", "prompt_template"]),
+            models.Index(
+                fields=[
+                    "topic",
+                    "audience",
+                    "goal",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "language",
+                    "prompt_template",
+                ],
+            ),
             models.Index(fields=["quality_score"]),
             models.Index(fields=["confidence"]),
             models.Index(fields=["updated_at"]),
@@ -582,8 +688,9 @@ class GenerationPattern(models.Model):
 
     def __str__(self):
         return (
-            f"{self.language} | {self.topic} | {self.audience} | "
-            f"{self.goal} | {self.prompt_template}"
+            f"{self.language} | {self.topic} | "
+            f"{self.audience} | {self.goal} | "
+            f"{self.prompt_template}"
         )
 
 
@@ -613,6 +720,7 @@ class AIUsageLog(models.Model):
     )
 
     input_tokens = models.PositiveIntegerField(default=0)
+
     output_tokens = models.PositiveIntegerField(default=0)
 
     estimated_cost = models.DecimalField(
@@ -631,7 +739,11 @@ class AIUsageLog(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.provider} | {self.purpose} | ${self.estimated_cost}"
+        return (
+            f"{self.provider} | {self.purpose} | "
+            f"${self.estimated_cost}"
+        )
+
 
 class GenerationJobLog(models.Model):
     LOG_LEVEL_CHOICES = [

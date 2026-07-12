@@ -1,11 +1,13 @@
+import os
+
+import requests
 from celery import shared_task
 from django.core.cache import cache
 from django.utils import timezone
 
 from contents.core_services.job_health import recover_stuck_jobs
-
-from .models import AppSettings, GenerationJob
-from .services import run_generation_job
+from contents.models import AppSettings, GenerationJob
+from contents.services import run_generation_job
 
 
 @shared_task
@@ -16,7 +18,12 @@ def run_generation_job_task(job_id):
 @shared_task
 def run_daily_generation_task(force=False):
     lock_key = "daily_generation_task_lock"
-    lock_created = cache.add(lock_key, "locked", timeout=60 * 10)
+
+    lock_created = cache.add(
+        lock_key,
+        "locked",
+        timeout=60 * 10,
+    )
 
     if not lock_created:
         return "Daily generation is already being checked."
@@ -32,7 +39,10 @@ def run_daily_generation_task(force=False):
         if not app_settings:
             return "No active AppSettings found."
 
-        if not force and not app_settings.auto_daily_generation_enabled:
+        if (
+            not force
+            and not app_settings.auto_daily_generation_enabled
+        ):
             return "Daily generation is disabled."
 
         now = timezone.localtime()
@@ -44,10 +54,15 @@ def run_daily_generation_task(force=False):
                 + app_settings.daily_generation_minute
             )
 
-            current_minutes = now.hour * 60 + now.minute
+            current_minutes = (
+                now.hour * 60
+                + now.minute
+            )
 
             if current_minutes < target_minutes:
-                return "Daily generation time has not arrived yet."
+                return (
+                    "Daily generation time has not arrived yet."
+                )
 
             if app_settings.last_daily_generation_date == today:
                 return "Daily generation already ran today."
@@ -60,14 +75,20 @@ def run_daily_generation_task(force=False):
         ).exists()
 
         if has_active_job:
-            return "Another generation job is already pending or running."
+            return (
+                "Another generation job is already "
+                "pending or running."
+            )
 
         job = GenerationJob.objects.create(
             count=app_settings.daily_generation_count,
-            delay_seconds=app_settings.daily_generation_delay_seconds,
+            delay_seconds=(
+                app_settings.daily_generation_delay_seconds
+            ),
         )
 
         app_settings.last_daily_generation_date = today
+
         app_settings.save(
             update_fields=[
                 "last_daily_generation_date",
@@ -76,7 +97,10 @@ def run_daily_generation_task(force=False):
 
         run_generation_job_task.delay(job.id)
 
-        return f"Daily generation job #{job.id} created and started."
+        return (
+            f"Daily generation job #{job.id} "
+            "created and started."
+        )
 
     finally:
         cache.delete(lock_key)
@@ -85,3 +109,56 @@ def run_daily_generation_task(force=False):
 @shared_task
 def recover_stuck_generation_jobs():
     return recover_stuck_jobs()
+
+
+@shared_task(
+    autoretry_for=(requests.exceptions.RequestException,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def send_model_data_to_api(title, description, category):
+    url = "https://melal.org/createContentAPIView/"
+
+    api_key = os.getenv("mta_api_key")
+
+    if not api_key:
+        return {
+            "success": False,
+            "message": "Environment variable mta_api_key is missing.",
+        }
+
+    headers = {
+        "Authorization": f"Api-Key {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    data = {
+        "category": category or "",
+        "subject": title or "",
+        "content": description or "",
+    }
+
+    response = requests.post(
+        url,
+        json=data,
+        headers=headers,
+        timeout=30,
+    )
+
+    if response.ok:
+        try:
+            response_data = response.json()
+        except ValueError:
+            response_data = response.text
+
+        return {
+            "success": True,
+            "status_code": response.status_code,
+            "response": response_data,
+        }
+
+    return {
+        "success": False,
+        "status_code": response.status_code,
+        "response": response.text,
+    }
