@@ -2,20 +2,20 @@ from contents.core_services.logger import log_job
 
 
 def reset_job_for_start(job):
+    """
+    Start or resume a generation job.
+
+    Existing progress is preserved so a stopped job continues
+    from its previous generated and skipped counts.
+    """
     job.status = "running"
     job.error_message = ""
-    job.generated_count = 0
-    job.skipped_count = 0
-    job.current_step = 0
     job.should_stop = False
 
     job.save(
         update_fields=[
             "status",
             "error_message",
-            "generated_count",
-            "skipped_count",
-            "current_step",
             "should_stop",
             "updated_at",
         ]
