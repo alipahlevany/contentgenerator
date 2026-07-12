@@ -1,3 +1,6 @@
+import re
+import time
+
 from .core_services.ai import generate_content
 from .core_services.cache import get_app_settings, get_blocked_keywords
 from .core_services.cleaner import normalize
@@ -36,14 +39,108 @@ from .models import (
 )
 
 
+def build_blocked_keyword_pattern(keyword):
+    """
+    Build a safe regex pattern for a blocked keyword.
+
+    The boundaries prevent short blocked words from matching
+    inside larger words.
+
+    Example:
+    "sex" will not match inside "Sussex".
+    """
+    keyword = keyword.strip()
+
+    if not keyword:
+        return None
+
+    return rf"(?<!\w){re.escape(keyword)}(?!\w)"
+
+
 def contains_blocked_keyword(text):
-    normalized_text = normalize(text)
+    """
+    Check whether the generated text contains a blocked keyword.
+
+    Returns:
+        tuple: (has_blocked_keyword, blocked_keyword)
+    """
+    if not text:
+        return False, None
 
     for keyword in get_blocked_keywords():
-        if normalize(keyword) in normalized_text:
+        pattern = build_blocked_keyword_pattern(keyword)
+
+        if not pattern:
+            continue
+
+        if re.search(pattern, text, flags=re.IGNORECASE):
             return True, keyword
 
     return False, None
+
+
+def remove_blocked_keywords(text):
+    """
+    Remove blocked keywords from generated text without rejecting
+    the entire OpenAI response.
+    """
+    if not text:
+        return text
+
+    cleaned_text = text
+
+    for keyword in get_blocked_keywords():
+        pattern = build_blocked_keyword_pattern(keyword)
+
+        if not pattern:
+            continue
+
+        cleaned_text = re.sub(
+            pattern,
+            "",
+            cleaned_text,
+            flags=re.IGNORECASE,
+        )
+
+    # Clean spaces created after removing blocked words.
+    cleaned_text = re.sub(r"[ \t]{2,}", " ", cleaned_text)
+
+    # Remove spaces before punctuation.
+    cleaned_text = re.sub(
+        r"[ \t]+([.,!?;:])",
+        r"\1",
+        cleaned_text,
+    )
+
+    # Remove spaces immediately after opening brackets.
+    cleaned_text = re.sub(
+        r"([\(\[\{])[ \t]+",
+        r"\1",
+        cleaned_text,
+    )
+
+    # Remove spaces immediately before closing brackets.
+    cleaned_text = re.sub(
+        r"[ \t]+([\)\]\}])",
+        r"\1",
+        cleaned_text,
+    )
+
+    # Remove lines that became empty or only contain whitespace.
+    cleaned_text = re.sub(
+        r"\n[ \t]+\n",
+        "\n\n",
+        cleaned_text,
+    )
+
+    # Do not allow more than two consecutive line breaks.
+    cleaned_text = re.sub(
+        r"\n{3,}",
+        "\n\n",
+        cleaned_text,
+    )
+
+    return cleaned_text.strip()
 
 
 def run_generation_job(job_id):
@@ -63,7 +160,10 @@ def run_generation_job(job_id):
         topics = get_required_pool(Topic, "topics")
         audiences = get_required_pool(Audience, "audiences")
         goals = get_required_pool(Goal, "goals")
-        prompt_templates = get_required_pool(PromptTemplate, "prompt templates")
+        prompt_templates = get_required_pool(
+            PromptTemplate,
+            "prompt templates",
+        )
         content_rules = get_optional_pool(ContentRule)
 
         target_count = job.count
@@ -84,7 +184,10 @@ def run_generation_job(job_id):
             ),
         )
 
-        while job.generated_count < target_count and attempts < max_attempts:
+        while (
+            job.generated_count < target_count
+            and attempts < max_attempts
+        ):
             attempts += 1
             job.refresh_from_db()
 
@@ -92,17 +195,24 @@ def run_generation_job(job_id):
                 mark_job_stopped(job)
                 return
 
-            language, topic, audience, goal, prompt_template = (
-                intelligent_generation_choice(
-                    languages=languages,
-                    topics=topics,
-                    audiences=audiences,
-                    goals=goals,
-                    prompt_templates=prompt_templates,
-                )
+            (
+                language,
+                topic,
+                audience,
+                goal,
+                prompt_template,
+            ) = intelligent_generation_choice(
+                languages=languages,
+                topics=topics,
+                audiences=audiences,
+                goals=goals,
+                prompt_templates=prompt_templates,
             )
 
-            selected_rules = weighted_sample(content_rules, max_count=3)
+            selected_rules = weighted_sample(
+                content_rules,
+                max_count=3,
+            )
 
             context = build_context(
                 app_settings=app_settings,
@@ -144,11 +254,88 @@ def run_generation_job(job_id):
                 )
                 continue
 
-            has_blocked_keyword, blocked_keyword = contains_blocked_keyword(
-                generated_text
+            if not generated_text or not generated_text.strip():
+                handle_generation_failure(
+                    job=job,
+                    app_settings=app_settings,
+                    event_type="error",
+                    language=language,
+                    topic=topic,
+                    audience=audience,
+                    goal=goal,
+                    prompt_template=prompt_template,
+                    message="OpenAI returned empty content.",
+                )
+                continue
+
+            has_blocked_keyword, blocked_keyword = (
+                contains_blocked_keyword(generated_text)
             )
 
             if has_blocked_keyword:
+                generated_text = remove_blocked_keywords(
+                    generated_text
+                )
+
+                still_blocked, remaining_keyword = (
+                    contains_blocked_keyword(generated_text)
+                )
+
+                if still_blocked:
+                    handle_generation_failure(
+                        job=job,
+                        app_settings=app_settings,
+                        event_type="blocked",
+                        language=language,
+                        topic=topic,
+                        audience=audience,
+                        goal=goal,
+                        prompt_template=prompt_template,
+                        message=(
+                            "Blocked keyword remained after cleanup: "
+                            f"{remaining_keyword}"
+                        ),
+                    )
+                    continue
+
+                if not generated_text.strip():
+                    handle_generation_failure(
+                        job=job,
+                        app_settings=app_settings,
+                        event_type="blocked",
+                        language=language,
+                        topic=topic,
+                        audience=audience,
+                        goal=goal,
+                        prompt_template=prompt_template,
+                        message=(
+                            "Generated content became empty after "
+                            "blocked keyword cleanup."
+                        ),
+                    )
+                    continue
+
+                log_job(
+                    job,
+                    "warning",
+                    (
+                        "Blocked keyword removed before saving: "
+                        f"{blocked_keyword}"
+                    ),
+                )
+
+            title, content_body = extract_title_and_content(
+                generated_text,
+                fallback_title,
+            )
+
+            title = title.strip()
+            content_body = content_body.strip()
+
+            if not title:
+                title = fallback_title
+
+            if not content_body:
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -158,16 +345,42 @@ def run_generation_job(job_id):
                     audience=audience,
                     goal=goal,
                     prompt_template=prompt_template,
-                    message=f"Blocked keyword: {blocked_keyword}",
+                    message=(
+                        "Content body became empty after cleanup."
+                    ),
                 )
                 continue
 
-            title, content_body = extract_title_and_content(
-                generated_text,
-                fallback_title,
+            # Check the extracted title and body again because the generated
+            # response may have changed during extraction.
+            final_text = f"{title}\n{content_body}"
+
+            final_has_blocked, final_blocked_keyword = (
+                contains_blocked_keyword(final_text)
             )
 
-            is_duplicate, duplicate_reason, content_hash = is_duplicate_content(
+            if final_has_blocked:
+                handle_generation_failure(
+                    job=job,
+                    app_settings=app_settings,
+                    event_type="blocked",
+                    language=language,
+                    topic=topic,
+                    audience=audience,
+                    goal=goal,
+                    prompt_template=prompt_template,
+                    message=(
+                        "Blocked keyword found after final extraction: "
+                        f"{final_blocked_keyword}"
+                    ),
+                )
+                continue
+
+            (
+                is_duplicate,
+                duplicate_reason,
+                content_hash,
+            ) = is_duplicate_content(
                 title,
                 content_body,
             )
@@ -182,7 +395,9 @@ def run_generation_job(job_id):
                     audience=audience,
                     goal=goal,
                     prompt_template=prompt_template,
-                    message=f"Duplicate reason: {duplicate_reason}",
+                    message=(
+                        f"Duplicate reason: {duplicate_reason}"
+                    ),
                 )
                 continue
 
@@ -215,7 +430,6 @@ def run_generation_job(job_id):
             increment_generated(job)
 
             if job.delay_seconds:
-                import time
                 time.sleep(job.delay_seconds)
 
         job.refresh_from_db()
@@ -227,7 +441,7 @@ def run_generation_job(job_id):
         fail_job(
             job,
             (
-                f"Job failed before reaching target. "
+                "Job failed before reaching target. "
                 f"Generated: {job.generated_count}/{target_count}. "
                 f"Skipped: {job.skipped_count}. "
                 f"Attempts: {attempts}/{max_attempts}."
