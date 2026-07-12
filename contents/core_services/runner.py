@@ -8,6 +8,7 @@ def reset_job_for_start(job):
     job.skipped_count = 0
     job.current_step = 0
     job.should_stop = False
+
     job.save(
         update_fields=[
             "status",
@@ -16,6 +17,7 @@ def reset_job_for_start(job):
             "skipped_count",
             "current_step",
             "should_stop",
+            "updated_at",
         ]
     )
 
@@ -23,26 +25,62 @@ def reset_job_for_start(job):
 def mark_job_completed(job):
     job.status = "completed"
     job.error_message = ""
-    job.save(update_fields=["status", "error_message"])
 
-    log_job(job, "success", "Job completed successfully.")
+    job.save(
+        update_fields=[
+            "status",
+            "error_message",
+            "updated_at",
+        ]
+    )
+
+    log_job(
+        job,
+        "success",
+        "Job completed successfully.",
+    )
 
 
 def mark_job_stopped(job):
     job.status = "stopped"
     job.error_message = "Job stopped by admin."
-    job.save(update_fields=["status", "error_message"])
 
-    log_job(job, "warning", "Job stopped by admin.")
+    job.save(
+        update_fields=[
+            "status",
+            "error_message",
+            "updated_at",
+        ]
+    )
+
+    log_job(
+        job,
+        "warning",
+        "Job stopped by admin.",
+    )
 
 
 def increment_skipped(job):
     job.skipped_count += 1
     job.current_step += 1
-    job.save(update_fields=["skipped_count", "current_step"])
+
+    job.save(
+        update_fields=[
+            "skipped_count",
+            "current_step",
+            "updated_at",
+        ]
+    )
 
 
 def increment_generated(job):
     job.generated_count += 1
     job.current_step += 1
-    job.save(update_fields=["generated_count", "current_step"])
+
+    job.save(
+        update_fields=[
+            "generated_count",
+            "current_step",
+            "updated_at",
+        ]
+    )

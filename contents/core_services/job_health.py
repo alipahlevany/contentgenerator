@@ -6,7 +6,7 @@ from contents.models import GenerationJob
 from contents.core_services.logger import log_job
 
 
-STUCK_JOB_MINUTES = 10
+STUCK_JOB_MINUTES = 60
 
 
 def find_stuck_jobs():
