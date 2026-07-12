@@ -55,8 +55,23 @@ class GenerationJobAdmin(admin.ModelAdmin):
     )
 
     fieldsets = (
-        ("1. Job Settings", {"fields": ("count", "delay_seconds")}),
-        ("2. Selection Source", {"fields": ("pool_mode_display",)}),
+        (
+            "1. Job Settings",
+            {
+                "fields": (
+                    "count",
+                    "delay_seconds",
+                )
+            },
+        ),
+        (
+            "2. Selection Source",
+            {
+                "fields": (
+                    "pool_mode_display",
+                )
+            },
+        ),
         (
             "3. Progress / Result",
             {
@@ -114,23 +129,42 @@ class GenerationJobAdmin(admin.ModelAdmin):
     status_badge.short_description = "Status"
 
     def generated_badge(self, obj):
-        return self.number_badge(obj.generated_count, "#e8f5e9", "#198754")
+        return self.number_badge(
+            obj.generated_count,
+            "#e8f5e9",
+            "#198754",
+        )
 
     generated_badge.short_description = "Generated"
 
     def skipped_badge(self, obj):
-        return self.number_badge(obj.skipped_count, "#fff3cd", "#946200")
+        return self.number_badge(
+            obj.skipped_count,
+            "#fff3cd",
+            "#946200",
+        )
 
     skipped_badge.short_description = "Skipped"
 
     def remaining_badge(self, obj):
-        remaining = max(obj.count - obj.generated_count, 0)
-        return self.number_badge(remaining, "#e7f1ff", "#0d6efd")
+        remaining = max(
+            obj.count - obj.generated_count,
+            0,
+        )
+
+        return self.number_badge(
+            remaining,
+            "#e7f1ff",
+            "#0d6efd",
+        )
 
     remaining_badge.short_description = "Remaining"
 
     def remaining_display(self, obj):
-        return max(obj.count - obj.generated_count, 0)
+        return max(
+            obj.count - obj.generated_count,
+            0,
+        )
 
     remaining_display.short_description = "Remaining"
 
@@ -154,7 +188,14 @@ class GenerationJobAdmin(admin.ModelAdmin):
         )
 
     def progress_bar(self, obj):
-        percent = 0 if not obj.count else int((obj.generated_count / obj.count) * 100)
+        percent = (
+            0
+            if not obj.count
+            else int(
+                (obj.generated_count / obj.count) * 100
+            )
+        )
+
         percent = min(percent, 100)
 
         return format_html(
@@ -175,7 +216,11 @@ class GenerationJobAdmin(admin.ModelAdmin):
                         border-radius:999px;
                     "></div>
                 </div>
-                <div style="font-size:12px;color:#555;font-weight:700;">
+                <div style="
+                    font-size:12px;
+                    color:#555;
+                    font-weight:700;
+                ">
                     {}% — {}/{}
                 </div>
             </div>
@@ -194,12 +239,16 @@ class GenerationJobAdmin(admin.ModelAdmin):
         custom_urls = [
             path(
                 "<int:job_id>/start/",
-                self.admin_site.admin_view(self.start_job),
+                self.admin_site.admin_view(
+                    self.start_job
+                ),
                 name="contents_generationjob_start",
             ),
             path(
                 "<int:job_id>/stop/",
-                self.admin_site.admin_view(self.stop_job),
+                self.admin_site.admin_view(
+                    self.stop_job
+                ),
                 name="contents_generationjob_stop",
             ),
         ]
@@ -207,12 +256,29 @@ class GenerationJobAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def job_actions(self, obj):
-        start_url = reverse("admin:contents_generationjob_start", args=[obj.id])
-        stop_url = reverse("admin:contents_generationjob_stop", args=[obj.id])
+        start_url = reverse(
+            "admin:contents_generationjob_start",
+            args=[obj.id],
+        )
+
+        stop_url = reverse(
+            "admin:contents_generationjob_stop",
+            args=[obj.id],
+        )
+
+        start_label = (
+            "▶ Resume"
+            if obj.status == "stopped"
+            else "▶ Start"
+        )
 
         return format_html(
             """
-            <div style="display:flex;gap:6px;white-space:nowrap;">
+            <div style="
+                display:flex;
+                gap:6px;
+                white-space:nowrap;
+            ">
                 <a href="{}" style="
                     background:#198754;
                     color:white;
@@ -220,7 +286,7 @@ class GenerationJobAdmin(admin.ModelAdmin):
                     border-radius:7px;
                     text-decoration:none;
                     font-weight:800;
-                ">▶ Start</a>
+                ">{}</a>
 
                 <a href="{}" style="
                     background:#dc3545;
@@ -233,6 +299,7 @@ class GenerationJobAdmin(admin.ModelAdmin):
             </div>
             """,
             start_url,
+            start_label,
             stop_url,
         )
 
@@ -247,50 +314,84 @@ class GenerationJobAdmin(admin.ModelAdmin):
                 f"Job #{job.id} is already running.",
                 messages.WARNING,
             )
-            return redirect("admin:contents_generationjob_changelist")
+
+            return redirect(
+                "admin:contents_generationjob_changelist"
+            )
+
+        if job.generated_count >= job.count:
+            self.message_user(
+                request,
+                (
+                    f"Job #{job.id} is already completed "
+                    f"({job.generated_count}/{job.count})."
+                ),
+                messages.INFO,
+            )
+
+            return redirect(
+                "admin:contents_generationjob_changelist"
+            )
 
         job.status = "pending"
         job.should_stop = False
         job.error_message = ""
-        job.generated_count = 0
-        job.skipped_count = 0
-        job.current_step = 0
+
         job.save(
             update_fields=[
                 "status",
                 "should_stop",
                 "error_message",
-                "generated_count",
-                "skipped_count",
-                "current_step",
+                "updated_at",
             ]
         )
 
         run_generation_job_task.delay(job.id)
 
+        action_text = (
+            "resumed"
+            if job.generated_count > 0
+            or job.skipped_count > 0
+            or job.current_step > 0
+            else "started"
+        )
+
         self.message_user(
             request,
-            f"Job #{job.id} started successfully.",
+            f"Job #{job.id} {action_text} successfully.",
             messages.SUCCESS,
         )
 
-        return redirect("admin:contents_generationjob_changelist")
+        return redirect(
+            "admin:contents_generationjob_changelist"
+        )
 
     def stop_job(self, request, job_id):
         job = GenerationJob.objects.get(id=job_id)
 
-        if job.status != "running":
+        if job.status not in ("running", "pending"):
             self.message_user(
                 request,
                 f"Job #{job.id} is not running.",
                 messages.INFO,
             )
-            return redirect("admin:contents_generationjob_changelist")
+
+            return redirect(
+                "admin:contents_generationjob_changelist"
+            )
 
         job.should_stop = True
         job.status = "stopped"
         job.error_message = "Job stopped by admin."
-        job.save(update_fields=["should_stop", "status", "error_message"])
+
+        job.save(
+            update_fields=[
+                "should_stop",
+                "status",
+                "error_message",
+                "updated_at",
+            ]
+        )
 
         self.message_user(
             request,
@@ -298,4 +399,6 @@ class GenerationJobAdmin(admin.ModelAdmin):
             messages.SUCCESS,
         )
 
-        return redirect("admin:contents_generationjob_changelist")
+        return redirect(
+            "admin:contents_generationjob_changelist"
+        )
