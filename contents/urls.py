@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     ContentDetailAPIView,
     ContentListAPIView,
+    DatasetAPIView,
     GenerationJobDetailAPIView,
     GenerationJobListCreateAPIView,
     GenerationJobStartAPIView,
@@ -19,6 +20,12 @@ urlpatterns = [
         "health/",
         HealthCheckAPIView.as_view(),
         name="api-health",
+    ),
+
+    path(
+        "datasets/",
+        DatasetAPIView.as_view(),
+        name="api-datasets",
     ),
 
     path(

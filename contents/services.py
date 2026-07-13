@@ -9,6 +9,7 @@ from .core_services.generation_outcome import (
     handle_generation_failure,
     handle_generation_success,
 )
+from .core_services.job_pool import get_job_generation_pool
 from .core_services.logger import fail_job, log_job
 from .core_services.prompt import (
     build_context,
@@ -22,21 +23,10 @@ from .core_services.runner import (
     reset_job_for_start,
 )
 from .core_services.selector import (
-    get_optional_pool,
-    get_required_pool,
     intelligent_generation_choice,
     weighted_sample,
 )
-from .models import (
-    Audience,
-    Content,
-    ContentRule,
-    GenerationJob,
-    Goal,
-    Language,
-    PromptTemplate,
-    Topic,
-)
+from .models import Content, GenerationJob
 
 
 def build_blocked_keyword_pattern(keyword):
@@ -102,38 +92,32 @@ def remove_blocked_keywords(text):
             flags=re.IGNORECASE,
         )
 
-    # Clean spaces created after removing blocked words.
     cleaned_text = re.sub(r"[ \t]{2,}", " ", cleaned_text)
 
-    # Remove spaces before punctuation.
     cleaned_text = re.sub(
         r"[ \t]+([.,!?;:])",
         r"\1",
         cleaned_text,
     )
 
-    # Remove spaces immediately after opening brackets.
     cleaned_text = re.sub(
         r"([\(\[\{])[ \t]+",
         r"\1",
         cleaned_text,
     )
 
-    # Remove spaces immediately before closing brackets.
     cleaned_text = re.sub(
         r"[ \t]+([\)\]\}])",
         r"\1",
         cleaned_text,
     )
 
-    # Remove lines that became empty or only contain whitespace.
     cleaned_text = re.sub(
         r"\n[ \t]+\n",
         "\n\n",
         cleaned_text,
     )
 
-    # Do not allow more than two consecutive line breaks.
     cleaned_text = re.sub(
         r"\n{3,}",
         "\n\n",
@@ -156,15 +140,14 @@ def run_generation_job(job_id):
     try:
         app_settings = get_app_settings()
 
-        languages = get_required_pool(Language, "languages")
-        topics = get_required_pool(Topic, "topics")
-        audiences = get_required_pool(Audience, "audiences")
-        goals = get_required_pool(Goal, "goals")
-        prompt_templates = get_required_pool(
-            PromptTemplate,
-            "prompt templates",
-        )
-        content_rules = get_optional_pool(ContentRule)
+        (
+            languages,
+            topics,
+            audiences,
+            goals,
+            prompt_templates,
+            content_rules,
+        ) = get_job_generation_pool(job)
 
         target_count = job.count
         max_attempts = max(target_count * 10, 50)
@@ -174,7 +157,7 @@ def run_generation_job(job_id):
             job,
             "info",
             (
-                "Using intelligent generation pool. "
+                "Using job-specific generation pool. "
                 f"Languages: {len(languages)}, "
                 f"Topics: {len(topics)}, "
                 f"Audiences: {len(audiences)}, "
@@ -351,8 +334,6 @@ def run_generation_job(job_id):
                 )
                 continue
 
-            # Check the extracted title and body again because the generated
-            # response may have changed during extraction.
             final_text = f"{title}\n{content_body}"
 
             final_has_blocked, final_blocked_keyword = (
