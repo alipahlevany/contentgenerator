@@ -12,14 +12,33 @@ class HasValidAPIKey(BasePermission):
         if not api_key:
             return False
 
-        client = (
-            ExternalClient.objects
-            .filter(
-                api_key=api_key,
-                is_active=True,
+        client = None
+
+        parts = api_key.split("_", 2)
+        if len(parts) == 3 and parts[0] == "cg":
+            prefix, secret = parts[1:]
+            candidate = (
+                ExternalClient.objects
+                .filter(
+                    api_key_prefix=prefix,
+                    is_active=True,
+                )
+                .first()
             )
-            .first()
-        )
+            if (
+                candidate is not None
+                and candidate.matches_api_key_secret(secret)
+            ):
+                client = candidate
+        else:
+            client = (
+                ExternalClient.objects
+                .filter(
+                    api_key=api_key,
+                    is_active=True,
+                )
+                .first()
+            )
 
         if client is None:
             return False

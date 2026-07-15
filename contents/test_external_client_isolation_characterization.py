@@ -163,13 +163,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
         self.assertEqual(old_response.json(), self.authentication_error)
         self.assertEqual(new_response.status_code, 200)
 
-    def test_api_keys_are_generated_stored_and_queried_as_plaintext(self):
-        generated_client = ExternalClient.objects.create(
-            name="Generated Key Client",
-            code="generated-key-client",
-        )
-        self.assertTrue(generated_client.api_key)
-
+    def test_legacy_api_keys_are_stored_and_queried_as_plaintext(self):
         stored_key = ExternalClient.objects.values_list(
             "api_key",
             flat=True,

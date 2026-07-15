@@ -9,7 +9,7 @@ class ExternalClientAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "code",
-        "masked_api_key",
+        "api_key_identifier",
         "callback_url",
         "is_active",
         "created_at",
@@ -25,13 +25,13 @@ class ExternalClientAdmin(admin.ModelAdmin):
     search_fields = (
         "name",
         "code",
-        "api_key",
+        "api_key_prefix",
         "callback_url",
         "notes",
     )
 
     readonly_fields = (
-        "api_key",
+        "api_key_identifier",
         "created_at",
         "updated_at",
     )
@@ -51,12 +51,13 @@ class ExternalClientAdmin(admin.ModelAdmin):
             "API Access",
             {
                 "fields": (
-                    "api_key",
+                    "api_key_identifier",
                     "callback_url",
                 ),
                 "description": (
-                    "The API key is generated automatically when the "
-                    "client is created."
+                    "API key secrets are stored hashed and cannot be "
+                    "recovered. Use the controlled rotation method to "
+                    "issue a replacement key."
                 ),
             },
         ),
@@ -92,17 +93,20 @@ class ExternalClientAdmin(admin.ModelAdmin):
     )
 
     @admin.display(
-        description="API Key",
+        description="API Key Identifier",
     )
-    def masked_api_key(self, obj):
+    def api_key_identifier(self, obj):
+        if obj.api_key_prefix:
+            return format_html(
+                "<code>cg_{}_••••••••</code>",
+                obj.api_key_prefix,
+            )
+
         if not obj.api_key:
             return "-"
 
-        visible = obj.api_key[-8:]
-
         return format_html(
-            "<code>••••••••{}</code>",
-            visible,
+            "<code>legacy_••••••••</code>",
         )
 
     @admin.action(

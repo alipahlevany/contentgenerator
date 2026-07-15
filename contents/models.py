@@ -1,5 +1,6 @@
 import secrets
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 
@@ -139,8 +140,24 @@ class ExternalClient(models.Model):
         max_length=255,
         unique=True,
         blank=True,
+        null=True,
+        default=None,
         db_index=True,
-        help_text="Generated automatically when left empty.",
+        help_text="Legacy plaintext API key. New keys are stored hashed.",
+    )
+
+    api_key_prefix = models.CharField(
+        max_length=32,
+        unique=True,
+        blank=True,
+        null=True,
+        default=None,
+    )
+
+    api_key_hash = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
     )
 
     callback_url = models.URLField(
@@ -169,11 +186,41 @@ class ExternalClient(models.Model):
         auto_now=True,
     )
 
-    def save(self, *args, **kwargs):
-        if not self.api_key:
-            self.api_key = secrets.token_urlsafe(48)
+    @staticmethod
+    def _new_api_key():
+        prefix = secrets.token_hex(8)
+        secret = secrets.token_urlsafe(32)
+        return prefix, secret, f"cg_{prefix}_{secret}"
 
-        super().save(*args, **kwargs)
+    @classmethod
+    def create_with_api_key(cls, **kwargs):
+        client = cls(**kwargs)
+        prefix, secret, raw_key = cls._new_api_key()
+        client.api_key = None
+        client.api_key_prefix = prefix
+        client.api_key_hash = make_password(secret)
+        client.save()
+        return client, raw_key
+
+    def rotate_api_key(self):
+        prefix, secret, raw_key = self._new_api_key()
+        self.api_key = None
+        self.api_key_prefix = prefix
+        self.api_key_hash = make_password(secret)
+        self.save(
+            update_fields=[
+                "api_key",
+                "api_key_prefix",
+                "api_key_hash",
+                "updated_at",
+            ]
+        )
+        return raw_key
+
+    def matches_api_key_secret(self, secret):
+        if not self.api_key_hash:
+            return False
+        return check_password(secret, self.api_key_hash)
 
     def __str__(self):
         return self.name
