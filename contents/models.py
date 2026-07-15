@@ -1,6 +1,7 @@
 import secrets
 
 from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -300,6 +301,25 @@ class Content(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["title"],
+                name="content_title_trgm_gin",
+                opclasses=["gin_trgm_ops"],
+            ),
+            GinIndex(
+                fields=["prompt"],
+                name="content_prompt_trgm_gin",
+                opclasses=["gin_trgm_ops"],
+            ),
+            GinIndex(
+                fields=["generated_content"],
+                name="content_body_trgm_gin",
+                opclasses=["gin_trgm_ops"],
+            ),
+        ]
 
     def __str__(self):
         return self.title
