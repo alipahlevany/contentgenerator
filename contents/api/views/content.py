@@ -3,6 +3,8 @@ from django.db.models import Q
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework import status
+from rest_framework.response import Response
 
 from contents.api.serializers.content import (
     ContentDetailSerializer,
@@ -11,6 +13,11 @@ from contents.api.serializers.content import (
 from contents.api.serializers.system import APIErrorSerializer
 from contents.models import Content
 from contents.permissions import HasValidAPIKey
+from contents.core_services.pagination import (
+    InvalidCursor,
+    cursor_mode_requested,
+    paginate_queryset,
+)
 
 
 API_KEY_HEADER = OpenApiParameter(
@@ -91,7 +98,7 @@ class ContentListAPIView(ListAPIView):
                 "prompt_template",
             )
             .all()
-            .order_by("-created_at")
+            .order_by("-created_at", "-id")
         )
 
         content_status = (
@@ -126,7 +133,22 @@ class ContentListAPIView(ListAPIView):
                 )
             )
 
-        return queryset[:100]
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        if not cursor_mode_requested(request):
+            serializer = self.get_serializer(queryset[:100], many=True)
+            return Response(serializer.data)
+        try:
+            items, next_cursor = paginate_queryset(queryset, request)
+        except InvalidCursor as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = self.get_serializer(items, many=True)
+        return Response({"results": serializer.data, "next_cursor": next_cursor})
 
 
 @extend_schema(

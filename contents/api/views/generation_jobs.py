@@ -36,6 +36,11 @@ from contents.core_services.client_limits import (
     lock_client_limit,
     validate_generation_limits,
 )
+from contents.core_services.pagination import (
+    InvalidCursor,
+    cursor_mode_requested,
+    paginate_queryset,
+)
 
 
 API_KEY_HEADER = OpenApiParameter(
@@ -122,18 +127,35 @@ class GenerationJobListCreateAPIView(APIView):
                     to_attr="active_prompt_templates",
                 ),
             )
-            .order_by("-created_at")[:100]
+            .order_by("-created_at", "-id")
         )
+
+        if cursor_mode_requested(request):
+            try:
+                jobs, next_cursor = paginate_queryset(jobs, request)
+            except InvalidCursor as exc:
+                return Response(
+                    {"detail": str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            jobs = jobs[:100]
+            next_cursor = None
 
         serializer = GenerationJobSerializer(
             jobs,
             many=True,
         )
 
-        return Response(
-            serializer.data,
-            status=status.HTTP_200_OK,
+        response_data = (
+            {
+                "results": serializer.data,
+                "next_cursor": next_cursor,
+            }
+            if cursor_mode_requested(request)
+            else serializer.data
         )
+        return Response(response_data, status=status.HTTP_200_OK)
 
     @extend_schema(
         operation_id="create_generation_job",
