@@ -261,6 +261,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
 
     def test_list_exact_fields_newest_first_progress_and_selections(self):
         explicit = GenerationJob.objects.create(
+            external_client=self.active_client,
             count=8,
             delay_seconds=2.5,
             generated_count=3,
@@ -276,6 +277,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
         explicit.rules.set([self.rule_two, self.rule_one])
         explicit.prompt_templates.set([self.template_two, self.template_one])
         all_job = GenerationJob.objects.create(
+            external_client=self.active_client,
             count=0,
             use_all_languages=True,
             use_all_topics=True,
@@ -309,7 +311,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
         )
 
     def test_list_empty_and_inactive_explicit_relations_are_returned_as_empty(self):
-        job = GenerationJob.objects.create()
+        job = GenerationJob.objects.create(external_client=self.active_client)
         job.languages.add(self.inactive_language)
         job.topics.add(self.inactive_topic)
         job.audiences.add(self.inactive_audience)
@@ -327,7 +329,13 @@ class GenerationJobAPICharacterizationTests(TestCase):
             self.assertEqual(item[field], [])
 
     def test_list_limits_results_to_100_newest_jobs(self):
-        jobs = [GenerationJob.objects.create(count=index + 1) for index in range(101)]
+        jobs = [
+            GenerationJob.objects.create(
+                count=index + 1,
+                external_client=self.active_client,
+            )
+            for index in range(101)
+        ]
 
         response = self.get_list(self.active_client.api_key)
 
@@ -339,8 +347,8 @@ class GenerationJobAPICharacterizationTests(TestCase):
         )
 
     def test_list_currently_performs_six_selection_queries_per_explicit_job(self):
-        GenerationJob.objects.create()
-        GenerationJob.objects.create()
+        GenerationJob.objects.create(external_client=self.active_client)
+        GenerationJob.objects.create(external_client=self.active_client)
 
         with CaptureQueriesContext(connection) as queries:
             response = self.get_list(self.active_client.api_key)
@@ -511,6 +519,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
 
     def test_detail_exact_fields_all_explicit_progress_and_not_found(self):
         all_job = GenerationJob.objects.create(
+            external_client=self.active_client,
             count=4,
             generated_count=5,
             use_all_languages=True,
@@ -520,7 +529,11 @@ class GenerationJobAPICharacterizationTests(TestCase):
             use_all_rules=True,
             use_all_prompt_templates=True,
         )
-        explicit = GenerationJob.objects.create(count=3, generated_count=1)
+        explicit = GenerationJob.objects.create(
+            count=3,
+            generated_count=1,
+            external_client=self.active_client,
+        )
         explicit.languages.add(self.language_one)
         explicit.rules.add(self.rule_one)
 
@@ -560,6 +573,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
         )
         for index, (initial_status, generated, skipped, step, action) in enumerate(cases):
             job = GenerationJob.objects.create(
+                external_client=self.active_client,
                 count=10,
                 status=initial_status,
                 generated_count=generated,
@@ -588,13 +602,19 @@ class GenerationJobAPICharacterizationTests(TestCase):
                 )
 
     def test_start_rejects_running_and_target_reached_without_dispatch(self):
-        running = GenerationJob.objects.create(count=10, status="running")
+        running = GenerationJob.objects.create(
+            count=10,
+            status="running",
+            external_client=self.active_client,
+        )
         reached = GenerationJob.objects.create(
+            external_client=self.active_client,
             count=10,
             generated_count=10,
             status="stopped",
         )
         completed = GenerationJob.objects.create(
+            external_client=self.active_client,
             count=10,
             generated_count=10,
             status="completed",
@@ -635,6 +655,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
     def test_stop_pending_and_running_jobs_sets_exact_state_without_dispatch(self):
         for initial_status in ("pending", "running"):
             job = GenerationJob.objects.create(
+                external_client=self.active_client,
                 count=10,
                 status=initial_status,
                 should_stop=False,
@@ -663,6 +684,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
     def test_stop_rejects_stopped_completed_and_failed_without_changes(self):
         for initial_status in ("stopped", "completed", "failed"):
             job = GenerationJob.objects.create(
+                external_client=self.active_client,
                 status=initial_status,
                 should_stop=False,
                 error_message="Existing error",

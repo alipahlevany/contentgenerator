@@ -82,12 +82,12 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
             status="generated",
         )
 
-    def create_job_through_client_b(self):
+    def create_job_through_client_b(self, payload=None):
         with patch("contents.views.run_generation_job_task.delay") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.api.post(
                     self.jobs_url,
-                    {},
+                    payload or {},
                     format="json",
                     **self.headers(self.client_b),
                 )
@@ -230,7 +230,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
             {self.client_a.id, self.client_b.id},
         )
 
-    def test_client_a_can_list_and_retrieve_job_created_through_client_b(self):
+    def test_client_a_cannot_list_or_retrieve_job_created_through_client_b(self):
         job = self.create_job_through_client_b()
 
         list_response = self.api.get(
@@ -243,11 +243,14 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
         )
 
         self.assertEqual(list_response.status_code, 200)
-        self.assertIn(job.pk, [item["id"] for item in list_response.json()])
-        self.assertEqual(detail_response.status_code, 200)
-        self.assertEqual(detail_response.json()["id"], job.pk)
+        self.assertNotIn(job.pk, [item["id"] for item in list_response.json()])
+        self.assertEqual(detail_response.status_code, 404)
+        self.assertEqual(
+            detail_response.json(),
+            {"detail": "No GenerationJob matches the given query."},
+        )
 
-    def test_client_a_can_start_job_created_through_client_b(self):
+    def test_client_a_cannot_start_job_created_through_client_b(self):
         job = self.create_job_through_client_b()
 
         with patch("contents.views.run_generation_job_task.delay") as delay:
@@ -261,16 +264,16 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
                     **self.headers(self.client_a),
                 )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 404)
         self.assertEqual(
-            response.json()["message"],
-            f"Generation job #{job.pk} started.",
+            response.json(),
+            {"detail": "No GenerationJob matches the given query."},
         )
-        delay.assert_called_once_with(job.pk)
+        delay.assert_not_called()
         job.refresh_from_db()
-        self.assertEqual(job.status, "running")
+        self.assertEqual(job.status, "pending")
 
-    def test_client_a_can_stop_job_created_through_client_b(self):
+    def test_client_a_cannot_stop_job_created_through_client_b(self):
         job = self.create_job_through_client_b()
 
         response = self.api.post(
@@ -282,22 +285,113 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
             **self.headers(self.client_a),
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 404)
         self.assertEqual(
-            response.json()["message"],
-            f"Generation job #{job.pk} stopped.",
+            response.json(),
+            {"detail": "No GenerationJob matches the given query."},
         )
+        job.refresh_from_db()
+        self.assertEqual(job.status, "pending")
+        self.assertFalse(job.should_stop)
+
+    def test_api_created_job_stores_authenticated_client_ownership(self):
+        job = self.create_job_through_client_b()
+        field_names = {field.name for field in GenerationJob._meta.get_fields()}
+
+        self.assertIn("external_client", field_names)
+        self.assertEqual(job.external_client, self.client_b)
+
+    def test_request_payload_cannot_override_authenticated_owner(self):
+        job = self.create_job_through_client_b(
+            {
+                "external_client": self.client_a.pk,
+                "external_client_id": self.client_a.pk,
+            }
+        )
+
+        self.assertEqual(job.external_client, self.client_b)
+
+    def test_client_b_can_list_retrieve_start_and_stop_its_own_job(self):
+        job = self.create_job_through_client_b()
+
+        list_response = self.api.get(
+            self.jobs_url,
+            **self.headers(self.client_b),
+        )
+        detail_response = self.api.get(
+            reverse("contents:api-generation-job-detail", kwargs={"pk": job.pk}),
+            **self.headers(self.client_b),
+        )
+        with patch("contents.views.run_generation_job_task.delay") as delay:
+            with self.captureOnCommitCallbacks(execute=True):
+                start_response = self.api.post(
+                    reverse(
+                        "contents:api-generation-job-start",
+                        kwargs={"job_id": job.pk},
+                    ),
+                    format="json",
+                    **self.headers(self.client_b),
+                )
+        stop_response = self.api.post(
+            reverse(
+                "contents:api-generation-job-stop",
+                kwargs={"job_id": job.pk},
+            ),
+            format="json",
+            **self.headers(self.client_b),
+        )
+
+        self.assertIn(job.pk, [item["id"] for item in list_response.json()])
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(start_response.status_code, 200)
+        delay.assert_called_once_with(job.pk)
+        self.assertEqual(stop_response.status_code, 200)
         job.refresh_from_db()
         self.assertEqual(job.status, "stopped")
         self.assertTrue(job.should_stop)
 
-    def test_generation_job_has_no_external_client_ownership_field(self):
-        job = self.create_job_through_client_b()
-        field_names = {field.name for field in GenerationJob._meta.get_fields()}
+    def test_legacy_unowned_job_is_hidden_from_all_job_endpoints(self):
+        job = GenerationJob.objects.create()
 
-        self.assertNotIn("client", field_names)
-        self.assertNotIn("external_client", field_names)
-        self.assertNotIn("client_id", job.__dict__)
+        list_response = self.api.get(
+            self.jobs_url,
+            **self.headers(self.client_a),
+        )
+        detail_response = self.api.get(
+            reverse("contents:api-generation-job-detail", kwargs={"pk": job.pk}),
+            **self.headers(self.client_a),
+        )
+        with patch("contents.views.run_generation_job_task.delay") as delay:
+            start_response = self.api.post(
+                reverse(
+                    "contents:api-generation-job-start",
+                    kwargs={"job_id": job.pk},
+                ),
+                format="json",
+                **self.headers(self.client_a),
+            )
+        stop_response = self.api.post(
+            reverse(
+                "contents:api-generation-job-stop",
+                kwargs={"job_id": job.pk},
+            ),
+            format="json",
+            **self.headers(self.client_a),
+        )
+
+        self.assertNotIn(job.pk, [item["id"] for item in list_response.json()])
+        for response in (detail_response, start_response, stop_response):
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(
+                response.json(),
+                {"detail": "No GenerationJob matches the given query."},
+            )
+        delay.assert_not_called()
+
+    def test_internal_job_creation_remains_valid_without_owner(self):
+        job = GenerationJob.objects.create(count=17)
+
+        self.assertIsNone(job.external_client)
 
     def test_content_delivery_ignores_clients_and_callback_urls(self):
         with patch("contents.tasks.send_model_data_to_api.delay") as delay:
@@ -321,4 +415,3 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
             task_source,
         )
         self.assertIn('os.getenv("mta_api_key")', task_source)
-

@@ -87,7 +87,7 @@ class GenerationJobListCreateAPIView(APIView):
     def get(self, request):
         jobs = (
             GenerationJob.objects
-            .all()
+            .filter(external_client=request.client)
             .order_by("-created_at")[:100]
         )
 
@@ -167,7 +167,9 @@ class GenerationJobListCreateAPIView(APIView):
         )
 
         with transaction.atomic():
-            job = serializer.save()
+            job = serializer.save(
+                external_client=request.client,
+            )
 
             job.status = "pending"
             job.should_stop = False
@@ -243,7 +245,11 @@ class GenerationJobListCreateAPIView(APIView):
 class GenerationJobDetailAPIView(RetrieveAPIView):
     permission_classes = [HasValidAPIKey]
     serializer_class = GenerationJobSerializer
-    queryset = GenerationJob.objects.all()
+
+    def get_queryset(self):
+        return GenerationJob.objects.filter(
+            external_client=self.request.client,
+        )
 
 
 @extend_schema(
@@ -312,6 +318,7 @@ class GenerationJobStartAPIView(GenericAPIView):
             job = get_object_or_404(
                 GenerationJob.objects.select_for_update(),
                 id=job_id,
+                external_client=request.client,
             )
 
             if job.status == "running":
@@ -444,6 +451,7 @@ class GenerationJobStopAPIView(GenericAPIView):
             job = get_object_or_404(
                 GenerationJob.objects.select_for_update(),
                 id=job_id,
+                external_client=request.client,
             )
 
             if job.status not in [

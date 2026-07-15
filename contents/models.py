@@ -389,6 +389,14 @@ class GenerationJob(models.Model):
         ("stopped", "Stopped"),
     ]
 
+    external_client = models.ForeignKey(
+        ExternalClient,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generation_jobs",
+    )
+
     count = models.PositiveIntegerField(default=10)
 
     delay_seconds = models.FloatField(default=1.0)

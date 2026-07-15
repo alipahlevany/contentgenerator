@@ -21,8 +21,14 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
             api_key="concurrent-generation-api-key",
             is_active=True,
         )
+        self.other_client_record = ExternalClient.objects.create(
+            name="Other concurrent generation client",
+            code="other-concurrent-generation-client",
+            api_key="other-concurrent-generation-api-key",
+            is_active=True,
+        )
 
-    def _run_concurrent_requests(self, job, actions):
+    def _run_concurrent_requests(self, job, actions, request_clients=None):
         request_barrier = Barrier(len(actions), timeout=10)
         results = []
         result_lock = Lock()
@@ -38,7 +44,10 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
                     save_order.append(action)
             return result
 
-        def worker(action):
+        if request_clients is None:
+            request_clients = [self.client_record] * len(actions)
+
+        def worker(action, request_client):
             close_old_connections()
             try:
                 with connection.cursor() as cursor:
@@ -55,7 +64,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
                 response = api.post(
                     url,
                     format="json",
-                    HTTP_X_API_KEY=self.client_record.api_key,
+                    HTTP_X_API_KEY=request_client.api_key,
                 )
                 result = {
                     "action": action,
@@ -75,17 +84,50 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
             new=tracked_save,
         ), patch("contents.views.run_generation_job_task.delay") as delay:
             with ThreadPoolExecutor(max_workers=len(actions)) as executor:
-                futures = [executor.submit(worker, action) for action in actions]
+                futures = [
+                    executor.submit(worker, action, request_client)
+                    for action, request_client in zip(actions, request_clients)
+                ]
                 for future in futures:
                     future.result(timeout=15)
 
         return results, delay, save_order
+
+    def test_cross_client_concurrent_start_cannot_dispatch_owned_job(self):
+        job = GenerationJob.objects.create(
+            external_client=self.client_record,
+            count=10,
+            status="pending",
+        )
+
+        results, delay, save_order = self._run_concurrent_requests(
+            job,
+            ["start", "start"],
+            [self.client_record, self.other_client_record],
+        )
+
+        self.assertEqual(
+            sorted(result["status_code"] for result in results),
+            [200, 404],
+        )
+        unauthorized = next(
+            result for result in results if result["status_code"] == 404
+        )
+        self.assertEqual(
+            unauthorized["body"],
+            {"detail": "No GenerationJob matches the given query."},
+        )
+        delay.assert_called_once_with(job.pk)
+        self.assertEqual(save_order, ["start"])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "running")
 
     def test_database_is_postgresql(self):
         self.assertEqual(connection.vendor, "postgresql")
 
     def test_two_simultaneous_starts_allow_one_claim_and_one_dispatch(self):
         job = GenerationJob.objects.create(
+            external_client=self.client_record,
             count=10,
             status="pending",
             should_stop=False,
@@ -111,6 +153,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
 
     def test_two_simultaneous_resumes_allow_one_claim_and_one_dispatch(self):
         job = GenerationJob.objects.create(
+            external_client=self.client_record,
             count=10,
             status="stopped",
             should_stop=True,
@@ -143,6 +186,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
 
     def test_two_simultaneous_stops_serialize_without_dispatch(self):
         job = GenerationJob.objects.create(
+            external_client=self.client_record,
             count=10,
             status="running",
             should_stop=False,
@@ -177,6 +221,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
 
     def test_two_simultaneous_starts_at_target_are_both_rejected(self):
         job = GenerationJob.objects.create(
+            external_client=self.client_record,
             count=10,
             status="stopped",
             generated_count=10,
@@ -205,6 +250,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
 
     def test_simultaneous_start_and_stop_follow_lock_order(self):
         job = GenerationJob.objects.create(
+            external_client=self.client_record,
             count=10,
             status="pending",
             should_stop=False,

@@ -302,6 +302,7 @@ class GenerationJobCreateSerializer(serializers.Serializer):
         job = GenerationJob.objects.create(
             count=validated_data["count"],
             delay_seconds=validated_data["delay_seconds"],
+            external_client=validated_data.get("external_client"),
         )
 
         update_fields = []
