@@ -406,6 +406,62 @@ class ContentExport(models.Model):
         )
 
 
+class ContentDelivery(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("processing", "Processing"),
+        ("success", "Success"),
+        ("failed", "Failed"),
+    ]
+
+    client = models.ForeignKey(
+        ExternalClient,
+        on_delete=models.CASCADE,
+        related_name="content_deliveries",
+    )
+    content = models.ForeignKey(
+        Content,
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+    )
+    content_hash = models.CharField(max_length=64, blank=True, default="")
+    destination_url = models.URLField(max_length=2048)
+    purpose = models.CharField(max_length=50, default="callback")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+        db_index=True,
+    )
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default="")
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "content", "content_hash", "purpose"],
+                name="unique_content_delivery_per_client_version",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["client", "status"]),
+        ]
+
+        ordering = [
+            "-created_at",
+        ]
+
+    def __str__(self):
+        return (
+            f"Content #{self.content_id} -> "
+            f"{self.client.name} ({self.status})"
+        )
+
+
 class GenerationJob(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),

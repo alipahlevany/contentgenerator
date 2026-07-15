@@ -1,5 +1,4 @@
 import logging
-import os
 
 import requests
 from celery import shared_task
@@ -7,11 +6,29 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from contents.core_services.job_health import recover_stuck_jobs
+from contents.core_services.delivery import RetryableDeliveryError, deliver_content
 from contents.models import AppSettings, GenerationJob
 from contents.services import run_generation_job
 
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(RetryableDeliveryError,),
+    retry_backoff=True,
+    retry_backoff_max=60,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 3},
+)
+def deliver_content_callback(self, delivery_id):
+    delivery = deliver_content(delivery_id)
+    return {
+        "delivery_id": delivery.pk,
+        "status": delivery.status,
+        "attempt_count": delivery.attempt_count,
+    }
 
 
 @shared_task
@@ -228,121 +245,7 @@ def send_model_data_to_api(
     description,
     category,
 ):
-    url = "https://melal.org/createContentAPIView/"
-
-    task_id = self.request.id
-    api_key = os.getenv("mta_api_key")
-
-    logger.info(
-        "Content API task started | "
-        "task_id=%s | title=%s | category=%s",
-        task_id,
-        title,
-        category,
-    )
-
-    if not api_key:
-        logger.error(
-            "Content API task failed | "
-            "task_id=%s | mta_api_key is missing",
-            task_id,
-        )
-
-        return {
-            "success": False,
-            "message": (
-                "Environment variable mta_api_key is missing."
-            ),
-        }
-
-    headers = {
-        "Authorization": f"Api-Key {api_key}",
-        "Content-Type": "application/json",
+    return {
+        "success": False,
+        "message": "Legacy automatic delivery is disabled.",
     }
-
-    data = {
-        "category": category or "",
-        "subject": title or "",
-        "content": description or "",
-    }
-
-    logger.info(
-        "Sending content to destination API | "
-        "task_id=%s | url=%s | "
-        "subject=%s | category=%s | content_length=%s",
-        task_id,
-        url,
-        data["subject"],
-        data["category"],
-        len(data["content"]),
-    )
-
-    try:
-        response = requests.post(
-            url,
-            json=data,
-            headers=headers,
-            timeout=30,
-        )
-
-        logger.info(
-            "Destination API responded | "
-            "task_id=%s | status=%s | body=%s",
-            task_id,
-            response.status_code,
-            response.text[:2000],
-        )
-
-        if response.ok:
-            try:
-                response_data = response.json()
-            except ValueError:
-                response_data = response.text
-
-            logger.info(
-                "Content API task succeeded | "
-                "task_id=%s | status=%s",
-                task_id,
-                response.status_code,
-            )
-
-            return {
-                "success": True,
-                "status_code": response.status_code,
-                "response": response_data,
-            }
-
-        logger.error(
-            "Content API task failed | "
-            "task_id=%s | status=%s | body=%s",
-            task_id,
-            response.status_code,
-            response.text[:2000],
-        )
-
-        return {
-            "success": False,
-            "status_code": response.status_code,
-            "response": response.text,
-        }
-
-    except requests.exceptions.RequestException as exc:
-        logger.exception(
-            "Content API request error | "
-            "task_id=%s | retry=%s | error=%s",
-            task_id,
-            self.request.retries,
-            exc,
-        )
-
-        raise
-
-    except Exception as exc:
-        logger.exception(
-            "Unexpected content API error | "
-            "task_id=%s | error=%s",
-            task_id,
-            exc,
-        )
-
-        raise

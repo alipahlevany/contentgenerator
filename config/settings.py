@@ -52,6 +52,11 @@ ALLOWED_HOSTS = env_list(
     default="127.0.0.1,localhost",
 )
 
+CALLBACK_DELIVERY_ALLOW_PRIVATE_NETWORKS = env_bool(
+    "CALLBACK_DELIVERY_ALLOW_PRIVATE_NETWORKS",
+    default=False,
+)
+
 
 CSRF_TRUSTED_ORIGINS = env_list(
     "CSRF_TRUSTED_ORIGINS",

@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     ContentDetailAPIView,
+    ContentDeliveryAPIView,
     ContentExportAPIView,
     ContentListAPIView,
     DatasetAPIView,
@@ -64,5 +65,10 @@ urlpatterns = [
         "contents/<int:pk>/",
         ContentDetailAPIView.as_view(),
         name="api-content-detail",
+    ),
+    path(
+        "contents/<int:pk>/deliver/",
+        ContentDeliveryAPIView.as_view(),
+        name="api-content-delivery",
     ),
 ]

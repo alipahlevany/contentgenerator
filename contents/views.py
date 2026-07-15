@@ -1,5 +1,6 @@
 from .api.views import (
     ContentDetailAPIView,
+    ContentDeliveryAPIView,
     ContentExportAPIView,
     ContentListAPIView,
     DatasetAPIView,
@@ -14,6 +15,7 @@ from .tasks import run_generation_job_task
 
 __all__ = [
     "ContentDetailAPIView",
+    "ContentDeliveryAPIView",
     "ContentExportAPIView",
     "ContentListAPIView",
     "DatasetAPIView",

@@ -4,6 +4,7 @@ from .datasets import (
     LanguageDatasetSerializer,
     NamedDatasetSerializer,
 )
+from .delivery import ContentDeliverySerializer
 from .generation_jobs import (
     DatasetSelectionField,
     GenerationJobActionResponseSerializer,
@@ -16,6 +17,7 @@ from .system import APIErrorSerializer, HealthCheckSerializer
 __all__ = [
     "APIErrorSerializer",
     "ContentDetailSerializer",
+    "ContentDeliverySerializer",
     "ContentListSerializer",
     "DatasetCollectionSerializer",
     "DatasetSelectionField",
