@@ -10,7 +10,7 @@ from contents.models import (
     PromptTemplate,
     Topic,
 )
-from contents.serializers import DatasetSelectionField
+from contents.api.serializers.generation_jobs import DatasetSelectionField
 
 
 class ContentExportRequestSerializer(serializers.Serializer):
