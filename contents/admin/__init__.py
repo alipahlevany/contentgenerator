@@ -39,6 +39,10 @@ from .generation_log import (
     GenerationPatternAdmin,
 )
 
+# These modules register their models with @admin.register.
+from . import content_export  # noqa: F401
+from . import external_client  # noqa: F401
+
 
 admin.site.register(Topic, TopicAdmin)
 admin.site.register(Audience, AudienceAdmin)

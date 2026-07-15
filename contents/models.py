@@ -119,6 +119,66 @@ class ContentRule(models.Model):
         return self.name
 
 
+
+class ExternalClient(models.Model):
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+    )
+
+    code = models.SlugField(
+        max_length=100,
+        unique=True,
+        help_text=(
+            "Stable identifier used for logs and integrations, "
+            "for example: panel-a."
+        ),
+    )
+
+    api_key = models.CharField(
+        max_length=255,
+        unique=True,
+        blank=True,
+        db_index=True,
+        help_text="Generated automatically when left empty.",
+    )
+
+    callback_url = models.URLField(
+        blank=True,
+        default="",
+        help_text=(
+            "Optional destination URL for future push-based exports."
+        ),
+    )
+
+    notes = models.TextField(
+        blank=True,
+        default="",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.api_key:
+            self.api_key = secrets.token_urlsafe(48)
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
 class Content(models.Model):
     STATUS_CHOICES = [
         ("draft", "Draft"),
@@ -211,6 +271,113 @@ class Content(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ContentExport(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("success", "Success"),
+        ("failed", "Failed"),
+    ]
+
+    content = models.ForeignKey(
+        Content,
+        on_delete=models.CASCADE,
+        related_name="exports",
+    )
+
+    client = models.ForeignKey(
+        ExternalClient,
+        on_delete=models.CASCADE,
+        related_name="content_exports",
+    )
+
+    content_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text=(
+            "Snapshot of the content hash at export time. "
+            "A changed hash is treated as a new content version."
+        ),
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+        db_index=True,
+    )
+
+    exported_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    remote_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=(
+            "Optional content ID returned by the destination panel."
+        ),
+    )
+
+    error_message = models.TextField(
+        blank=True,
+        default="",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "content",
+                    "client",
+                    "content_hash",
+                ],
+                name="unique_content_version_export_per_client",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=[
+                    "client",
+                    "status",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "content",
+                    "status",
+                ],
+            ),
+            models.Index(
+                fields=[
+                    "exported_at",
+                ],
+            ),
+        ]
+
+        ordering = [
+            "-created_at",
+        ]
+
+    def __str__(self):
+        return (
+            f"Content #{self.content_id} -> "
+            f"{self.client.name} ({self.status})"
+        )
 
 
 class GenerationJob(models.Model):

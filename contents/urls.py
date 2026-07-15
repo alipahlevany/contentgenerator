@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     ContentDetailAPIView,
+    ContentExportAPIView,
     ContentListAPIView,
     DatasetAPIView,
     GenerationJobDetailAPIView,
@@ -49,6 +50,11 @@ urlpatterns = [
         name="api-generation-job-stop",
     ),
 
+    path(
+        "contents/export/",
+        ContentExportAPIView.as_view(),
+        name="api-content-export",
+    ),
     path(
         "contents/",
         ContentListAPIView.as_view(),

@@ -2,30 +2,71 @@ openapi: 3.0.3
 info:
   title: Content Generator API
   version: 1.0.0
-  description: API for starting, stopping, and checking generation jobs.
+  description: |-
+    Production-ready REST API for AI Content Generator.
+
+    Overview
+    --------
+    This API allows external applications to create, manage, monitor, and retrieve AI-generated content.
+
+    Main Features
+    -------------
+    - Create generation jobs
+    - Monitor generation progress
+    - Stop, resume, and restart jobs
+    - Retrieve generated contents
+    - Retrieve datasets such as Languages, Topics, Audiences, Goals, Prompt Templates, and Content Rules
+    - Read and update application settings
+    - Run automatic daily generation
+
+    Authentication
+    --------------
+    Every protected request must include this header:
+
+    Authorization: Api-Key YOUR_API_KEY
+
+    Typical Workflow
+    ----------------
+    1. Retrieve available datasets.
+    2. Create a generation job.
+    3. Monitor job progress.
+    4. Retrieve generated contents.
+    5. Stop, resume, or restart jobs when needed.
 paths:
   /api/v1/contents/:
     get:
       operationId: v1_contents_list
+      description: |-
+        Returns up to 100 of the latest generated content records.
+
+        The results can optionally be filtered by content status or searched using the `q` query parameter.
+      summary: List generated contents
       parameters:
       - in: header
         name: X-API-Key
         schema:
           type: string
-        description: External API key from Admin → System Settings.
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
         required: true
       - in: query
         name: q
         schema:
           type: string
-        description: Search in title, prompt, and generated content.
+        description: Optional case-insensitive search query. Searches the title, prompt,
+          and generated content fields.
       - in: query
         name: status
         schema:
           type: string
-        description: Filter contents by status.
+          enum:
+          - draft
+          - generated
+          - published
+        description: Optional content status filter. Supported values are `draft`,
+          `generated`, and `published`.
       tags:
-      - Contents
+      - Generated Contents
       security:
       - cookieAuth: []
       - basicAuth: []
@@ -37,22 +78,27 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ContentList'
-          description: ''
+          description: Latest generated content records.
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Missing or invalid API key.
   /api/v1/contents/{id}/:
     get:
       operationId: v1_contents_retrieve
+      description: Returns one generated content record, including its title, body,
+        prompt, language, topic, audience, goal, prompt template, content rules, status,
+        and timestamps.
+      summary: Retrieve generated content details
       parameters:
       - in: header
         name: X-API-Key
         schema:
           type: string
-        description: External API key from Admin → System Settings.
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
         required: true
       - in: path
         name: id
@@ -60,7 +106,7 @@ paths:
           type: integer
         required: true
       tags:
-      - Contents
+      - Generated Contents
       security:
       - cookieAuth: []
       - basicAuth: []
@@ -70,30 +116,173 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContentDetail'
-          description: ''
+          description: Generated content details.
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Missing or invalid API key.
         '404':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Generated content not found.
+  /api/v1/contents/export/:
+    post:
+      operationId: v1_contents_export_create
+      description: Returns matching existing generated contents instead of creating
+        a new generation job. The API key identifies the destination client. A content
+        version already exported successfully to the same client is not returned again.
+        The same version remains available to other clients.
+      summary: Export existing contents for the current client
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
+        required: true
+      tags:
+      - Content Export
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentExportRequestRequest'
+            examples:
+              ExportSelectedExistingContents:
+                value:
+                  count: 2
+                  delay_seconds: 0
+                  languages:
+                  - 1
+                  topics:
+                  - 15
+                  audiences:
+                  - 2
+                  goals:
+                  - 8
+                  rules: []
+                  prompt_templates:
+                  - 1
+                summary: Export selected existing contents
+              ExportFromAllDatasets:
+                value:
+                  count: 100
+                  delay_seconds: 0
+                  languages: all
+                  topics: all
+                  audiences: all
+                  goals: all
+                  rules: all
+                  prompt_templates: all
+                summary: Export from all datasets
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentExportResponse'
+          description: Matching contents were exported and recorded.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: Invalid filters or request body.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: Missing or invalid client API key.
+  /api/v1/datasets/:
+    get:
+      operationId: v1_datasets_retrieve
+      description: Returns active languages, topics, audiences, goals, content rules,
+        and prompt templates. Pass the optional `type` query parameter to retrieve
+        only one dataset group.
+      summary: Retrieve active generation datasets
+      parameters:
+      - in: header
+        name: X-API-Key
+        schema:
+          type: string
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
+        required: true
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - audiences
+          - goals
+          - languages
+          - prompt_templates
+          - rules
+          - topics
+        description: Optional dataset type. Leave it empty to return all active generation
+          datasets.
+      tags:
+      - Datasets
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetCollection'
+              examples:
+                AllDatasets:
+                  value:
+                    languages:
+                    - id: 1
+                      name: English
+                      code: en
+                    topics:
+                    - id: 10
+                      name: Technology
+                    audiences: []
+                    goals: []
+                    rules: []
+                    prompt_templates: []
+                  summary: All datasets
+          description: Active datasets retrieved successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: Unsupported dataset type.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: Missing or invalid API key.
   /api/v1/generation-jobs/:
     get:
-      operationId: v1_generation_jobs_list
-      description: Returns up to 100 of the latest generation jobs.
+      operationId: list_generation_jobs
+      description: Returns up to 100 of the latest generation jobs, ordered from newest
+        to oldest. Each record includes its current status, progress counters, configuration,
+        and timestamps.
       summary: List generation jobs
       parameters:
       - in: header
         name: X-API-Key
         schema:
           type: string
-        description: External API key from Admin → System Settings.
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
         required: true
       tags:
       - Generation Jobs
@@ -108,24 +297,27 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/GenerationJob'
-          description: ''
+          description: Latest generation jobs.
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Missing or invalid API key.
     post:
-      operationId: v1_generation_jobs_create
-      description: Creates a new generation job and starts it asynchronously using
-        Celery.
+      operationId: create_generation_job
+      description: |-
+        Creates a new AI content generation job and queues it for asynchronous execution using Celery.
+
+        The response is returned immediately after the job is saved and queued. Use the job detail endpoint to monitor progress.
       summary: Create and start a generation job
       parameters:
       - in: header
         name: X-API-Key
         schema:
           type: string
-        description: External API key from Admin → System Settings.
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
         required: true
       tags:
       - Generation Jobs
@@ -133,7 +325,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GenerationJobCreate'
+              $ref: '#/components/schemas/GenerationJobCreateRequest'
+            examples:
+              CreateGenerationJob:
+                value:
+                  count: 10
+                  delay_seconds: 1.0
+                summary: Create generation job
       security:
       - cookieAuth: []
       - basicAuth: []
@@ -143,35 +341,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerationJobActionResponse'
-          description: ''
+              examples:
+                JobCreated:
+                  value:
+                    message: 'Generation job #7 created and started.'
+                    job:
+                      id: 7
+                      status: pending
+                      count: 10
+                      generated_count: 0
+                      skipped_count: 0
+                      current_step: 0
+                  summary: Job created
+          description: The generation job was created and queued successfully.
         '400':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: The request data is invalid.
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Missing or invalid API key.
   /api/v1/generation-jobs/{job_id}/start/:
     post:
-      operationId: v1_generation_jobs_start_create
-      description: Starts an existing generation job asynchronously.
-      summary: Start a generation job
+      operationId: start_or_resume_generation_job
+      description: |-
+        Starts a pending job or resumes a stopped or failed job.
+
+        Existing progress is preserved. For example, a stopped job at 12/100 continues from 12 instead of resetting to zero.
+
+        A completed job cannot be started again through this endpoint.
+      summary: Start or resume a generation job
       parameters:
       - in: header
         name: X-API-Key
         schema:
           type: string
-        description: External API key from Admin → System Settings.
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
         required: true
       - in: path
         name: job_id
         schema:
           type: integer
+        description: Unique numeric ID of the generation job.
         required: true
       tags:
       - Generation Jobs
@@ -184,41 +401,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerationJobActionResponse'
-          description: ''
+              examples:
+                JobResumed:
+                  value:
+                    message: 'Generation job #7 resumed.'
+                    job:
+                      id: 7
+                      status: pending
+                      count: 100
+                      generated_count: 12
+                      skipped_count: 2
+                      current_step: 14
+                  summary: Job resumed
+          description: The job was queued successfully.
         '400':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: The job is already running or has already completed.
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Missing or invalid API key.
         '404':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Generation job not found.
   /api/v1/generation-jobs/{job_id}/stop/:
     post:
-      operationId: v1_generation_jobs_stop_create
-      description: Requests a running generation job to stop.
-      summary: Stop a running generation job
+      operationId: stop_generation_job
+      description: |-
+        Requests a pending or running generation job to stop.
+
+        The existing progress is preserved, allowing the job to be resumed later through the start endpoint.
+      summary: Stop a generation job
       parameters:
       - in: header
         name: X-API-Key
         schema:
           type: string
-        description: External API key from Admin → System Settings.
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
         required: true
       - in: path
         name: job_id
         schema:
           type: integer
+        description: Unique numeric ID of the generation job.
         required: true
       tags:
       - Generation Jobs
@@ -231,34 +465,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerationJobActionResponse'
-          description: ''
+              examples:
+                JobStopped:
+                  value:
+                    message: 'Generation job #7 stopped.'
+                    job:
+                      id: 7
+                      status: stopped
+                      count: 100
+                      generated_count: 12
+                      skipped_count: 2
+                      current_step: 14
+                  summary: Job stopped
+          description: The stop request was recorded successfully.
         '400':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: The selected job is not pending or running.
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Missing or invalid API key.
         '404':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Generation job not found.
   /api/v1/generation-jobs/{id}/:
     get:
       operationId: v1_generation_jobs_retrieve
+      description: Returns the full status and progress details of one generation
+        job. Use this endpoint to monitor generated, skipped, remaining, and current-step
+        values.
+      summary: Retrieve generation job details
       parameters:
       - in: header
         name: X-API-Key
         schema:
           type: string
-        description: External API key from Admin → System Settings.
+        description: External API key generated in Django Admin under System Settings.
+          Include this header in every protected request.
         required: true
       - in: path
         name: id
@@ -276,35 +527,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenerationJob'
-          description: ''
+          description: Generation job details.
         '403':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Missing or invalid API key.
         '404':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
-          description: ''
+          description: Generation job not found.
   /api/v1/health/:
     get:
       operationId: v1_health_retrieve
+      description: Public health-check endpoint used to verify that the Content Generator
+        API is online and responding.
+      summary: Check API health
       tags:
       - System
-      security:
-      - cookieAuth: []
-      - basicAuth: []
-      - {}
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
-          description: ''
+              examples:
+                HealthyService:
+                  value:
+                    status: ok
+                    service: content-generator
+                  summary: Healthy service
+          description: The API service is online.
 components:
   schemas:
     APIError:
@@ -374,6 +630,207 @@ components:
       - title
       - topic
       - updated_at
+    ContentExportItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        generated_content:
+          type: string
+          readOnly: true
+        prompt:
+          type: string
+          readOnly: true
+        content_hash:
+          type: string
+          readOnly: true
+        language:
+          nullable: true
+          readOnly: true
+        topic:
+          nullable: true
+          readOnly: true
+        audience:
+          nullable: true
+          readOnly: true
+        goal:
+          nullable: true
+          readOnly: true
+        prompt_template:
+          nullable: true
+          readOnly: true
+        rules:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ContentStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - audience
+      - content_hash
+      - created_at
+      - generated_content
+      - goal
+      - id
+      - language
+      - prompt
+      - prompt_template
+      - rules
+      - status
+      - title
+      - topic
+      - updated_at
+    ContentExportRequestRequest:
+      type: object
+      properties:
+        count:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 1
+          description: Maximum number of matching existing contents to return.
+        delay_seconds:
+          type: number
+          format: double
+          maximum: 60
+          minimum: 0
+          default: 0.0
+          description: Accepted for request compatibility. It is not used for pull-based
+            exports.
+        languages:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of Language IDs.
+        topics:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of Topic IDs.
+        audiences:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of Audience IDs.
+        goals:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of Goal IDs.
+        rules:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all", an empty array for no rule filter, or an array of
+            Content Rule IDs.
+        prompt_templates:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of Prompt Template IDs.
+    ContentExportResponse:
+      type: object
+      properties:
+        client:
+          type: string
+        requested:
+          type: integer
+        exported:
+          type: integer
+        remaining:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentExportItem'
+      required:
+      - client
+      - exported
+      - items
+      - remaining
+      - requested
     ContentList:
       type: object
       properties:
@@ -433,6 +890,33 @@ components:
         * `draft` - Draft
         * `generated` - Generated
         * `published` - Published
+    DatasetCollection:
+      type: object
+      properties:
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/LanguageDataset'
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamedDataset'
+        audiences:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamedDataset'
+        goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamedDataset'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamedDataset'
+        prompt_templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamedDataset'
     GenerationJob:
       type: object
       properties:
@@ -445,6 +929,18 @@ components:
         delay_seconds:
           type: number
           format: double
+          readOnly: true
+        languages:
+          readOnly: true
+        topics:
+          readOnly: true
+        audiences:
+          readOnly: true
+        goals:
+          readOnly: true
+        rules:
+          readOnly: true
+        prompt_templates:
           readOnly: true
         generated_count:
           type: integer
@@ -474,16 +970,22 @@ components:
           format: date-time
           readOnly: true
       required:
+      - audiences
       - count
       - created_at
       - current_step
       - delay_seconds
       - error_message
       - generated_count
+      - goals
       - id
+      - languages
       - progress_percent
+      - prompt_templates
+      - rules
       - skipped_count
       - status
+      - topics
       - updated_at
     GenerationJobActionResponse:
       type: object
@@ -495,15 +997,15 @@ components:
       required:
       - job
       - message
-    GenerationJobCreate:
+    GenerationJobCreateRequest:
       type: object
       properties:
         count:
           type: integer
-          maximum: 100
+          maximum: 10000
           minimum: 1
           default: 1
-          description: Number of contents to generate. Maximum is 100 per API request.
+          description: Number of contents to generate. Maximum is 10,000 per API request.
         delay_seconds:
           type: number
           format: double
@@ -511,6 +1013,103 @@ components:
           minimum: 0
           default: 1.0
           description: Delay between each generated content.
+        languages:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of active Language IDs.
+        topics:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of active Topic IDs.
+        audiences:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of active Audience IDs.
+        goals:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of active Goal IDs.
+        rules:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all", an array of active Content Rule IDs, or an empty
+            array to use no rules.
+        prompt_templates:
+          oneOf:
+          - type: string
+            enum:
+            - all
+            example: all
+          - type: array
+            items:
+              type: integer
+              minimum: 1
+            example:
+            - 1
+            - 2
+            - 3
+          default: all
+          description: Use "all" or an array of active Prompt Template IDs.
     GenerationJobStatusEnum:
       enum:
       - pending
@@ -535,6 +1134,34 @@ components:
       required:
       - service
       - status
+    LanguageDataset:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+      required:
+      - code
+      - id
+      - name
+    NamedDataset:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - name
   securitySchemes:
     basicAuth:
       type: http
@@ -543,3 +1170,17 @@ components:
       type: apiKey
       in: cookie
       name: sessionid
+tags:
+- name: Authentication
+  description: API key authentication requirements and usage instructions.
+- name: Generation Jobs
+  description: Create, start, stop, resume, restart, and monitor AI generation jobs.
+- name: Generated Contents
+  description: Retrieve generated content records and their metadata.
+- name: Datasets
+  description: Retrieve available Languages, Topics, Audiences, Goals, Prompt Templates,
+    and Content Rules.
+- name: App Settings
+  description: Read and update application and automatic generation settings.
+- name: System
+  description: System health, version, and maintenance endpoints.

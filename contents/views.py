@@ -1,6 +1,7 @@
-from django.db import transaction
-from django.db.models import Q
+from django.db import IntegrityError, transaction
+from django.db.models import Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
@@ -23,6 +24,7 @@ from rest_framework.views import APIView
 from .models import (
     Audience,
     Content,
+    ContentExport,
     ContentRule,
     GenerationJob,
     Goal,
@@ -34,6 +36,9 @@ from .permissions import HasValidAPIKey
 from .serializers import (
     APIErrorSerializer,
     ContentDetailSerializer,
+    ContentExportItemSerializer,
+    ContentExportRequestSerializer,
+    ContentExportResponseSerializer,
     ContentListSerializer,
     GenerationJobActionResponseSerializer,
     GenerationJobCreateSerializer,
@@ -847,3 +852,187 @@ class ContentDetailAPIView(RetrieveAPIView):
         )
         .all()
     )
+
+@extend_schema(
+    tags=["Content Export"],
+    parameters=[
+        API_KEY_HEADER,
+    ],
+)
+class ContentExportAPIView(APIView):
+    permission_classes = [HasValidAPIKey]
+
+    filter_map = {
+        "languages": "language_id__in",
+        "topics": "topic_id__in",
+        "audiences": "audience_id__in",
+        "goals": "goal_id__in",
+        "prompt_templates": "prompt_template_id__in",
+    }
+
+    def _build_queryset(self, validated_data, client):
+        successful_export = (
+            ContentExport.objects
+            .filter(
+                client=client,
+                content_id=OuterRef("pk"),
+                content_hash=OuterRef("content_hash"),
+                status="success",
+            )
+        )
+
+        queryset = (
+            Content.objects
+            .filter(status="generated")
+            .annotate(
+                already_exported=Exists(successful_export)
+            )
+            .filter(already_exported=False)
+            .select_related(
+                "language",
+                "topic",
+                "audience",
+                "goal",
+                "prompt_template",
+            )
+            .prefetch_related("rules")
+            .order_by("id")
+        )
+
+        for request_field, lookup in self.filter_map.items():
+            selection = validated_data[request_field]
+
+            if selection != "all":
+                queryset = queryset.filter(
+                    **{
+                        lookup: selection,
+                    }
+                )
+
+        rule_selection = validated_data["rules"]
+
+        if (
+            rule_selection != "all"
+            and rule_selection
+        ):
+            queryset = queryset.filter(
+                rules__id__in=rule_selection,
+            ).distinct()
+
+        return queryset
+
+    @extend_schema(
+        summary="Export existing contents for the current client",
+        description=(
+            "Returns matching existing generated contents instead of "
+            "creating a new generation job. The API key identifies the "
+            "destination client. A content version already exported "
+            "successfully to the same client is not returned again. "
+            "The same version remains available to other clients."
+        ),
+        request=ContentExportRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=ContentExportResponseSerializer,
+                description=(
+                    "Matching contents were exported and recorded."
+                ),
+            ),
+            400: OpenApiResponse(
+                response=APIErrorSerializer,
+                description="Invalid filters or request body.",
+            ),
+            403: OpenApiResponse(
+                response=APIErrorSerializer,
+                description="Missing or invalid client API key.",
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                name="Export selected existing contents",
+                value={
+                    "count": 2,
+                    "delay_seconds": 0,
+                    "languages": [1],
+                    "topics": [15],
+                    "audiences": [2],
+                    "goals": [8],
+                    "rules": [],
+                    "prompt_templates": [1],
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Export from all datasets",
+                value={
+                    "count": 100,
+                    "delay_seconds": 0,
+                    "languages": "all",
+                    "topics": "all",
+                    "audiences": "all",
+                    "goals": "all",
+                    "rules": "all",
+                    "prompt_templates": "all",
+                },
+                request_only=True,
+            ),
+        ],
+    )
+    def post(self, request):
+        request_serializer = ContentExportRequestSerializer(
+            data=request.data,
+        )
+        request_serializer.is_valid(raise_exception=True)
+
+        validated_data = request_serializer.validated_data
+        requested_count = validated_data["count"]
+        client = request.client
+
+        exported_contents = []
+
+        with transaction.atomic():
+            queryset = self._build_queryset(
+                validated_data,
+                client,
+            ).select_for_update(of=("self",))
+
+            candidates = list(
+                queryset[:requested_count]
+            )
+
+            for content in candidates:
+                try:
+                    ContentExport.objects.create(
+                        content=content,
+                        client=client,
+                        content_hash=content.content_hash,
+                        status="success",
+                        exported_at=timezone.now(),
+                    )
+                except IntegrityError:
+                    continue
+
+                exported_contents.append(content)
+
+            remaining_queryset = self._build_queryset(
+                validated_data,
+                client,
+            )
+            remaining = remaining_queryset.count()
+
+        return Response(
+            {
+            "client": client.code,
+            "requested": requested_count,
+            "exported": len(exported_contents),
+            "remaining": remaining,
+            "items": ContentExportItemSerializer(
+                exported_contents,
+                many=True,
+            ).data,
+        },
+        status=status.HTTP_200_OK,
+        )
+
+
+

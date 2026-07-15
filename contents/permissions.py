@@ -1,6 +1,6 @@
 from rest_framework.permissions import BasePermission
 
-from .models import AppSettings
+from .models import ExternalClient
 
 
 class HasValidAPIKey(BasePermission):
@@ -12,16 +12,18 @@ class HasValidAPIKey(BasePermission):
         if not api_key:
             return False
 
-        app_settings = (
-            AppSettings.objects
+        client = (
+            ExternalClient.objects
             .filter(
+                api_key=api_key,
                 is_active=True,
-                api_secret_key=api_key,
             )
             .first()
         )
 
-        if not app_settings:
+        if client is None:
             return False
+
+        request.client = client
 
         return True
