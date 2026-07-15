@@ -23,6 +23,10 @@ from contents.models import GenerationJob
 from contents.permissions import HasValidAPIKey
 from contents.tasks import run_generation_job_task
 from contents.core_services.idempotency import execute_idempotent
+from contents.core_services.client_limits import (
+    lock_client_limit,
+    validate_generation_limits,
+)
 
 
 API_KEY_HEADER = OpenApiParameter(
@@ -163,6 +167,14 @@ class GenerationJobListCreateAPIView(APIView):
         )
 
         with transaction.atomic():
+            lock_client_limit(request.client.pk, "generation")
+            limit_response = validate_generation_limits(
+                request.client,
+                serializer.validated_data["count"],
+            )
+            if limit_response is not None:
+                return limit_response
+
             job = serializer.save(
                 external_client=request.client,
             )

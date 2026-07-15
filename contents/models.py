@@ -178,6 +178,12 @@ class ExternalClient(models.Model):
         db_index=True,
     )
 
+    limits_enabled = models.BooleanField(default=False)
+    requests_per_minute = models.PositiveIntegerField(null=True, blank=True)
+    daily_export_item_quota = models.PositiveIntegerField(null=True, blank=True)
+    max_active_generation_jobs = models.PositiveIntegerField(null=True, blank=True)
+    max_generation_content_count = models.PositiveIntegerField(null=True, blank=True)
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )

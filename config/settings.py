@@ -307,6 +307,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "contents.throttles.ExternalClientRateThrottle",
+    ],
 }
 
 

@@ -22,6 +22,10 @@ from contents.api.serializers.system import APIErrorSerializer
 from contents.models import Content, ContentExport
 from contents.permissions import HasValidAPIKey
 from contents.core_services.idempotency import execute_idempotent
+from contents.core_services.client_limits import (
+    lock_client_limit,
+    remaining_daily_export_quota,
+)
 
 
 API_KEY_HEADER = OpenApiParameter(
@@ -181,6 +185,18 @@ class ContentExportAPIView(APIView):
         exported_contents = []
 
         with transaction.atomic():
+            lock_client_limit(client.pk, "export")
+            remaining_quota = remaining_daily_export_quota(client)
+            if remaining_quota == 0:
+                return Response(
+                    {"detail": "Daily export item quota exceeded."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+            effective_count = (
+                requested_count
+                if remaining_quota is None
+                else min(requested_count, remaining_quota)
+            )
             candidate_ids = list(
                 self._build_queryset(
                     validated_data,
@@ -188,7 +204,7 @@ class ContentExportAPIView(APIView):
                 ).values_list(
                     "id",
                     flat=True,
-                )[:requested_count]
+                )[:effective_count]
             )
 
             candidates = list(
