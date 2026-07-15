@@ -376,6 +376,10 @@ class GenerationJobSerializer(serializers.ModelSerializer):
         if getattr(obj, use_all_field):
             return "all"
 
+        prefetched = getattr(obj, f"active_{relation_name}", None)
+        if prefetched is not None:
+            return [item.id for item in prefetched]
+
         return list(
             getattr(obj, relation_name)
             .filter(is_active=True)

@@ -346,7 +346,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
             [job.id for job in reversed(jobs[1:])],
         )
 
-    def test_list_currently_performs_six_selection_queries_per_explicit_job(self):
+    def test_list_selection_queries_remain_constant_for_multiple_jobs(self):
         GenerationJob.objects.create(external_client=self.active_client)
         GenerationJob.objects.create(external_client=self.active_client)
 
@@ -366,7 +366,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
             and "contents_generationjob_" not in query["sql"]
         ]
         self.assertEqual(len(job_queries), 1)
-        self.assertEqual(len(selection_queries), 12)
+        self.assertEqual(len(selection_queries), 6)
 
     def test_create_serializer_exact_defaults(self):
         serializer = GenerationJobCreateSerializer(data={})

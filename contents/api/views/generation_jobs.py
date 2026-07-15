@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 
 from drf_spectacular.types import OpenApiTypes
@@ -19,7 +20,15 @@ from contents.api.serializers.generation_jobs import (
     GenerationJobSerializer,
 )
 from contents.api.serializers.system import APIErrorSerializer
-from contents.models import GenerationJob
+from contents.models import (
+    Audience,
+    ContentRule,
+    GenerationJob,
+    Goal,
+    Language,
+    PromptTemplate,
+    Topic,
+)
 from contents.permissions import HasValidAPIKey
 from contents.tasks import run_generation_job_task
 from contents.core_services.idempotency import execute_idempotent
@@ -81,6 +90,38 @@ class GenerationJobListCreateAPIView(APIView):
         jobs = (
             GenerationJob.objects
             .filter(external_client=request.client)
+            .prefetch_related(
+                Prefetch(
+                    "languages",
+                    queryset=Language.objects.filter(is_active=True).order_by("id"),
+                    to_attr="active_languages",
+                ),
+                Prefetch(
+                    "topics",
+                    queryset=Topic.objects.filter(is_active=True).order_by("id"),
+                    to_attr="active_topics",
+                ),
+                Prefetch(
+                    "audiences",
+                    queryset=Audience.objects.filter(is_active=True).order_by("id"),
+                    to_attr="active_audiences",
+                ),
+                Prefetch(
+                    "goals",
+                    queryset=Goal.objects.filter(is_active=True).order_by("id"),
+                    to_attr="active_goals",
+                ),
+                Prefetch(
+                    "rules",
+                    queryset=ContentRule.objects.filter(is_active=True).order_by("id"),
+                    to_attr="active_rules",
+                ),
+                Prefetch(
+                    "prompt_templates",
+                    queryset=PromptTemplate.objects.filter(is_active=True).order_by("id"),
+                    to_attr="active_prompt_templates",
+                ),
+            )
             .order_by("-created_at")[:100]
         )
 
