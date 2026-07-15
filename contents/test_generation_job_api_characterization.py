@@ -576,7 +576,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 delay.assert_called_once_with(job.id)
                 job.refresh_from_db()
-                self.assertEqual(job.status, "pending")
+                self.assertEqual(job.status, "running")
                 self.assertFalse(job.should_stop)
                 self.assertEqual(job.error_message, "")
                 self.assertEqual(job.generated_count, generated)

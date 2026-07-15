@@ -308,72 +308,73 @@ class GenerationJobStartAPIView(GenericAPIView):
         ],
     )
     def post(self, request, job_id):
-        job = get_object_or_404(
-            GenerationJob,
-            id=job_id,
-        )
+        with transaction.atomic():
+            job = get_object_or_404(
+                GenerationJob.objects.select_for_update(),
+                id=job_id,
+            )
 
-        if job.status == "running":
-            return Response(
+            if job.status == "running":
+                return Response(
+                    {
+                        "detail": (
+                            f"Job #{job.id} is already running."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if job.generated_count >= job.count:
+                return Response(
+                    {
+                        "detail": (
+                            f"Job #{job.id} is already completed "
+                            f"({job.generated_count}/{job.count})."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            has_existing_progress = (
+                job.generated_count > 0
+                or job.skipped_count > 0
+                or job.current_step > 0
+            )
+
+            job.status = "running"
+            job.should_stop = False
+            job.error_message = ""
+
+            job.save(
+                update_fields=[
+                    "status",
+                    "should_stop",
+                    "error_message",
+                    "updated_at",
+                ]
+            )
+
+            transaction.on_commit(
+                lambda: run_generation_job_task.delay(
+                    job.id
+                )
+            )
+
+            action_text = (
+                "resumed"
+                if has_existing_progress
+                else "started"
+            )
+
+            response_serializer = self.get_serializer(
                 {
-                    "detail": (
-                        f"Job #{job.id} is already running."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+                    "message": (
+                        f"Generation job #{job.id} "
+                        f"{action_text}."
+                    ),
+                    "job": job,
+                }
             )
-
-        if job.generated_count >= job.count:
-            return Response(
-                {
-                    "detail": (
-                        f"Job #{job.id} is already completed "
-                        f"({job.generated_count}/{job.count})."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        has_existing_progress = (
-            job.generated_count > 0
-            or job.skipped_count > 0
-            or job.current_step > 0
-        )
-
-        job.status = "pending"
-        job.should_stop = False
-        job.error_message = ""
-
-        job.save(
-            update_fields=[
-                "status",
-                "should_stop",
-                "error_message",
-                "updated_at",
-            ]
-        )
-
-        transaction.on_commit(
-            lambda: run_generation_job_task.delay(
-                job.id
-            )
-        )
-
-        action_text = (
-            "resumed"
-            if has_existing_progress
-            else "started"
-        )
-
-        response_serializer = self.get_serializer(
-            {
-                "message": (
-                    f"Generation job #{job.id} "
-                    f"{action_text}."
-                ),
-                "job": job,
-            }
-        )
 
         return Response(
             response_serializer.data,
@@ -439,48 +440,49 @@ class GenerationJobStopAPIView(GenericAPIView):
         ],
     )
     def post(self, request, job_id):
-        job = get_object_or_404(
-            GenerationJob,
-            id=job_id,
-        )
-
-        if job.status not in [
-            "pending",
-            "running",
-        ]:
-            return Response(
-                {
-                    "detail": (
-                        f"Job #{job.id} is not pending "
-                        "or running."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+        with transaction.atomic():
+            job = get_object_or_404(
+                GenerationJob.objects.select_for_update(),
+                id=job_id,
             )
 
-        job.should_stop = True
-        job.status = "stopped"
-        job.error_message = (
-            "Job stopped by external API."
-        )
+            if job.status not in [
+                "pending",
+                "running",
+            ]:
+                return Response(
+                    {
+                        "detail": (
+                            f"Job #{job.id} is not pending "
+                            "or running."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        job.save(
-            update_fields=[
-                "should_stop",
-                "status",
-                "error_message",
-                "updated_at",
-            ]
-        )
+            job.should_stop = True
+            job.status = "stopped"
+            job.error_message = (
+                "Job stopped by external API."
+            )
 
-        response_serializer = self.get_serializer(
-            {
-                "message": (
-                    f"Generation job #{job.id} stopped."
-                ),
-                "job": job,
-            }
-        )
+            job.save(
+                update_fields=[
+                    "should_stop",
+                    "status",
+                    "error_message",
+                    "updated_at",
+                ]
+            )
+
+            response_serializer = self.get_serializer(
+                {
+                    "message": (
+                        f"Generation job #{job.id} stopped."
+                    ),
+                    "job": job,
+                }
+            )
 
         return Response(
             response_serializer.data,
