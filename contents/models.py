@@ -462,6 +462,31 @@ class ContentDelivery(models.Model):
         )
 
 
+class APIIdempotencyRecord(models.Model):
+    client = models.ForeignKey(
+        ExternalClient,
+        on_delete=models.CASCADE,
+        related_name="idempotency_records",
+    )
+    operation = models.CharField(max_length=100)
+    key = models.CharField(max_length=255)
+    request_fingerprint = models.CharField(max_length=64)
+    response_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    response_payload = models.JSONField(null=True, blank=True)
+    resource_type = models.CharField(max_length=50, blank=True, default="")
+    resource_id = models.PositiveBigIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "operation", "key"],
+                name="unique_api_idempotency_key_per_client_operation",
+            ),
+        ]
+
+
 class GenerationJob(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),

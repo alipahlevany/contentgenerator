@@ -21,6 +21,7 @@ from contents.api.serializers.export import (
 from contents.api.serializers.system import APIErrorSerializer
 from contents.models import Content, ContentExport
 from contents.permissions import HasValidAPIKey
+from contents.core_services.idempotency import execute_idempotent
 
 
 API_KEY_HEADER = OpenApiParameter(
@@ -161,6 +162,13 @@ class ContentExportAPIView(APIView):
         ],
     )
     def post(self, request):
+        return execute_idempotent(
+            request,
+            "content-export",
+            lambda: self._export(request),
+        )
+
+    def _export(self, request):
         request_serializer = ContentExportRequestSerializer(
             data=request.data,
         )

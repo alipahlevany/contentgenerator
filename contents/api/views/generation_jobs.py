@@ -22,6 +22,7 @@ from contents.api.serializers.system import APIErrorSerializer
 from contents.models import GenerationJob
 from contents.permissions import HasValidAPIKey
 from contents.tasks import run_generation_job_task
+from contents.core_services.idempotency import execute_idempotent
 
 
 API_KEY_HEADER = OpenApiParameter(
@@ -146,6 +147,13 @@ class GenerationJobListCreateAPIView(APIView):
         ],
     )
     def post(self, request):
+        return execute_idempotent(
+            request,
+            "generation-job-create",
+            lambda: self._create_job(request),
+        )
+
+    def _create_job(self, request):
         serializer = GenerationJobCreateSerializer(
             data=request.data,
         )
