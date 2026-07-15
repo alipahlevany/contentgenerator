@@ -1,4 +1,3 @@
-import inspect
 from unittest.mock import patch
 
 from django.db import connection
@@ -21,7 +20,6 @@ from contents.models import (
     Topic,
 )
 from contents.permissions import HasValidAPIKey
-from contents.tasks import send_model_data_to_api
 
 
 class ExternalClientIsolationCharacterizationTests(TestCase):
@@ -387,25 +385,9 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
 
         self.assertIsNone(job.external_client)
 
-    def test_content_delivery_ignores_clients_and_callback_urls(self):
+    def test_content_save_does_not_trigger_delivery(self):
         with patch("contents.tasks.send_model_data_to_api.delay") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 self.create_content("delivery")
 
-        delay.assert_called_once_with(
-            "Content delivery",
-            "Body delivery",
-            "Technology",
-        )
-
-        model_source = inspect.getsource(Content.save)
-        task_source = inspect.getsource(send_model_data_to_api)
-        combined_source = model_source + task_source
-
-        self.assertNotIn("callback_url", combined_source)
-        self.assertNotIn("ExternalClient", combined_source)
-        self.assertIn(
-            'url = "https://melal.org/createContentAPIView/"',
-            task_source,
-        )
-        self.assertIn('os.getenv("mta_api_key")', task_source)
+        delay.assert_not_called()

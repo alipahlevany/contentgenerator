@@ -2,7 +2,7 @@ import secrets
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models, transaction
+from django.db import models
 
 
 class Topic(models.Model):
@@ -294,27 +294,6 @@ class Content(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     updated_at = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-
-        super().save(*args, **kwargs)
-
-        if is_new:
-            title = self.title
-            generated_content = self.generated_content
-            topic_name = self.topic.name if self.topic else ""
-
-            def send_model_data():
-                from .tasks import send_model_data_to_api
-
-                send_model_data_to_api.delay(
-                    title,
-                    generated_content,
-                    topic_name,
-                )
-
-            transaction.on_commit(send_model_data)
 
     def __str__(self):
         return self.title
