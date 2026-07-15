@@ -1,3 +1,4 @@
+from .content import ContentDetailSerializer, ContentListSerializer
 from .datasets import (
     DatasetCollectionSerializer,
     LanguageDatasetSerializer,
@@ -8,6 +9,8 @@ from .system import APIErrorSerializer, HealthCheckSerializer
 
 __all__ = [
     "APIErrorSerializer",
+    "ContentDetailSerializer",
+    "ContentListSerializer",
     "DatasetCollectionSerializer",
     "HealthCheckSerializer",
     "LanguageDatasetSerializer",

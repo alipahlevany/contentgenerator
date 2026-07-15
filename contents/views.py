@@ -1,5 +1,5 @@
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -14,13 +14,17 @@ from drf_spectacular.utils import (
 from rest_framework import status
 from rest_framework.generics import (
     GenericAPIView,
-    ListAPIView,
     RetrieveAPIView,
 )
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .api.views import DatasetAPIView, HealthCheckAPIView
+from .api.views import (
+    ContentDetailAPIView,
+    ContentListAPIView,
+    DatasetAPIView,
+    HealthCheckAPIView,
+)
 from .models import (
     Content,
     ContentExport,
@@ -29,11 +33,9 @@ from .models import (
 from .permissions import HasValidAPIKey
 from .serializers import (
     APIErrorSerializer,
-    ContentDetailSerializer,
     ContentExportItemSerializer,
     ContentExportRequestSerializer,
     ContentExportResponseSerializer,
-    ContentListSerializer,
     GenerationJobActionResponseSerializer,
     GenerationJobCreateSerializer,
     GenerationJobSerializer,
@@ -59,34 +61,6 @@ JOB_ID_PARAMETER = OpenApiParameter(
     required=True,
     description="Unique numeric ID of the generation job.",
 )
-
-CONTENT_STATUS_PARAMETER = OpenApiParameter(
-    name="status",
-    type=OpenApiTypes.STR,
-    location=OpenApiParameter.QUERY,
-    required=False,
-    enum=[
-        "draft",
-        "generated",
-        "published",
-    ],
-    description=(
-        "Optional content status filter. Supported values are "
-        "`draft`, `generated`, and `published`."
-    ),
-)
-
-CONTENT_SEARCH_PARAMETER = OpenApiParameter(
-    name="q",
-    type=OpenApiTypes.STR,
-    location=OpenApiParameter.QUERY,
-    required=False,
-    description=(
-        "Optional case-insensitive search query. Searches the title, "
-        "prompt, and generated content fields."
-    ),
-)
-
 
 @extend_schema(
     tags=["Generation Jobs"],
@@ -522,128 +496,6 @@ class GenerationJobStopAPIView(GenericAPIView):
 
 
 @extend_schema(
-    tags=["Generated Contents"],
-    summary="List generated contents",
-    description=(
-        "Returns up to 100 of the latest generated content records.\n\n"
-        "The results can optionally be filtered by content status or "
-        "searched using the `q` query parameter."
-    ),
-    parameters=[
-        API_KEY_HEADER,
-        CONTENT_STATUS_PARAMETER,
-        CONTENT_SEARCH_PARAMETER,
-    ],
-    responses={
-        200: OpenApiResponse(
-            response=ContentListSerializer(many=True),
-            description="Latest generated content records.",
-        ),
-        403: OpenApiResponse(
-            response=APIErrorSerializer,
-            description="Missing or invalid API key.",
-        ),
-    },
-)
-class ContentListAPIView(ListAPIView):
-    permission_classes = [HasValidAPIKey]
-    serializer_class = ContentListSerializer
-
-    def get_queryset(self):
-        queryset = (
-            Content.objects
-            .select_related(
-                "language",
-                "topic",
-                "audience",
-                "goal",
-                "prompt_template",
-            )
-            .all()
-            .order_by("-created_at")
-        )
-
-        content_status = (
-            self.request.query_params.get(
-                "status"
-            )
-        )
-
-        search_query = (
-            self.request.query_params.get(
-                "q"
-            )
-        )
-
-        if content_status:
-            queryset = queryset.filter(
-                status=content_status,
-            )
-
-        if search_query:
-            queryset = queryset.filter(
-                Q(
-                    title__icontains=search_query
-                )
-                | Q(
-                    prompt__icontains=search_query
-                )
-                | Q(
-                    generated_content__icontains=(
-                        search_query
-                    )
-                )
-            )
-
-        return queryset[:100]
-
-
-@extend_schema(
-    tags=["Generated Contents"],
-    summary="Retrieve generated content details",
-    description=(
-        "Returns one generated content record, including its title, "
-        "body, prompt, language, topic, audience, goal, prompt template, "
-        "content rules, status, and timestamps."
-    ),
-    parameters=[
-        API_KEY_HEADER,
-    ],
-    responses={
-        200: OpenApiResponse(
-            response=ContentDetailSerializer,
-            description="Generated content details.",
-        ),
-        403: OpenApiResponse(
-            response=APIErrorSerializer,
-            description="Missing or invalid API key.",
-        ),
-        404: OpenApiResponse(
-            response=APIErrorSerializer,
-            description="Generated content not found.",
-        ),
-    },
-)
-class ContentDetailAPIView(RetrieveAPIView):
-    permission_classes = [HasValidAPIKey]
-    serializer_class = ContentDetailSerializer
-
-    queryset = (
-        Content.objects
-        .select_related(
-            "language",
-            "topic",
-            "audience",
-            "goal",
-            "prompt_template",
-        )
-        .prefetch_related(
-            "rules"
-        )
-        .all()
-    )
-
-@extend_schema(
     tags=["Content Export"],
     parameters=[
         API_KEY_HEADER,
@@ -823,5 +675,4 @@ class ContentExportAPIView(APIView):
         },
         status=status.HTTP_200_OK,
         )
-
 
