@@ -633,26 +633,95 @@ class ContentExportAPIView(APIView):
         exported_contents = []
 
         with transaction.atomic():
-            queryset = self._build_queryset(
-                validated_data,
-                client,
-            ).select_for_update(of=("self",))
+            candidate_ids = list(
+                self._build_queryset(
+                    validated_data,
+                    client,
+                ).values_list(
+                    "id",
+                    flat=True,
+                )[:requested_count]
+            )
 
             candidates = list(
-                queryset[:requested_count]
+                Content.objects
+                .filter(id__in=candidate_ids)
+                .select_for_update(of=("self",))
+                .select_related(
+                    "language",
+                    "topic",
+                    "audience",
+                    "goal",
+                    "prompt_template",
+                )
+                .prefetch_related("rules")
+                .order_by("id")
             )
 
             for content in candidates:
-                try:
-                    ContentExport.objects.create(
+                export = (
+                    ContentExport.objects
+                    .filter(
                         content=content,
                         client=client,
                         content_hash=content.content_hash,
-                        status="success",
-                        exported_at=timezone.now(),
                     )
-                except IntegrityError:
-                    continue
+                    .first()
+                )
+
+                if export is not None:
+                    if export.status == "success":
+                        continue
+
+                    export.status = "success"
+                    export.exported_at = timezone.now()
+                    export.error_message = ""
+                    export.save(
+                        update_fields=[
+                            "status",
+                            "exported_at",
+                            "error_message",
+                            "updated_at",
+                        ]
+                    )
+                else:
+                    try:
+                        with transaction.atomic():
+                            ContentExport.objects.create(
+                                content=content,
+                                client=client,
+                                content_hash=content.content_hash,
+                                status="success",
+                                exported_at=timezone.now(),
+                            )
+                    except IntegrityError:
+                        export = (
+                            ContentExport.objects
+                            .filter(
+                                content=content,
+                                client=client,
+                                content_hash=content.content_hash,
+                            )
+                            .first()
+                        )
+
+                        if export is None:
+                            raise
+
+                        if export.status == "success":
+                            continue
+
+                        export.status = "success"
+                        export.exported_at = timezone.now()
+                        export.error_message = ""
+                        export.save(
+                            update_fields=[
+                                "status",
+                                "exported_at",
+                                "error_message",
+                                "updated_at",
+                            ]
+                        )
 
                 exported_contents.append(content)
 
@@ -675,4 +744,3 @@ class ContentExportAPIView(APIView):
         },
         status=status.HTTP_200_OK,
         )
-

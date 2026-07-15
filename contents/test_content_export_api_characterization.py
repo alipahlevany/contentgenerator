@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
-from django.db import IntegrityError, NotSupportedError, connection, transaction
-from django.db.transaction import TransactionManagementError
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase, TransactionTestCase
 from django.urls import resolve, reverse
 from django.utils import timezone
@@ -405,33 +404,38 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
         self.assertEqual(other_client.json()["exported"], 1)
         self.assertEqual(other_client.json()["items"][0]["id"], content.id)
 
-    def test_pending_and_failed_ledgers_are_considered_eligible_by_query(self):
+    def test_pending_and_failed_ledgers_are_reused_as_successful_exports(self):
         pending_content = self.create_content(title="Pending ledger")
         failed_content = self.create_content(title="Failed ledger")
-        ContentExport.objects.create(
+        pending_export = ContentExport.objects.create(
             content=pending_content,
             client=self.client_a,
             content_hash=pending_content.content_hash,
             status="pending",
+            error_message="Pending error",
         )
-        ContentExport.objects.create(
+        failed_export = ContentExport.objects.create(
             content=failed_content,
             client=self.client_a,
             content_hash=failed_content.content_hash,
             status="failed",
-        )
-        serializer = ContentExportRequestSerializer(data={})
-        self.assertTrue(serializer.is_valid())
-
-        queryset = ContentExportAPIView()._build_queryset(
-            serializer.validated_data,
-            self.client_a,
+            error_message="Failed error",
         )
 
+        response = self.export({"count": 2}, client=self.client_a)
+
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            list(queryset.values_list("id", flat=True)),
+            [item["id"] for item in response.json()["items"]],
             [pending_content.id, failed_content.id],
         )
+        pending_export.refresh_from_db()
+        failed_export.refresh_from_db()
+        for export in (pending_export, failed_export):
+            self.assertEqual(export.status, "success")
+            self.assertIsNotNone(export.exported_at)
+            self.assertEqual(export.error_message, "")
+        self.assertEqual(ContentExport.objects.count(), 2)
 
     def test_changed_content_hash_is_exportable_as_a_new_version(self):
         content = self.create_content(content_hash="version-one")
@@ -563,7 +567,7 @@ class ContentExportTransactionCharacterizationTests(
             with transaction.atomic():
                 ContentExport.objects.create(**values)
 
-    def test_current_view_collision_handling_leaves_transaction_broken(self):
+    def test_unexplained_collision_is_not_swallowed_and_outer_transaction_recovers(self):
         self.create_content()
         original_create = ContentExport.objects.create
 
@@ -576,7 +580,7 @@ class ContentExportTransactionCharacterizationTests(
             "create",
             side_effect=create_then_collide,
         ):
-            with self.assertRaises(TransactionManagementError):
+            with self.assertRaises(IntegrityError):
                 self.api.post(
                     self.url,
                     {"count": 1},
@@ -586,19 +590,21 @@ class ContentExportTransactionCharacterizationTests(
 
         self.assertEqual(ContentExport.objects.count(), 0)
 
-    def test_current_explicit_rules_endpoint_is_rejected_by_postgresql(self):
+    def test_explicit_rules_endpoint_exports_on_postgresql(self):
         content = self.create_content()
         content.rules.add(self.rule_one)
 
-        with self.assertRaises(NotSupportedError):
-            self.api.post(
-                self.url,
-                {
-                    "count": 1,
-                    "rules": [self.rule_one.id],
-                },
-                format="json",
-                HTTP_X_API_KEY=self.client_record.api_key,
-            )
+        response = self.api.post(
+            self.url,
+            {
+                "count": 1,
+                "rules": [self.rule_one.id],
+            },
+            format="json",
+            HTTP_X_API_KEY=self.client_record.api_key,
+        )
 
-        self.assertEqual(ContentExport.objects.count(), 0)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["exported"], 1)
+        self.assertEqual(response.json()["items"][0]["id"], content.id)
+        self.assertEqual(ContentExport.objects.count(), 1)
