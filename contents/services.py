@@ -1,6 +1,8 @@
 import re
 import time
 
+from django.utils import timezone
+
 from .core_services.ai import generate_content
 from .core_services.cache import get_app_settings, get_blocked_keywords
 from .core_services.cleaner import normalize
@@ -150,8 +152,12 @@ def run_generation_job(job_id):
         ) = get_job_generation_pool(job)
 
         target_count = job.count
-        max_attempts = max(target_count * 10, 50)
-        attempts = 0
+        max_attempts = job.max_attempts or max(
+            target_count * app_settings.generation_attempt_multiplier,
+            app_settings.generation_minimum_attempts,
+        )
+        max_runtime_seconds = app_settings.generation_max_runtime_seconds
+        run_started_at = time.monotonic()
 
         log_job(
             job,
@@ -169,14 +175,29 @@ def run_generation_job(job_id):
 
         while (
             job.generated_count < target_count
-            and attempts < max_attempts
+            and job.attempted_count < max_attempts
         ):
-            attempts += 1
             job.refresh_from_db()
 
             if job.should_stop:
                 mark_job_stopped(job)
                 return
+
+            if time.monotonic() - run_started_at >= max_runtime_seconds:
+                fail_job(
+                    job,
+                    (
+                        "Generation runtime limit reached. "
+                        f"Generated: {job.generated_count}/{target_count}."
+                    ),
+                )
+                return
+
+            job.attempted_count += 1
+            job.last_attempt_at = timezone.now()
+            job.save(
+                update_fields=["attempted_count", "last_attempt_at", "updated_at"]
+            )
 
             (
                 language,
@@ -234,6 +255,7 @@ def run_generation_job(job_id):
                     goal=goal,
                     prompt_template=prompt_template,
                     message=f"Generation attempt failed: {exc}",
+                    failure_kind="failed",
                 )
                 continue
 
@@ -248,6 +270,7 @@ def run_generation_job(job_id):
                     goal=goal,
                     prompt_template=prompt_template,
                     message="OpenAI returned empty content.",
+                    failure_kind="empty",
                 )
                 continue
 
@@ -278,6 +301,7 @@ def run_generation_job(job_id):
                             "Blocked keyword remained after cleanup: "
                             f"{remaining_keyword}"
                         ),
+                        failure_kind="failed",
                     )
                     continue
 
@@ -295,6 +319,7 @@ def run_generation_job(job_id):
                             "Generated content became empty after "
                             "blocked keyword cleanup."
                         ),
+                        failure_kind="empty",
                     )
                     continue
 
@@ -331,6 +356,7 @@ def run_generation_job(job_id):
                     message=(
                         "Content body became empty after cleanup."
                     ),
+                    failure_kind="empty",
                 )
                 continue
 
@@ -354,6 +380,7 @@ def run_generation_job(job_id):
                         "Blocked keyword found after final extraction: "
                         f"{final_blocked_keyword}"
                     ),
+                        failure_kind="failed",
                 )
                 continue
 
@@ -379,6 +406,7 @@ def run_generation_job(job_id):
                     message=(
                         f"Duplicate reason: {duplicate_reason}"
                     ),
+                    failure_kind="duplicate",
                 )
                 continue
 
@@ -425,7 +453,7 @@ def run_generation_job(job_id):
                 "Job failed before reaching target. "
                 f"Generated: {job.generated_count}/{target_count}. "
                 f"Skipped: {job.skipped_count}. "
-                f"Attempts: {attempts}/{max_attempts}."
+                f"Attempts: {job.attempted_count}/{max_attempts}."
             ),
         )
 

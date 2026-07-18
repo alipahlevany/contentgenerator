@@ -16,8 +16,21 @@ def handle_generation_failure(
     goal,
     prompt_template,
     message,
+    failure_kind=None,
 ):
     increment_skipped(job)
+
+    update_fields = []
+    if failure_kind == "duplicate":
+        job.duplicate_count += 1
+        update_fields.append("duplicate_count")
+    elif failure_kind == "empty":
+        job.empty_output_count += 1
+        update_fields.append("empty_output_count")
+    else:
+        job.failed_count += 1
+        update_fields.append("failed_count")
+    job.save(update_fields=update_fields + ["updated_at"])
 
     log_job(
         job,

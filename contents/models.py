@@ -597,6 +597,18 @@ class GenerationJob(models.Model):
 
     skipped_count = models.PositiveIntegerField(default=0)
 
+    attempted_count = models.PositiveIntegerField(default=0)
+
+    failed_count = models.PositiveIntegerField(default=0)
+
+    duplicate_count = models.PositiveIntegerField(default=0)
+
+    empty_output_count = models.PositiveIntegerField(default=0)
+
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+
+    max_attempts = models.PositiveIntegerField(null=True, blank=True)
+
     current_step = models.PositiveIntegerField(default=0)
 
     error_message = models.TextField(
@@ -680,6 +692,12 @@ class AppSettings(models.Model):
         default=100,
         validators=[MinValueValidator(1)],
     )
+
+    generation_attempt_multiplier = models.PositiveIntegerField(default=10)
+
+    generation_minimum_attempts = models.PositiveIntegerField(default=50)
+
+    generation_max_runtime_seconds = models.PositiveIntegerField(default=3600)
 
     daily_generation_hour = models.PositiveSmallIntegerField(
         default=2,
