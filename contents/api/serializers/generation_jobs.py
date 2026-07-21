@@ -75,6 +75,12 @@ class DatasetSelectionField(serializers.Field):
 
 
 class GenerationJobCreateSerializer(serializers.Serializer):
+    generation_type = serializers.ChoiceField(
+        choices=GenerationJob.GENERATION_TYPE_CHOICES,
+        default="standard",
+        help_text="Type of content generation.",
+    )
+
     count = serializers.IntegerField(
         min_value=1,
         max_value=10000,
@@ -284,6 +290,7 @@ class GenerationJobCreateSerializer(serializers.Serializer):
         job = GenerationJob.objects.create(
             count=validated_data["count"],
             delay_seconds=validated_data["delay_seconds"],
+            generation_type=validated_data["generation_type"],
             external_client=validated_data.get("external_client"),
         )
 
@@ -336,6 +343,7 @@ class GenerationJobSerializer(serializers.ModelSerializer):
             "id",
             "count",
             "delay_seconds",
+            "generation_type",
             "languages",
             "topics",
             "audiences",

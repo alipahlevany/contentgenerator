@@ -25,6 +25,7 @@ class GenerationJobAdmin(admin.ModelAdmin):
 
     list_display = (
         "id",
+        "generation_type",
         "status_badge",
         "count",
         "generated_badge",
@@ -37,7 +38,7 @@ class GenerationJobAdmin(admin.ModelAdmin):
     )
 
     list_display_links = ("id",)
-    list_filter = ("status", "created_at")
+    list_filter = ("generation_type", "status", "created_at")
     search_fields = ("=id", "error_message")
     ordering = ("-created_at",)
 
@@ -59,6 +60,7 @@ class GenerationJobAdmin(admin.ModelAdmin):
             "1. Job Settings",
             {
                 "fields": (
+                    "generation_type",
                     "count",
                     "delay_seconds",
                 )

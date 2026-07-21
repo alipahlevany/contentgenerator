@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.contrib.auth.hashers import make_password
+from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.html import format_html
 
 from contents.models import ExternalClient
@@ -56,8 +59,7 @@ class ExternalClientAdmin(admin.ModelAdmin):
                 ),
                 "description": (
                     "API key secrets are stored hashed and cannot be "
-                    "recovered. Use the controlled rotation method to "
-                    "issue a replacement key."
+                    "recovered. Use key rotation to issue a replacement."
                 ),
             },
         ),
@@ -92,9 +94,55 @@ class ExternalClientAdmin(admin.ModelAdmin):
         "deactivate_clients",
     )
 
-    @admin.display(
-        description="API Key Identifier",
-    )
+    def save_model(self, request, obj, form, change):
+        request._generated_external_client_api_key = None
+
+        if not change and not obj.api_key_prefix and not obj.api_key_hash:
+            prefix, secret, raw_key = obj._new_api_key()
+
+            obj.api_key = None
+            obj.api_key_prefix = prefix
+            obj.api_key_hash = make_password(secret)
+
+            request._generated_external_client_api_key = raw_key
+
+        super().save_model(request, obj, form, change)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        generated_api_key = getattr(
+            request,
+            "_generated_external_client_api_key",
+            None,
+        )
+
+        if not generated_api_key:
+            return super().response_add(
+                request,
+                obj,
+                post_url_continue,
+            )
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "API key generated",
+            "client": obj,
+            "api_key": generated_api_key,
+            "client_list_url": reverse(
+                "admin:contents_externalclient_changelist",
+            ),
+            "client_change_url": reverse(
+                "admin:contents_externalclient_change",
+                args=(obj.pk,),
+            ),
+        }
+
+        return TemplateResponse(
+            request,
+            "admin/contents/externalclient/api_key_created.html",
+            context,
+        )
+
+    @admin.display(description="API Key Identifier")
     def api_key_identifier(self, obj):
         if obj.api_key_prefix:
             return format_html(
@@ -109,9 +157,7 @@ class ExternalClientAdmin(admin.ModelAdmin):
             "<code>legacy_••••••••</code>",
         )
 
-    @admin.action(
-        description="Activate selected clients",
-    )
+    @admin.action(description="Activate selected clients")
     def activate_clients(self, request, queryset):
         updated = queryset.update(is_active=True)
 
@@ -120,9 +166,7 @@ class ExternalClientAdmin(admin.ModelAdmin):
             f"{updated} client(s) activated.",
         )
 
-    @admin.action(
-        description="Deactivate selected clients",
-    )
+    @admin.action(description="Deactivate selected clients")
     def deactivate_clients(self, request, queryset):
         updated = queryset.update(is_active=False)
 

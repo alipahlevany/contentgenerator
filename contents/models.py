@@ -1,6 +1,6 @@
-import secrets
 
 from django.contrib.auth.hashers import check_password, make_password
+import secrets
 from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -239,9 +239,20 @@ class Content(models.Model):
         ("generated", "Generated"),
         ("published", "Published"),
     ]
+    CONTENT_TYPE_CHOICES = [
+        ("standard", "Standard Content"),
+        ("email_reply", "Email Reply"),
+    ]
 
     title = models.CharField(max_length=255)
 
+    content_type = models.CharField(
+        max_length=30,
+        choices=CONTENT_TYPE_CHOICES,
+        default="standard",
+        db_index=True,
+        
+    )
     language = models.ForeignKey(
         Language,
         on_delete=models.SET_NULL,
@@ -521,6 +532,10 @@ class GenerationJob(models.Model):
         ("failed", "Failed"),
         ("stopped", "Stopped"),
     ]
+    GENERATION_TYPE_CHOICES = [
+        ("standard", "Standard Content"),
+        ("email_reply", "Email Reply"),
+    ]
 
     external_client = models.ForeignKey(
         ExternalClient,
@@ -529,6 +544,13 @@ class GenerationJob(models.Model):
         blank=True,
         related_name="generation_jobs",
     )
+    generation_type = models.CharField(
+        max_length=30,
+        choices=GENERATION_TYPE_CHOICES,
+        default="standard",
+        db_index=True,
+    )
+
 
     count = models.PositiveIntegerField(default=10)
 
@@ -650,17 +672,7 @@ class AppSettings(models.Model):
         default="gpt-4.1-mini",
     )
 
-    api_secret_key = models.CharField(
-        max_length=255,
-        blank=True,
-        default="",
-        help_text=(
-            "Generated automatically. Leave empty only when "
-            "External API access is disabled."
-        ),
-    )
 
-    auto_generate_api_key = models.BooleanField(default=True)
 
     default_generation_job = models.ForeignKey(
         GenerationJob,
@@ -722,11 +734,6 @@ class AppSettings(models.Model):
 
     is_active = models.BooleanField(default=True)
 
-    def save(self, *args, **kwargs):
-        if self.auto_generate_api_key and not self.api_secret_key:
-            self.api_secret_key = secrets.token_urlsafe(48)
-
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Settings #{self.id}"

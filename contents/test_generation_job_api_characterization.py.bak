@@ -23,7 +23,6 @@ from contents.serializers import GenerationJobCreateSerializer
 class GenerationJobAPICharacterizationTests(TestCase):
     job_fields = {
         "id",
-        "generation_type",
         "count",
         "delay_seconds",
         "languages",
@@ -472,7 +471,6 @@ class GenerationJobAPICharacterizationTests(TestCase):
         )
         for relation, expected_ids in relations:
             self.assertEqual(list(relation.order_by("id").values_list("id", flat=True)), expected_ids)
-        "generation_type",
         self.assertEqual(response.json()["job"]["languages"], [self.language_one.id, self.language_two.id])
 
     def test_create_rules_empty_is_allowed_but_required_selections_are_not(self):

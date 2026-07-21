@@ -1,4 +1,4 @@
-import secrets
+
 from datetime import timedelta, timezone as datetime_timezone
 
 from django import forms
@@ -38,8 +38,8 @@ class AppSettingsAdmin(admin.ModelAdmin):
     form = AppSettingsAdminForm
 
     actions = (
-        "regenerate_api_token",
-        "disable_external_api_access",
+       
+        
         "run_daily_generation_now",
     )
 
@@ -48,7 +48,6 @@ class AppSettingsAdmin(admin.ModelAdmin):
         "model_name",
         "tokens_badge",
         "daily_badge",
-        "api_badge",
         "schedule_badge",
         "status_badge",
     )
@@ -65,7 +64,6 @@ class AppSettingsAdmin(admin.ModelAdmin):
 
     readonly_fields = (
         "daily_generation_status_panel",
-        "api_control_panel",
         "status_panel",
         "current_utc_time",
         "next_daily_generation_utc",
@@ -120,14 +118,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
                 ),
             },
         ),
-        (
-            "🔑 External API",
-            {
-                "fields": (
-                    "api_control_panel",
-                ),
-            },
-        ),
+        
         (
             "📌 Status",
             {
@@ -140,26 +131,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
     )
 
     def get_urls(self):
-        urls = super().get_urls()
-
-        custom_urls = [
-            path(
-                "<int:object_id>/regenerate-api-key/",
-                self.admin_site.admin_view(
-                    self.regenerate_single_api_key
-                ),
-                name="contents_appsettings_regenerate_api_key",
-            ),
-            path(
-                "<int:object_id>/disable-api/",
-                self.admin_site.admin_view(
-                    self.disable_single_api
-                ),
-                name="contents_appsettings_disable_api",
-            ),
-        ]
-
-        return custom_urls + urls
+        return super().get_urls()
 
     def get_swagger_url(self):
         possible_names = [
@@ -177,70 +149,6 @@ class AppSettingsAdmin(admin.ModelAdmin):
 
         return "/api/schema/swagger-ui/"
 
-    def regenerate_single_api_key(
-        self,
-        request,
-        object_id,
-    ):
-        obj = AppSettings.objects.get(
-            id=object_id
-        )
-
-        obj.api_secret_key = secrets.token_urlsafe(48)
-        obj.auto_generate_api_key = True
-
-        obj.save(
-            update_fields=[
-                "api_secret_key",
-                "auto_generate_api_key",
-            ]
-        )
-
-        cache.delete("active_app_settings")
-
-        self.message_user(
-            request,
-            "API key regenerated successfully.",
-            messages.SUCCESS,
-        )
-
-        return redirect(
-            "admin:contents_appsettings_change",
-            object_id,
-        )
-
-    def disable_single_api(
-        self,
-        request,
-        object_id,
-    ):
-        obj = AppSettings.objects.get(
-            id=object_id
-        )
-
-        obj.api_secret_key = ""
-        obj.auto_generate_api_key = False
-
-        obj.save(
-            update_fields=[
-                "api_secret_key",
-                "auto_generate_api_key",
-            ]
-        )
-
-        cache.delete("active_app_settings")
-
-        self.message_user(
-            request,
-            "External API disabled successfully.",
-            messages.SUCCESS,
-        )
-
-        return redirect(
-            "admin:contents_appsettings_change",
-            object_id,
-        )
-
     def save_model(
         self,
         request,
@@ -254,12 +162,6 @@ class AppSettingsAdmin(admin.ModelAdmin):
                 False,
             )
         )
-
-        if (
-            obj.auto_generate_api_key
-            and not obj.api_secret_key
-        ):
-            obj.api_secret_key = secrets.token_urlsafe(48)
 
         super().save_model(
             request,
@@ -287,74 +189,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
                 messages.SUCCESS,
             )
 
-    @admin.action(
-        description="Regenerate API Token"
-    )
-    def regenerate_api_token(
-        self,
-        request,
-        queryset,
-    ):
-        updated_count = 0
-
-        for obj in queryset:
-            obj.api_secret_key = secrets.token_urlsafe(48)
-            obj.auto_generate_api_key = True
-
-            obj.save(
-                update_fields=[
-                    "api_secret_key",
-                    "auto_generate_api_key",
-                ]
-            )
-
-            updated_count += 1
-
-        cache.delete("active_app_settings")
-
-        self.message_user(
-            request,
-            (
-                f"API token regenerated successfully for "
-                f"{updated_count} settings record(s)."
-            ),
-            messages.SUCCESS,
-        )
-
-    @admin.action(
-        description="Disable External API Access"
-    )
-    def disable_external_api_access(
-        self,
-        request,
-        queryset,
-    ):
-        updated_count = 0
-
-        for obj in queryset:
-            obj.api_secret_key = ""
-            obj.auto_generate_api_key = False
-
-            obj.save(
-                update_fields=[
-                    "api_secret_key",
-                    "auto_generate_api_key",
-                ]
-            )
-
-            updated_count += 1
-
-        cache.delete("active_app_settings")
-
-        self.message_user(
-            request,
-            (
-                f"External API access disabled for "
-                f"{updated_count} settings record(s)."
-            ),
-            messages.SUCCESS,
-        )
-
+   
     @admin.action(
         description="Run Daily Generation Now"
     )
@@ -1103,25 +938,6 @@ class AppSettingsAdmin(admin.ModelAdmin):
 
     daily_badge.short_description = "Daily"
 
-    def api_badge(
-        self,
-        obj,
-    ):
-        if obj.api_secret_key:
-            return self.badge(
-                "Enabled",
-                "#dcfce7",
-                "#166534",
-            )
-
-        return self.badge(
-            "Disabled",
-            "#fee2e2",
-            "#991b1b",
-        )
-
-    api_badge.short_description = "API"
-
     def schedule_badge(
         self,
         obj,
@@ -1163,194 +979,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
         )
 
     status_badge.short_description = "Status"
-
-    def api_control_panel(
-        self,
-        obj,
-    ):
-        if not obj or not obj.pk:
-            return "Save this settings record first."
-
-        regenerate_url = reverse(
-            "admin:contents_appsettings_regenerate_api_key",
-            args=[
-                obj.id,
-            ],
-        )
-
-        disable_url = reverse(
-            "admin:contents_appsettings_disable_api",
-            args=[
-                obj.id,
-            ],
-        )
-
-        swagger_url = self.get_swagger_url()
-
-        if not obj.api_secret_key:
-            return format_html(
-                """
-                <div style="
-                    max-width:860px;
-                    padding:18px;
-                    border:1px solid #fed7aa;
-                    background:linear-gradient(
-                        135deg,
-                        #fff7ed,
-                        #fffbeb
-                    );
-                    border-radius:16px;
-                    color:#9a3412;
-                ">
-                    <h3 style="margin:0 0 8px;">
-                        External API is disabled
-                    </h3>
-
-                    <p style="margin:0 0 16px;">
-                        Generate an API key to allow external
-                        systems to access the API.
-                    </p>
-
-                    <a
-                        href="{}"
-                        style="
-                            background:#2563eb;
-                            color:white;
-                            padding:10px 16px;
-                            border-radius:10px;
-                            text-decoration:none;
-                            font-weight:800;
-                        "
-                    >
-                        Generate API Key
-                    </a>
-                </div>
-                """,
-                regenerate_url,
-            )
-
-        return format_html(
-            """
-            <div style="
-                max-width:920px;
-                padding:20px;
-                border:1px solid #dbeafe;
-                background:linear-gradient(
-                    135deg,
-                    #f8fafc,
-                    #eff6ff
-                );
-                border-radius:16px;
-            ">
-                <div style="
-                    display:flex;
-                    justify-content:space-between;
-                    gap:16px;
-                    align-items:center;
-                    margin-bottom:14px;
-                ">
-                    <div>
-                        <h3 style="
-                            margin:0 0 4px;
-                            color:#111827;
-                        ">
-                            External API Access
-                        </h3>
-
-                        <p style="
-                            margin:0;
-                            color:#64748b;
-                        ">
-                            Use this key for authenticated
-                            API requests.
-                        </p>
-                    </div>
-
-                    <span style="
-                        background:#dcfce7;
-                        color:#166534;
-                        padding:6px 12px;
-                        border-radius:999px;
-                        font-weight:800;
-                    ">
-                        Enabled
-                    </span>
-                </div>
-
-                <code style="
-                    display:block;
-                    padding:14px;
-                    background:#ffffff;
-                    border:1px solid #cbd5e1;
-                    border-radius:12px;
-                    user-select:all;
-                    word-break:break-all;
-                    font-size:13px;
-                    color:#334155;
-                    margin-bottom:14px;
-                ">{}</code>
-
-                <div style="
-                    display:flex;
-                    gap:10px;
-                    flex-wrap:wrap;
-                ">
-                    <a
-                        href="{}"
-                        style="
-                            background:#2563eb;
-                            color:white;
-                            padding:10px 16px;
-                            border-radius:10px;
-                            text-decoration:none;
-                            font-weight:800;
-                        "
-                    >
-                        Regenerate Key
-                    </a>
-
-                    <a
-                        href="{}"
-                        style="
-                            background:#dc2626;
-                            color:white;
-                            padding:10px 16px;
-                            border-radius:10px;
-                            text-decoration:none;
-                            font-weight:800;
-                        "
-                    >
-                        Disable API
-                    </a>
-
-                    <a
-                        href="{}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style="
-                            background:#0f172a;
-                            color:white;
-                            padding:10px 16px;
-                            border-radius:10px;
-                            text-decoration:none;
-                            font-weight:800;
-                        "
-                    >
-                        Open Swagger
-                    </a>
-                </div>
-            </div>
-            """,
-            obj.api_secret_key,
-            regenerate_url,
-            disable_url,
-            swagger_url,
-        )
-
-    api_control_panel.short_description = (
-        "API Control Panel"
-    )
-
+            
     def status_panel(
         self,
         obj,

@@ -13,11 +13,7 @@ from .core_services.generation_outcome import (
 )
 from .core_services.job_pool import get_job_generation_pool
 from .core_services.logger import fail_job, log_job
-from .core_services.prompt import (
-    build_context,
-    extract_title_and_content,
-    render_template,
-)
+from .core_services.generators.factory import get_generator
 from .core_services.runner import (
     increment_generated,
     mark_job_completed,
@@ -218,26 +214,21 @@ def run_generation_job(job_id):
                 max_count=3,
             )
 
-            context = build_context(
+            generator = get_generator(job.generation_type)
+
+            prompt_data = generator.build_prompt_data(
                 app_settings=app_settings,
                 language=language,
                 topic=topic,
                 audience=audience,
                 goal=goal,
+                prompt_template=prompt_template,
                 selected_rules=selected_rules,
             )
 
-            system_prompt = render_template(
-                prompt_template.system_prompt,
-                context,
-            )
-
-            user_prompt = render_template(
-                prompt_template.user_prompt_template,
-                context,
-            )
-
-            fallback_title = f"{topic.name} for {audience.name}"
+            system_prompt = prompt_data["system_prompt"]
+            user_prompt = prompt_data["user_prompt"]
+            fallback_title = prompt_data["fallback_title"]
 
             try:
                 generated_text = generate_content(
@@ -332,7 +323,7 @@ def run_generation_job(job_id):
                     ),
                 )
 
-            title, content_body = extract_title_and_content(
+            title, content_body = generator.extract_output(
                 generated_text,
                 fallback_title,
             )
@@ -412,6 +403,7 @@ def run_generation_job(job_id):
 
             content = Content.objects.create(
                 title=title,
+                content_type=job.generation_type,
                 language=language,
                 topic=topic,
                 audience=audience,

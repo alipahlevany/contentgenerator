@@ -1,0 +1,321 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+    {{ block.super }}
+
+    <style>
+        .api-key-page {
+            min-height: 65vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .api-key-card {
+            width: 100%;
+            max-width: 760px;
+            overflow: hidden;
+            border: 1px solid #d8dee4;
+            border-radius: 18px;
+            background: #ffffff;
+            box-shadow:
+                0 20px 50px rgba(15, 23, 42, 0.10),
+                0 4px 12px rgba(15, 23, 42, 0.06);
+        }
+
+        .api-key-header {
+            padding: 30px 34px;
+            color: #ffffff;
+            background:
+                linear-gradient(
+                    135deg,
+                    #0f766e 0%,
+                    #059669 100%
+                );
+        }
+
+        .api-key-icon {
+            width: 54px;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+            border-radius: 50%;
+            color: #047857;
+            background: #d1fae5;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .api-key-header h1 {
+            margin: 0 0 8px;
+            color: #ffffff;
+            font-size: 25px;
+            font-weight: 700;
+        }
+
+        .api-key-header p {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.86);
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .api-key-content {
+            padding: 32px 34px;
+        }
+
+        .client-info {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 14px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .client-info-label {
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .client-info-value {
+            color: #0f172a;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .api-key-label {
+            display: block;
+            margin-bottom: 9px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .api-key-box {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+        }
+
+        .api-key-value {
+            flex: 1;
+            min-width: 0;
+            padding: 16px 18px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            color: #0f172a;
+            background: #f8fafc;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-wrap: anywhere;
+            user-select: all;
+        }
+
+        .copy-button {
+            min-width: 100px;
+            padding: 0 20px;
+            border: 0;
+            border-radius: 10px;
+            color: #ffffff;
+            background: #0f766e;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .copy-button:hover {
+            background: #115e59;
+        }
+
+        .copy-button.copied {
+            background: #16a34a;
+        }
+
+        .warning-box {
+            margin-top: 20px;
+            padding: 16px 18px;
+            border: 1px solid #fcd34d;
+            border-radius: 10px;
+            color: #854d0e;
+            background: #fffbeb;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .warning-box strong {
+            display: block;
+            margin-bottom: 3px;
+            color: #713f12;
+        }
+
+        .api-key-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .api-key-actions a {
+            padding: 11px 18px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .secondary-button {
+            border: 1px solid #cbd5e1;
+            color: #334155 !important;
+            background: #ffffff;
+        }
+
+        .primary-button {
+            border: 1px solid #0f766e;
+            color: #ffffff !important;
+            background: #0f766e;
+        }
+
+        @media (max-width: 700px) {
+            .api-key-page {
+                padding: 20px 10px;
+            }
+
+            .api-key-header,
+            .api-key-content {
+                padding: 24px 20px;
+            }
+
+            .api-key-box {
+                flex-direction: column;
+            }
+
+            .copy-button {
+                min-height: 44px;
+            }
+
+            .api-key-actions {
+                flex-direction: column-reverse;
+            }
+
+            .api-key-actions a {
+                text-align: center;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="api-key-page">
+        <div class="api-key-card">
+            <div class="api-key-header">
+                <div class="api-key-icon">✓</div>
+
+                <h1>API key generated successfully</h1>
+
+                <p>
+                    Your external client has been created and its API
+                    credentials are ready.
+                </p>
+            </div>
+
+            <div class="api-key-content">
+                <div class="client-info">
+                    <span class="client-info-label">Client:</span>
+
+                    <span class="client-info-value">
+                        {{ client.name }} · {{ client.code }}
+                    </span>
+                </div>
+
+                <label
+                    class="api-key-label"
+                    for="generated-api-key"
+                >
+                    Generated API key
+                </label>
+
+                <div class="api-key-box">
+                    <div
+                        id="generated-api-key"
+                        class="api-key-value"
+                    >
+                        {{ api_key }}
+                    </div>
+
+                    <button
+                        id="copy-api-key"
+                        class="copy-button"
+                        type="button"
+                    >
+                        Copy key
+                    </button>
+                </div>
+
+                <div class="warning-box">
+                    <strong>Save this key now</strong>
+
+                    This secret is displayed only once and cannot be
+                    recovered later. Store it in a secure password
+                    manager or secrets manager.
+                </div>
+
+                <div class="api-key-actions">
+                    <a
+                        class="secondary-button"
+                        href="{{ client_list_url }}"
+                    >
+                        Back to clients
+                    </a>
+
+                    <a
+                        class="primary-button"
+                        href="{{ client_change_url }}"
+                    >
+                        View client
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const copyButton = document.getElementById("copy-api-key");
+            const apiKeyElement = document.getElementById(
+                "generated-api-key"
+            );
+
+            if (!copyButton || !apiKeyElement) {
+                return;
+            }
+
+            copyButton.addEventListener("click", async function () {
+                const apiKey = apiKeyElement.textContent.trim();
+
+                try {
+                    await navigator.clipboard.writeText(apiKey);
+
+                    copyButton.textContent = "Copied";
+                    copyButton.classList.add("copied");
+
+                    window.setTimeout(function () {
+                        copyButton.textContent = "Copy key";
+                        copyButton.classList.remove("copied");
+                    }, 2500);
+                } catch (error) {
+                    window.getSelection().selectAllChildren(apiKeyElement);
+                    copyButton.textContent = "Select and copy";
+                }
+            });
+        });
+    </script>
+{% endblock %}

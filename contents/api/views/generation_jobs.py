@@ -186,10 +186,26 @@ class GenerationJobListCreateAPIView(APIView):
         },
         examples=[
             OpenApiExample(
-                name="Create generation job",
+                name="Create standard generation job",
                 value={
+                    "generation_type": "standard",
                     "count": 10,
                     "delay_seconds": 1.0,
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Create email reply generation job",
+                value={
+                    "generation_type": "email_reply",
+                    "count": 10,
+                    "delay_seconds": 1.0,
+                    "languages": "all",
+                    "topics": "all",
+                    "audiences": "all",
+                    "goals": "all",
+                    "rules": "all",
+                    "prompt_templates": "all",
                 },
                 request_only=True,
             ),
@@ -201,6 +217,7 @@ class GenerationJobListCreateAPIView(APIView):
                     ),
                     "job": {
                         "id": 7,
+                        "generation_type": "standard",
                         "status": "pending",
                         "count": 10,
                         "generated_count": 0,
