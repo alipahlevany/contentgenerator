@@ -8,6 +8,7 @@ from contents.models import (
     Audience,
     BlockedKeyword,
     Content,
+    EmailReply,
     ContentRule,
     DatasetEvent,
     DatasetPerformance,
@@ -30,7 +31,7 @@ from .base_items import (
     PromptTemplateAdmin,
     TopicAdmin,
 )
-from .content import ContentAdmin
+from .content import ContentAdmin, EmailReplyAdmin
 from .generation_job import GenerationJobAdmin
 from .generation_log import (
     DatasetEventAdmin,
@@ -58,6 +59,7 @@ admin.site.register(GenerationPattern, GenerationPatternAdmin)
 
 admin.site.register(AppSettings, AppSettingsAdmin)
 admin.site.register(Content, ContentAdmin)
+admin.site.register(EmailReply, EmailReplyAdmin)
 admin.site.register(GenerationJob, GenerationJobAdmin)
 admin.site.register(GenerationJobLog, GenerationJobLogAdmin)
 

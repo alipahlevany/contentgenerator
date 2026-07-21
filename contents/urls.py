@@ -1,16 +1,10 @@
 from django.urls import path
 
 from .views import (
-    ContentDetailAPIView,
-    ContentDeliveryAPIView,
     ContentExportAPIView,
-    ContentListAPIView,
-    DatasetAPIView,
-    GenerationJobDetailAPIView,
-    GenerationJobListCreateAPIView,
-    GenerationJobStartAPIView,
-    GenerationJobStopAPIView,
-    HealthCheckAPIView,
+    ContentGenerationJobCreateAPIView,
+    ReplyExportAPIView,
+    ReplyGenerationJobCreateAPIView,
 )
 
 
@@ -19,56 +13,23 @@ app_name = "contents"
 
 urlpatterns = [
     path(
-        "health/",
-        HealthCheckAPIView.as_view(),
-        name="api-health",
-    ),
-
-    path(
-        "datasets/",
-        DatasetAPIView.as_view(),
-        name="api-datasets",
-    ),
-
-    path(
-        "generation-jobs/",
-        GenerationJobListCreateAPIView.as_view(),
-        name="api-generation-job-list-create",
+        "generation-jobs/content/",
+        ContentGenerationJobCreateAPIView.as_view(),
+        name="api-content-generation-job-create",
     ),
     path(
-        "generation-jobs/<int:pk>/",
-        GenerationJobDetailAPIView.as_view(),
-        name="api-generation-job-detail",
+        "generation-jobs/reply/",
+        ReplyGenerationJobCreateAPIView.as_view(),
+        name="api-reply-generation-job-create",
     ),
-    path(
-        "generation-jobs/<int:job_id>/start/",
-        GenerationJobStartAPIView.as_view(),
-        name="api-generation-job-start",
-    ),
-    path(
-        "generation-jobs/<int:job_id>/stop/",
-        GenerationJobStopAPIView.as_view(),
-        name="api-generation-job-stop",
-    ),
-
     path(
         "contents/export/",
         ContentExportAPIView.as_view(),
         name="api-content-export",
     ),
     path(
-        "contents/",
-        ContentListAPIView.as_view(),
-        name="api-content-list",
-    ),
-    path(
-        "contents/<int:pk>/",
-        ContentDetailAPIView.as_view(),
-        name="api-content-detail",
-    ),
-    path(
-        "contents/<int:pk>/deliver/",
-        ContentDeliveryAPIView.as_view(),
-        name="api-content-delivery",
+        "replies/export/",
+        ReplyExportAPIView.as_view(),
+        name="api-reply-export",
     ),
 ]

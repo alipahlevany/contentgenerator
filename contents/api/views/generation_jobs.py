@@ -72,6 +72,9 @@ JOB_ID_PARAMETER = OpenApiParameter(
 class GenerationJobListCreateAPIView(APIView):
     permission_classes = [HasValidAPIKey]
 
+    generation_type = None
+    idempotency_operation = "generation-job-create"
+
     @extend_schema(
         operation_id="list_generation_jobs",
         summary="List generation jobs",
@@ -233,13 +236,18 @@ class GenerationJobListCreateAPIView(APIView):
     def post(self, request):
         return execute_idempotent(
             request,
-            "generation-job-create",
+            self.idempotency_operation,
             lambda: self._create_job(request),
         )
 
     def _create_job(self, request):
+        request_data = request.data.copy()
+
+        if self.generation_type is not None:
+            request_data["generation_type"] = self.generation_type
+
         serializer = GenerationJobCreateSerializer(
-            data=request.data,
+            data=request_data,
         )
 
         serializer.is_valid(
@@ -585,3 +593,77 @@ class GenerationJobStopAPIView(GenericAPIView):
             response_serializer.data,
             status=status.HTTP_200_OK,
         )
+
+@extend_schema(
+    tags=["Content Generation"],
+    parameters=[API_KEY_HEADER],
+)
+class ContentGenerationJobCreateAPIView(
+    GenerationJobListCreateAPIView
+):
+    generation_type = "standard"
+    idempotency_operation = "content-generation-job-create"
+
+    @extend_schema(
+        operation_id="create_content_generation_job",
+        summary="Create and start a standard content generation job",
+        description=(
+            "Creates and queues a standard content generation job. "
+            "The generation type is set automatically by the server."
+        ),
+        request=GenerationJobCreateSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=GenerationJobActionResponseSerializer,
+                description="The content generation job was created.",
+            ),
+            400: OpenApiResponse(
+                response=APIErrorSerializer,
+                description="The request data is invalid.",
+            ),
+            403: OpenApiResponse(
+                response=APIErrorSerializer,
+                description="Missing or invalid API key.",
+            ),
+        },
+    )
+    def post(self, request):
+        return super().post(request)
+
+
+@extend_schema(
+    tags=["Reply Generation"],
+    parameters=[API_KEY_HEADER],
+)
+class ReplyGenerationJobCreateAPIView(
+    GenerationJobListCreateAPIView
+):
+    generation_type = "email_reply"
+    idempotency_operation = "reply-generation-job-create"
+
+    @extend_schema(
+        operation_id="create_reply_generation_job",
+        summary="Create and start an email reply generation job",
+        description=(
+            "Creates and queues an email reply generation job. "
+            "The generation type is set automatically by the server."
+        ),
+        request=GenerationJobCreateSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=GenerationJobActionResponseSerializer,
+                description="The reply generation job was created.",
+            ),
+            400: OpenApiResponse(
+                response=APIErrorSerializer,
+                description="The request data is invalid.",
+            ),
+            403: OpenApiResponse(
+                response=APIErrorSerializer,
+                description="Missing or invalid API key.",
+            ),
+        },
+    )
+    def post(self, request):
+        return super().post(request)
+

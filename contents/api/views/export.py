@@ -49,6 +49,9 @@ API_KEY_HEADER = OpenApiParameter(
 class ContentExportAPIView(APIView):
     permission_classes = [HasValidAPIKey]
 
+    content_type = "standard"
+    idempotency_operation = "content-export"
+
     filter_map = {
         "languages": "language_id__in",
         "topics": "topic_id__in",
@@ -70,7 +73,10 @@ class ContentExportAPIView(APIView):
 
         queryset = (
             Content.objects
-            .filter(status="generated")
+            .filter(
+                status="generated",
+                content_type=self.content_type,
+            )
             .annotate(
                 already_exported=Exists(successful_export)
             )
@@ -168,7 +174,7 @@ class ContentExportAPIView(APIView):
     def post(self, request):
         return execute_idempotent(
             request,
-            "content-export",
+            self.idempotency_operation,
             lambda: self._export(request),
         )
 
@@ -308,3 +314,39 @@ class ContentExportAPIView(APIView):
         },
         status=status.HTTP_200_OK,
         )
+
+@extend_schema(
+    tags=["Reply Export"],
+    parameters=[
+        API_KEY_HEADER,
+    ],
+)
+class ReplyExportAPIView(ContentExportAPIView):
+    content_type = "email_reply"
+    idempotency_operation = "reply-export"
+
+    @extend_schema(
+        summary="Export existing email replies for the current client",
+        description=(
+            "Returns generated email replies that have not already been "
+            "exported successfully to the current client."
+        ),
+        request=ContentExportRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=ContentExportResponseSerializer,
+                description="Matching email replies were exported.",
+            ),
+            400: OpenApiResponse(
+                response=APIErrorSerializer,
+                description="Invalid filters or request body.",
+            ),
+            403: OpenApiResponse(
+                response=APIErrorSerializer,
+                description="Missing or invalid client API key.",
+            ),
+        },
+    )
+    def post(self, request):
+        return super().post(request)
+

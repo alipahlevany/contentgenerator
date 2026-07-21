@@ -204,6 +204,153 @@ def run_daily_generation_task(force=False):
 
 
 @shared_task
+def run_daily_reply_generation_task(force=False):
+    logger.info(
+        "Daily reply generation task started | force=%s",
+        force,
+    )
+
+    lock_key = "daily_reply_generation_task_lock"
+
+    lock_created = cache.add(
+        lock_key,
+        "locked",
+        timeout=60 * 10,
+    )
+
+    if not lock_created:
+        logger.warning(
+            "Daily reply generation skipped because lock exists."
+        )
+        return "Daily reply generation is already being checked."
+
+    try:
+        app_settings = (
+            AppSettings.objects
+            .filter(is_active=True)
+            .order_by("-id")
+            .first()
+        )
+
+        if not app_settings:
+            logger.error(
+                "Daily reply generation failed: no active AppSettings."
+            )
+            return "No active AppSettings found."
+
+        if (
+            not force
+            and not app_settings.auto_daily_reply_generation_enabled
+        ):
+            logger.info(
+                "Daily reply generation skipped because it is disabled."
+            )
+            return "Daily reply generation is disabled."
+
+        now = timezone.localtime()
+        today = now.date()
+
+        if not force:
+            target_minutes = (
+                app_settings.daily_reply_generation_hour * 60
+                + app_settings.daily_reply_generation_minute
+            )
+
+            current_minutes = now.hour * 60 + now.minute
+
+            if current_minutes < target_minutes:
+                logger.info(
+                    "Daily reply generation time has not arrived | "
+                    "current=%s:%s | target=%s:%s",
+                    now.hour,
+                    now.minute,
+                    app_settings.daily_reply_generation_hour,
+                    app_settings.daily_reply_generation_minute,
+                )
+                return (
+                    "Daily reply generation time has not arrived yet."
+                )
+
+            if (
+                app_settings.last_daily_reply_generation_date
+                == today
+            ):
+                logger.info(
+                    "Daily reply generation already ran today | date=%s",
+                    today,
+                )
+                return "Daily reply generation already ran today."
+
+        has_active_reply_job = GenerationJob.objects.filter(
+            generation_type="email_reply",
+            status__in=[
+                "pending",
+                "running",
+            ],
+        ).exists()
+
+        if has_active_reply_job:
+            logger.warning(
+                "Daily reply generation skipped because another "
+                "email reply job is pending or running."
+            )
+            return (
+                "Another email reply generation job is already "
+                "pending or running."
+            )
+
+        job = GenerationJob.objects.create(
+            generation_type="email_reply",
+            count=app_settings.daily_reply_generation_count,
+            delay_seconds=(
+                app_settings.daily_reply_generation_delay_seconds
+            ),
+        )
+
+        logger.info(
+            "Daily reply generation job created | "
+            "job_id=%s | count=%s | delay=%s",
+            job.id,
+            job.count,
+            job.delay_seconds,
+        )
+
+        app_settings.last_daily_reply_generation_date = today
+        app_settings.save(
+            update_fields=[
+                "last_daily_reply_generation_date",
+            ]
+        )
+
+        task_result = run_generation_job_task.delay(job.id)
+
+        logger.info(
+            "Daily reply generation job queued | "
+            "job_id=%s | celery_task_id=%s",
+            job.id,
+            task_result.id,
+        )
+
+        return (
+            f"Daily reply generation job #{job.id} "
+            "created and started."
+        )
+
+    except Exception:
+        logger.exception(
+            "Daily reply generation task failed unexpectedly."
+        )
+        raise
+
+    finally:
+        cache.delete(lock_key)
+
+        logger.info(
+            "Daily reply generation lock released."
+        )
+
+
+@shared_task
 def recover_stuck_generation_jobs():
     logger.info(
         "Recover stuck generation jobs task started."

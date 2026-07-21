@@ -12,7 +12,10 @@ from django.utils.html import format_html
 
 from contents.admin.forms import AppSettingsForm
 from contents.models import AppSettings, GenerationJob
-from contents.tasks import run_daily_generation_task
+from contents.tasks import (
+    run_daily_generation_task,
+    run_daily_reply_generation_task,
+)
 
 
 class AppSettingsAdminForm(AppSettingsForm):
@@ -33,14 +36,22 @@ class AppSettingsAdminForm(AppSettingsForm):
         ),
     )
 
+    run_daily_reply_generation_immediately = forms.BooleanField(
+        required=False,
+        label="Run Daily Reply Generation Immediately",
+        help_text=(
+            "Check this option and save the settings to start email "
+            "reply generation immediately. This option is one-time only."
+        ),
+    )
+
 
 class AppSettingsAdmin(admin.ModelAdmin):
     form = AppSettingsAdminForm
 
     actions = (
-       
-        
         "run_daily_generation_now",
+        "run_daily_reply_generation_now",
     )
 
     list_display = (
@@ -60,6 +71,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
     list_filter = (
         "is_active",
         "auto_daily_generation_enabled",
+        "auto_daily_reply_generation_enabled",
     )
 
     readonly_fields = (
@@ -69,6 +81,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
         "next_daily_generation_utc",
         "time_until_next_daily_generation",
         "last_daily_generation_date",
+        "last_daily_reply_generation_date",
     )
 
     fieldsets = (
@@ -119,6 +132,26 @@ class AppSettingsAdmin(admin.ModelAdmin):
             },
         ),
         
+
+        (
+            "✉️ Automatic Daily Email Reply Generation",
+            {
+                "fields": (
+                    "auto_daily_reply_generation_enabled",
+                    "daily_reply_generation_count",
+                    "daily_reply_generation_time",
+                    "daily_reply_generation_delay_seconds",
+                    "run_daily_reply_generation_immediately",
+                    "last_daily_reply_generation_date",
+                ),
+                "description": (
+                    "Email reply jobs are created independently with "
+                    'generation_type="email_reply". Times are based on '
+                    "the configured server timezone."
+                ),
+            },
+        ),
+
         (
             "📌 Status",
             {
@@ -163,6 +196,13 @@ class AppSettingsAdmin(admin.ModelAdmin):
             )
         )
 
+        should_run_reply_immediately = bool(
+            form.cleaned_data.get(
+                "run_daily_reply_generation_immediately",
+                False,
+            )
+        )
+
         super().save_model(
             request,
             obj,
@@ -184,6 +224,23 @@ class AppSettingsAdmin(admin.ModelAdmin):
                 (
                     "Settings saved successfully. "
                     "The daily generation task was queued "
+                    "for immediate execution."
+                ),
+                messages.SUCCESS,
+            )
+
+        if should_run_reply_immediately:
+            transaction.on_commit(
+                lambda: run_daily_reply_generation_task.delay(
+                    force=True
+                )
+            )
+
+            self.message_user(
+                request,
+                (
+                    "Settings saved successfully. "
+                    "The daily email reply generation task was queued "
                     "for immediate execution."
                 ),
                 messages.SUCCESS,
@@ -225,6 +282,46 @@ class AppSettingsAdmin(admin.ModelAdmin):
             (
                 "Daily generation task was queued successfully. "
                 f"Task ID: {result.id}"
+            ),
+            messages.SUCCESS,
+        )
+
+
+    @admin.action(
+        description="Run Daily Email Reply Generation Now"
+    )
+    def run_daily_reply_generation_now(
+        self,
+        request,
+        queryset,
+    ):
+        selected_settings = (
+            queryset
+            .filter(is_active=True)
+            .order_by("-id")
+            .first()
+        )
+
+        if not selected_settings:
+            self.message_user(
+                request,
+                (
+                    "Select an active settings record before "
+                    "running daily email reply generation."
+                ),
+                messages.ERROR,
+            )
+            return
+
+        result = run_daily_reply_generation_task.delay(
+            force=True
+        )
+
+        self.message_user(
+            request,
+            (
+                "Daily email reply generation task was queued "
+                f"successfully. Task ID: {result.id}"
             ),
             messages.SUCCESS,
         )

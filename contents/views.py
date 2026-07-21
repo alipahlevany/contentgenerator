@@ -1,3 +1,8 @@
+from contents.api.views.generation_jobs import (
+    ContentGenerationJobCreateAPIView,
+    ReplyGenerationJobCreateAPIView,
+)
+from contents.api.views.export import ReplyExportAPIView
 from .api.views import (
     ContentDetailAPIView,
     ContentDeliveryAPIView,

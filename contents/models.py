@@ -336,6 +336,21 @@ class Content(models.Model):
         return self.title
 
 
+
+class EmailReply(Content):
+    """
+    Proxy model used to manage email replies separately in Django Admin.
+
+    Email replies remain in the existing Content table and are separated
+    using content_type="email_reply".
+    """
+
+    class Meta:
+        proxy = True
+        verbose_name = "Email Reply"
+        verbose_name_plural = "Email Replies"
+
+
 class ContentExport(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
@@ -728,6 +743,43 @@ class AppSettings(models.Model):
     )
 
     last_daily_generation_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+
+
+    auto_daily_reply_generation_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable automatic daily email reply generation.",
+    )
+
+    daily_reply_generation_count = models.PositiveIntegerField(
+        default=10,
+        validators=[MinValueValidator(1)],
+    )
+
+    daily_reply_generation_delay_seconds = models.FloatField(
+        default=1.0,
+        validators=[MinValueValidator(0)],
+    )
+
+    daily_reply_generation_hour = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(23),
+        ],
+    )
+
+    daily_reply_generation_minute = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(59),
+        ],
+    )
+
+    last_daily_reply_generation_date = models.DateField(
         null=True,
         blank=True,
     )
