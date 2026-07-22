@@ -1,5 +1,7 @@
 from django.urls import path
 
+from .api.views import ContentDeliveryAPIView
+
 from .views import (
     ContentExportAPIView,
     ContentGenerationJobCreateAPIView,
@@ -12,6 +14,11 @@ app_name = "contents"
 
 
 urlpatterns = [
+    path(
+        "contents/<int:pk>/delivery/",
+        ContentDeliveryAPIView.as_view(),
+        name="api-content-delivery",
+    ),
     path(
         "generation-jobs/content/",
         ContentGenerationJobCreateAPIView.as_view(),

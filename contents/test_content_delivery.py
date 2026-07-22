@@ -19,6 +19,7 @@ from contents.tasks import deliver_content_callback
 PUBLIC_DNS = [(2, 1, 6, "", ("93.184.216.34", 443))]
 
 
+@override_settings(MTA_API_KEY="test-api-key")
 class ContentDeliveryTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -107,7 +108,7 @@ class ContentDeliveryTests(TestCase):
     @patch("contents.core_services.delivery.socket.getaddrinfo", return_value=PUBLIC_DNS)
     @patch("contents.core_services.delivery.requests.post")
     def test_success_uses_strict_http_options_and_records_status(self, post, _):
-        post.return_value = Mock(status_code=204)
+        post.return_value = Mock(status_code=204, text="")
         delivery = self.create_delivery()
 
         result = deliver_content(delivery.pk)
@@ -120,7 +121,14 @@ class ContentDeliveryTests(TestCase):
         self.assertEqual(call.args[0], self.client_a.callback_url)
         self.assertEqual(call.kwargs["timeout"], (5, 15))
         self.assertFalse(call.kwargs["allow_redirects"])
-        self.assertNotIn("headers", call.kwargs)
+        self.assertEqual(
+            call.kwargs["headers"],
+            {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": "Api-Key test-api-key",
+            },
+        )
 
     @patch("contents.core_services.delivery.socket.getaddrinfo", return_value=PUBLIC_DNS)
     @patch("contents.core_services.delivery.requests.post")
@@ -147,7 +155,7 @@ class ContentDeliveryTests(TestCase):
         for status_code, retryable in ((503, True), (400, False), (302, False)):
             delivery = self.create_delivery()
             post.side_effect = None
-            post.return_value = Mock(status_code=status_code)
+            post.return_value = Mock(status_code=status_code, text="")
 
             if retryable:
                 with self.assertRaises(RetryableDeliveryError):

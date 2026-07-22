@@ -84,7 +84,11 @@ def deliver_content(delivery_id):
         )
 
     payload = {
-        "category": delivery.content.topic.name,
+        "category": (
+            delivery.content.topic.name
+            if delivery.content.topic
+            else ""
+        ),
         "subject": delivery.content.title,
         "content": delivery.content.generated_content,
     }

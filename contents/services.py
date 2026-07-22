@@ -7,6 +7,7 @@ from .core_services.ai import generate_content
 from .core_services.cache import get_app_settings, get_blocked_keywords
 from .core_services.cleaner import normalize
 from .core_services.duplicate import is_duplicate_content
+from .core_services.delivery_queue import queue_content_deliveries
 from .core_services.generation_outcome import (
     handle_generation_failure,
     handle_generation_success,
@@ -417,6 +418,8 @@ def run_generation_job(job_id):
 
             if selected_rules:
                 content.rules.set(selected_rules)
+
+            queue_content_deliveries(content)
 
             handle_generation_success(
                 job=job,
