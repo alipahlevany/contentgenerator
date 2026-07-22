@@ -84,10 +84,9 @@ def deliver_content(delivery_id):
         )
 
     payload = {
-        "id": delivery.content_id,
-        "title": delivery.content.title,
+        "category": delivery.content.topic.name,
+        "subject": delivery.content.title,
         "content": delivery.content.generated_content,
-        "content_hash": delivery.content_hash,
     }
 
     api_key = getattr(settings, "MTA_API_KEY", "")
@@ -102,7 +101,7 @@ def deliver_content(delivery_id):
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
-        "X-API-Key": api_key,
+        "Authorization": f"Api-Key {api_key}",
     }
 
     try:
