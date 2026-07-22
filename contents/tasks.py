@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 @shared_task(
     bind=True,
+    queue="delivery",
+    routing_key="delivery",
     autoretry_for=(RetryableDeliveryError,),
     retry_backoff=True,
     retry_backoff_max=60,
