@@ -18,6 +18,9 @@ app.conf.task_routes = {
     "contents.tasks.run_generation_job_task": {
         "queue": "generation",
     },
+    "contents.tasks.deliver_content_callback": {
+        "queue": "delivery",
+    },
     "contents.tasks.send_model_data_to_api": {
         "queue": "delivery",
     },
