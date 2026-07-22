@@ -492,3 +492,6 @@ else:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 
     SECURE_HSTS_PRELOAD = False
+
+# Authentication key used for content callback delivery.
+MTA_API_KEY = os.getenv("mta_api_key", "")
