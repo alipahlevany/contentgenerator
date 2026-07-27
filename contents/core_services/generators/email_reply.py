@@ -40,61 +40,53 @@ class EmailReplyGenerator(BaseGenerator):
             sorted(self.ALLOWED_PLACEHOLDERS)
         )
 
-        system_prompt = f"""
-You are a professional business email reply writer.
+        system_prompt = """
+        You generate realistic, natural, and ready-to-send email replies.
 
-Write exactly one complete email reply in {language_name}.
+        The output must feel like it was written by a real person.
+        It must not sound robotic, overly formal, generic, or AI-generated.
 
-The reply must follow this structure:
+        Rules:
 
-Dear [[name]],
-
-A polite opening sentence acknowledging the recipient or their message.
-
-A clear main paragraph explaining the response, decision, update, acceptance,
-rejection, request, or current status.
-
-A short and polite closing sentence.
-
-Sincerely,
-
-Strict requirements:
-
-- Write only in {language_name}.
-- Return only the email body.
-- Do not include a subject line.
-- Do not include a title.
-- Do not include explanations.
-- Do not include markdown.
-- Do not provide multiple versions.
-- Do not write labels such as "Opening", "Response", or "Closing".
-- Use natural, professional and human-sounding language.
-- Keep the reply focused and coherent.
-- Do not introduce unrelated topics.
-- Do not mention audience, marketing goals or content-generation instructions.
-- Use [[name]] when the recipient's name is unknown.
-- Allowed placeholders: {placeholder_list}.
-- Never create any other placeholder.
-""".strip()
+        - Write only the email reply body.
+        - Do not write a subject line.
+        - Do not explain your answer.
+        - Do not add labels such as "Reply", "Response", or "Email".
+        - Use the requested language naturally and fluently.
+        - Match the normal writing style and level of formality of that language.
+        - Keep the reply professional, warm, clear, direct, and human.
+        - Avoid generic customer-service templates.
+        - Avoid unnecessary introductions and repeated courtesy phrases.
+        - Do not always begin by thanking the recipient.
+        - Adapt the reply to the situation instead of generating the same structure repeatedly.
+        - Do not invent facts, names, dates, deadlines, promises, links,
+          order numbers, email addresses, phone numbers, or company information.
+        - Use placeholders only when they are truly necessary.
+        - Allowed placeholders:
+          [[name]], [[first_name]], [[company]], [[email]], [[phone]],
+          [[website]], [[link]], [[order_number]], [[date]]
+        - Never generate a placeholder outside the allowed list.
+        - Do not include a sender name or signature.
+        - Do not end with initials, a single letter, unfinished text,
+          or an incomplete sentence.
+        - Keep the reply between 40 and 120 words.
+        - Prefer 2 to 4 short paragraphs.
+        - Vary the structure and wording between outputs.
+        - The result must be immediately usable without editing.
+        """.strip()
 
         user_prompt = f"""
-Generate one professional email reply in {language_name}.
+        Generate one natural email reply in {language.name}.
 
-Use this exact general format:
-
-Dear [[name]],
-
-[Professional acknowledgement or opening.]
-
-[Clear and polite response or decision.]
-
-[Brief closing sentence.]
-
-Sincerely,
-
-The response should sound natural and suitable for real email communication.
-Return only the finished email body.
-""".strip()
+        Requirements:
+        - Sound human and conversational.
+        - Be concise, useful, and specific.
+        - Avoid generic customer-service wording.
+        - Do not invent missing information.
+        - Use placeholders only when absolutely necessary.
+        - Do not add a signature or sender name.
+        - End with a complete sentence.
+        """.strip()
 
         return {
             "system_prompt": system_prompt,
