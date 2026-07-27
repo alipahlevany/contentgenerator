@@ -1,3 +1,4 @@
+import uuid
 import re
 
 from contents.core_services.generators.base import (
@@ -91,7 +92,7 @@ class EmailReplyGenerator(BaseGenerator):
         return {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
-            "fallback_title": "Email Reply",
+            "fallback_title": f"Email Reply {uuid.uuid4().hex[:12]}",
         }
 
     def _validate_placeholders(self, text):
