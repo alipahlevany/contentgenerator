@@ -4,10 +4,6 @@ from contents.core_services.generators.base import (
     BaseGenerator,
     GeneratorOutputError,
 )
-from contents.core_services.prompt import (
-    build_context,
-    render_template,
-)
 
 
 class EmailReplyGenerator(BaseGenerator):
@@ -18,7 +14,9 @@ class EmailReplyGenerator(BaseGenerator):
         "[[date]]",
     }
 
-    PLACEHOLDER_PATTERN = re.compile(r"\[\[[^\[\]\r\n]+\]\]")
+    PLACEHOLDER_PATTERN = re.compile(
+        r"\[\[[^\[\]\r\n]+\]\]"
+    )
 
     def build_prompt_data(
         self,
@@ -30,41 +28,78 @@ class EmailReplyGenerator(BaseGenerator):
         prompt_template,
         selected_rules,
     ):
-        context = build_context(
-            app_settings=app_settings,
-            language=language,
-            topic=topic,
-            audience=audience,
-            goal=goal,
-            selected_rules=selected_rules,
+        # Reply generation intentionally ignores:
+        # topic, audience, goal, prompt_template and content rules.
+        language_name = getattr(
+            language,
+            "name",
+            str(language),
         )
 
-        base_system_prompt = render_template(
-            prompt_template.system_prompt,
-            context,
+        placeholder_list = ", ".join(
+            sorted(self.ALLOWED_PLACEHOLDERS)
         )
 
-        base_user_prompt = render_template(
-            prompt_template.user_prompt_template,
-            context,
-        )
+        system_prompt = f"""
+You are a professional business email reply writer.
 
-        placeholder_list = ", ".join(sorted(self.ALLOWED_PLACEHOLDERS))
+Write exactly one complete email reply in {language_name}.
 
-        system_prompt = (
-            f"{base_system_prompt}\n\n"
-            "Generate only the email reply body.\n"
-            "Do not generate a title or subject.\n"
-            f"Allowed placeholders: {placeholder_list}.\n"
-            "Never create any other placeholder."
-        )
+The reply must follow this structure:
 
-        user_prompt = base_user_prompt
+Dear [[name]],
+
+A polite opening sentence acknowledging the recipient or their message.
+
+A clear main paragraph explaining the response, decision, update, acceptance,
+rejection, request, or current status.
+
+A short and polite closing sentence.
+
+Sincerely,
+
+Strict requirements:
+
+- Write only in {language_name}.
+- Return only the email body.
+- Do not include a subject line.
+- Do not include a title.
+- Do not include explanations.
+- Do not include markdown.
+- Do not provide multiple versions.
+- Do not write labels such as "Opening", "Response", or "Closing".
+- Use natural, professional and human-sounding language.
+- Keep the reply focused and coherent.
+- Do not introduce unrelated topics.
+- Do not mention audience, marketing goals or content-generation instructions.
+- Use [[name]] when the recipient's name is unknown.
+- Allowed placeholders: {placeholder_list}.
+- Never create any other placeholder.
+""".strip()
+
+        user_prompt = f"""
+Generate one professional email reply in {language_name}.
+
+Use this exact general format:
+
+Dear [[name]],
+
+[Professional acknowledgement or opening.]
+
+[Clear and polite response or decision.]
+
+[Brief closing sentence.]
+
+Sincerely,
+
+The response should sound natural and suitable for real email communication.
+Return only the finished email body.
+""".strip()
 
         return {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
-            "fallback_title": f"Email Reply - {topic.name}",
+            "fallback_title": "Email Reply",
         }
 
     def _validate_placeholders(self, text):
