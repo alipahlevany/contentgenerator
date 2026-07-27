@@ -3,7 +3,10 @@ from contents.core_services.intelligence import record_generation_event
 from contents.core_services.logger import log_job
 from contents.core_services.runner import increment_skipped
 from contents.core_services.weight_optimizer import optimize_dataset_weights
-from contents.core_services.intelligence_scheduler import maybe_run_intelligence_optimization
+
+
+def is_email_reply_job(job):
+    return job.generation_type == "email_reply"
 
 
 def handle_generation_failure(
@@ -21,6 +24,7 @@ def handle_generation_failure(
     increment_skipped(job)
 
     update_fields = []
+
     if failure_kind == "duplicate":
         job.duplicate_count += 1
         update_fields.append("duplicate_count")
@@ -30,13 +34,23 @@ def handle_generation_failure(
     else:
         job.failed_count += 1
         update_fields.append("failed_count")
-    job.save(update_fields=update_fields + ["updated_at"])
+
+    job.save(
+        update_fields=update_fields + ["updated_at"]
+    )
 
     log_job(
         job,
-        "warning" if event_type in ["duplicate", "blocked"] else "error",
+        "warning"
+        if event_type in ["duplicate", "blocked"]
+        else "error",
         message,
     )
+
+    # Email replies do not use Topic, Audience, Goal,
+    # PromptTemplate or dataset intelligence.
+    if is_email_reply_job(job):
+        return
 
     record_generation_event(
         event_type=event_type,
@@ -66,6 +80,23 @@ def handle_generation_success(
     prompt_template,
     content,
 ):
+    if is_email_reply_job(job):
+        language_name = getattr(
+            language,
+            "name",
+            str(language),
+        )
+
+        log_job(
+            job,
+            "success",
+            (
+                f"Generated email reply #{content.id}: "
+                f"{language_name}"
+            ),
+        )
+        return
+
     record_generation_event(
         event_type="success",
         job=job,
