@@ -1,3 +1,4 @@
+import random
 import re
 import time
 
@@ -156,19 +157,29 @@ def run_generation_job(job_id):
         max_runtime_seconds = app_settings.generation_max_runtime_seconds
         run_started_at = time.monotonic()
 
-        log_job(
-            job,
-            "info",
-            (
-                "Using job-specific generation pool. "
-                f"Languages: {len(languages)}, "
-                f"Topics: {len(topics)}, "
-                f"Audiences: {len(audiences)}, "
-                f"Goals: {len(goals)}, "
-                f"PromptTemplates: {len(prompt_templates)}, "
-                f"ContentRules: {len(content_rules)}."
-            ),
-        )
+        if job.generation_type == "email_reply":
+            log_job(
+                job,
+                "info",
+                (
+                    "Using email reply generation pool. "
+                    f"Languages: {len(languages)}."
+                ),
+            )
+        else:
+            log_job(
+                job,
+                "info",
+                (
+                    "Using job-specific generation pool. "
+                    f"Languages: {len(languages)}, "
+                    f"Topics: {len(topics)}, "
+                    f"Audiences: {len(audiences)}, "
+                    f"Goals: {len(goals)}, "
+                    f"PromptTemplates: {len(prompt_templates)}, "
+                    f"ContentRules: {len(content_rules)}."
+                ),
+            )
 
         while (
             job.generated_count < target_count
@@ -196,26 +207,34 @@ def run_generation_job(job_id):
                 update_fields=["attempted_count", "last_attempt_at", "updated_at"]
             )
 
-            (
-                language,
-                topic,
-                audience,
-                goal,
-                prompt_template,
-            ) = intelligent_generation_choice(
-                languages=languages,
-                topics=topics,
-                audiences=audiences,
-                goals=goals,
-                prompt_templates=prompt_templates,
-            )
-
-            selected_rules = weighted_sample(
-                content_rules,
-                max_count=3,
-            )
-
             generator = get_generator(job.generation_type)
+
+            if job.generation_type == "email_reply":
+                language = random.choice(languages)
+                topic = None
+                audience = None
+                goal = None
+                prompt_template = None
+                selected_rules = []
+            else:
+                (
+                    language,
+                    topic,
+                    audience,
+                    goal,
+                    prompt_template,
+                ) = intelligent_generation_choice(
+                    languages=languages,
+                    topics=topics,
+                    audiences=audiences,
+                    goals=goals,
+                    prompt_templates=prompt_templates,
+                )
+
+                selected_rules = weighted_sample(
+                    content_rules,
+                    max_count=3,
+                )
 
             prompt_data = generator.build_prompt_data(
                 app_settings=app_settings,
