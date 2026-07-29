@@ -9,6 +9,13 @@ from .core_services.cleaner import normalize
 from .core_services.duplicate import is_duplicate_content
 from .core_services.delivery_queue import queue_content_deliveries
 from .core_services.dataset_resolver import DatasetResolver
+from .core_services.generation.reservation import (
+    reserve_generation_context,
+)
+from .core_services.generation.fingerprint import (
+    complete_fingerprint,
+    fail_fingerprint,
+)
 from .core_services.generation_outcome import (
     handle_generation_failure,
     handle_generation_success,
@@ -107,12 +114,20 @@ def run_generation_job(job_id):
 
             generator = get_generator(job.generation_type)
 
-            context = DatasetResolver.resolve(
+            reservation = reserve_generation_context(
                 job=job,
                 generator=generator,
                 random_module=random,
             )
-
+            if not reservation.acquired:
+                log_job(
+                    job,
+                    "warning",
+                    "Unable to reserve a unique generation context.",
+                    )
+                continue
+            context = reservation.context
+            fingerprint = reservation.fingerprint
             language = context["language"]
             topic = context["topic"]
             audience = context["audience"]
@@ -140,6 +155,10 @@ def run_generation_job(job_id):
                     user_prompt=user_prompt,
                 )
             except Exception as exc:
+                fail_fingerprint(
+                    fingerprint=fingerprint,
+                    error_message=str(exc),
+                )
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -159,6 +178,9 @@ def run_generation_job(job_id):
             )
 
             if not generated_validation.ok:
+                fail_fingerprint(
+                    fingerprint=fingerprint,
+                )    
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -187,6 +209,9 @@ def run_generation_job(job_id):
                 )
 
                 if still_blocked:
+                    fail_fingerprint(
+                        fingerprint=fingerprint,
+                    )
                     handle_generation_failure(
                         job=job,
                         app_settings=app_settings,
@@ -205,6 +230,9 @@ def run_generation_job(job_id):
                     continue
 
                 if not generated_text.strip():
+                    fail_fingerprint(
+                        fingerprint=fingerprint,
+                    )
                     handle_generation_failure(
                         job=job,
                         app_settings=app_settings,
@@ -247,6 +275,9 @@ def run_generation_job(job_id):
             )
 
             if not body_validation.ok:
+                fail_fingerprint(
+                    fingerprint=fingerprint,
+                )
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -273,6 +304,9 @@ def run_generation_job(job_id):
             )
 
             if not final_validation.ok:
+                fail_fingerprint(
+                    fingerprint=fingerprint,
+                )
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -297,6 +331,9 @@ def run_generation_job(job_id):
             )
 
             if is_duplicate:
+                fail_fingerprint(
+                    fingerprint=fingerprint,
+                )
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -325,6 +362,10 @@ def run_generation_job(job_id):
                 generated_content=content_body,
                 content_hash=content_hash,
                 status="generated",
+            )
+            complete_fingerprint(
+                fingerprint=fingerprint,
+                content=content,
             )
 
             if selected_rules:
