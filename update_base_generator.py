@@ -1,4 +1,9 @@
-from abc import ABC, abstractmethod
+from pathlib import Path
+
+path = Path("contents/core_services/generators/base.py")
+
+path.write_text(
+'''from abc import ABC, abstractmethod
 
 
 class GeneratorOutputError(ValueError):
@@ -47,3 +52,8 @@ class BaseGenerator(ABC):
         Extract final title and body from generated output.
         """
         raise NotImplementedError
+''',
+    encoding="utf-8",
+)
+
+print("OK: BaseGenerator updated.")

@@ -1160,3 +1160,158 @@ class GenerationJobLog(models.Model):
 
     def __str__(self):
         return f"Job #{self.job_id} - {self.level}"
+
+
+class GenerationType(models.Model):
+    """
+    Defines a configurable AI generation type.
+
+    Existing Standard and Email Reply generation flows are not connected
+    to this model yet.
+    """
+
+    key = models.SlugField(
+        max_length=50,
+        unique=True,
+        help_text="Unique identifier, for example: standard, reply, greeting.",
+    )
+
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+    )
+
+    description = models.TextField(
+        blank=True,
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Generation Type"
+        verbose_name_plural = "Generation Types"
+
+    def __str__(self):
+        return self.name
+
+
+class DatasetCategory(models.Model):
+    """
+    Defines a configurable dataset category such as Language, Topic,
+    Audience, Goal, Tone, or Persona.
+    """
+
+    key = models.SlugField(
+        max_length=50,
+        unique=True,
+        help_text="Unique identifier, for example: language, topic, tone.",
+    )
+
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+    )
+
+    description = models.TextField(
+        blank=True,
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Dataset Category"
+        verbose_name_plural = "Dataset Categories"
+
+    def __str__(self):
+        return self.name
+
+
+class GenerationTypeDataset(models.Model):
+    """
+    Connects a GenerationType to the dataset categories it uses.
+    """
+
+    generation_type = models.ForeignKey(
+        GenerationType,
+        on_delete=models.CASCADE,
+        related_name="dataset_links",
+    )
+
+    dataset_category = models.ForeignKey(
+        DatasetCategory,
+        on_delete=models.CASCADE,
+        related_name="generation_type_links",
+    )
+
+    is_required = models.BooleanField(
+        default=True,
+    )
+
+    selection_order = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Lower values are selected first.",
+    )
+
+    weight = models.PositiveSmallIntegerField(
+        default=100,
+        help_text="Relative weight used when this dataset participates in generation.",
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = [
+            "generation_type",
+            "selection_order",
+            "dataset_category",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "generation_type",
+                    "dataset_category",
+                ],
+                name="unique_generation_type_dataset",
+            ),
+        ]
+        verbose_name = "Generation Type Dataset"
+        verbose_name_plural = "Generation Type Datasets"
+
+    def __str__(self):
+        return (
+            f"{self.generation_type.name} → "
+            f"{self.dataset_category.name}"
+        )
+
