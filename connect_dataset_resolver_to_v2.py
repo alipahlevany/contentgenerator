@@ -1,4 +1,9 @@
-from contents.core_services.datasets.job_pool_v2 import (
+from pathlib import Path
+
+path = Path("contents/core_services/dataset_resolver.py")
+
+path.write_text(
+'''from contents.core_services.datasets.job_pool_v2 import (
     get_job_generation_pool_v2,
 )
 from contents.core_services.selector import (
@@ -40,11 +45,21 @@ class DatasetResolver:
         cls,
         *,
         job,
+        languages=None,
+        topics=None,
+        audiences=None,
+        goals=None,
+        prompt_templates=None,
+        content_rules=None,
         generator,
         random_module,
     ):
         """
-        Build one generation context from the Generation V2 pool.
+        Build one generation context.
+
+        The legacy dataset arguments are intentionally kept temporarily
+        for backward compatibility with services.py. They are no longer
+        used as the source of truth.
         """
         pool = get_job_generation_pool_v2(job)
 
@@ -78,3 +93,8 @@ class DatasetResolver:
             )
 
         return context
+''',
+    encoding="utf-8",
+)
+
+print("OK: DatasetResolver connected to Job Pool V2.")

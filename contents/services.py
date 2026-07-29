@@ -14,7 +14,7 @@ from .core_services.generation_outcome import (
     handle_generation_failure,
     handle_generation_success,
 )
-from .core_services.job_pool import get_job_generation_pool
+from .core_services.datasets.job_pool_v2 import get_job_generation_pool_v2
 from .core_services.logger import fail_job, log_job
 from .core_services.generators.factory import get_generator
 from .core_services.runner import (
@@ -141,14 +141,7 @@ def run_generation_job(job_id):
     try:
         app_settings = get_app_settings()
 
-        (
-            languages,
-            topics,
-            audiences,
-            goals,
-            prompt_templates,
-            content_rules,
-        ) = get_job_generation_pool(job)
+        generation_pool = get_job_generation_pool_v2(job)
 
         target_count = job.count
         max_attempts = job.max_attempts or max(
@@ -158,29 +151,23 @@ def run_generation_job(job_id):
         max_runtime_seconds = app_settings.generation_max_runtime_seconds
         run_started_at = time.monotonic()
 
-        if job.generation_type == "email_reply":
-            log_job(
-                job,
-                "info",
-                (
-                    "Using email reply generation pool. "
-                    f"Languages: {len(languages)}."
-                ),
+        pool_summary = ", ".join(
+            (
+                f"{dataset_key}: "
+                f"{len(dataset_config['items'])}"
             )
-        else:
-            log_job(
-                job,
-                "info",
-                (
-                    "Using job-specific generation pool. "
-                    f"Languages: {len(languages)}, "
-                    f"Topics: {len(topics)}, "
-                    f"Audiences: {len(audiences)}, "
-                    f"Goals: {len(goals)}, "
-                    f"PromptTemplates: {len(prompt_templates)}, "
-                    f"ContentRules: {len(content_rules)}."
-                ),
-            )
+            for dataset_key, dataset_config
+            in generation_pool.items()
+        )
+
+        log_job(
+            job,
+            "info",
+            (
+                "Using Generation V2 dataset pool. "
+                f"{pool_summary or 'No datasets configured'}."
+            ),
+        )
 
         while (
             job.generated_count < target_count
@@ -212,12 +199,6 @@ def run_generation_job(job_id):
 
             context = DatasetResolver.resolve(
                 job=job,
-                languages=languages,
-                topics=topics,
-                audiences=audiences,
-                goals=goals,
-                prompt_templates=prompt_templates,
-                content_rules=content_rules,
                 generator=generator,
                 random_module=random,
             )
