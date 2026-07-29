@@ -8,6 +8,33 @@ from contents.core_services.generators.base import (
 
 
 class EmailReplyGenerator(BaseGenerator):
+
+    def get_pool_log_message(
+        self,
+        languages,
+        **kwargs,
+    ):
+        return (
+            "Using email reply generation pool. "
+            f"Languages: {len(languages)}."
+        )
+
+    def select_generation_context(
+        self,
+        *,
+        languages,
+        random_module,
+        **kwargs,
+    ):
+        return {
+            "language": random_module.choice(languages),
+            "topic": None,
+            "audience": None,
+            "goal": None,
+            "prompt_template": None,
+            "selected_rules": [],
+        }
+
     ALLOWED_PLACEHOLDERS = {
         "[[email]]",
         "[[name]]",

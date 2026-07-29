@@ -9,6 +9,7 @@ from .core_services.cache import get_app_settings, get_blocked_keywords
 from .core_services.cleaner import normalize
 from .core_services.duplicate import is_duplicate_content
 from .core_services.delivery_queue import queue_content_deliveries
+from .core_services.dataset_resolver import DatasetResolver
 from .core_services.generation_outcome import (
     handle_generation_failure,
     handle_generation_success,
@@ -209,32 +210,24 @@ def run_generation_job(job_id):
 
             generator = get_generator(job.generation_type)
 
-            if job.generation_type == "email_reply":
-                language = random.choice(languages)
-                topic = None
-                audience = None
-                goal = None
-                prompt_template = None
-                selected_rules = []
-            else:
-                (
-                    language,
-                    topic,
-                    audience,
-                    goal,
-                    prompt_template,
-                ) = intelligent_generation_choice(
-                    languages=languages,
-                    topics=topics,
-                    audiences=audiences,
-                    goals=goals,
-                    prompt_templates=prompt_templates,
-                )
+            context = DatasetResolver.resolve(
+                job=job,
+                languages=languages,
+                topics=topics,
+                audiences=audiences,
+                goals=goals,
+                prompt_templates=prompt_templates,
+                content_rules=content_rules,
+                generator=generator,
+                random_module=random,
+            )
 
-                selected_rules = weighted_sample(
-                    content_rules,
-                    max_count=3,
-                )
+            language = context["language"]
+            topic = context["topic"]
+            audience = context["audience"]
+            goal = context["goal"]
+            prompt_template = context["prompt_template"]
+            selected_rules = context["selected_rules"]
 
             prompt_data = generator.build_prompt_data(
                 app_settings=app_settings,
