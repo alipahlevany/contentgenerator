@@ -18,6 +18,11 @@ from .core_services.pipeline.blocked_keywords import (
     contains_blocked_keyword,
     remove_blocked_keywords,
 )
+from .core_services.pipeline.validator import (
+    validate_content_body,
+    validate_final_blocked_keyword,
+    validate_generated_text,
+)
 from .core_services.logger import fail_job, log_job
 from .core_services.generators.factory import get_generator
 from .core_services.runner import (
@@ -149,18 +154,22 @@ def run_generation_job(job_id):
                 )
                 continue
 
-            if not generated_text or not generated_text.strip():
+            generated_validation = validate_generated_text(
+                generated_text
+            )
+
+            if not generated_validation.ok:
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
-                    event_type="error",
+                    event_type=generated_validation.event_type,
                     language=language,
                     topic=topic,
                     audience=audience,
                     goal=goal,
                     prompt_template=prompt_template,
-                    message="OpenAI returned empty content.",
-                    failure_kind="empty",
+                    message=generated_validation.message,
+                    failure_kind=generated_validation.failure_kind,
                 )
                 continue
 
@@ -233,20 +242,22 @@ def run_generation_job(job_id):
             if not title:
                 title = fallback_title
 
-            if not content_body:
+            body_validation = validate_content_body(
+                content_body
+            )
+
+            if not body_validation.ok:
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
-                    event_type="blocked",
+                    event_type=body_validation.event_type,
                     language=language,
                     topic=topic,
                     audience=audience,
                     goal=goal,
                     prompt_template=prompt_template,
-                    message=(
-                        "Content body became empty after cleanup."
-                    ),
-                    failure_kind="empty",
+                    message=body_validation.message,
+                    failure_kind=body_validation.failure_kind,
                 )
                 continue
 
@@ -256,21 +267,23 @@ def run_generation_job(job_id):
                 contains_blocked_keyword(final_text)
             )
 
-            if final_has_blocked:
+            final_validation = validate_final_blocked_keyword(
+                final_has_blocked,
+                final_blocked_keyword,
+            )
+
+            if not final_validation.ok:
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
-                    event_type="blocked",
+                    event_type=final_validation.event_type,
                     language=language,
                     topic=topic,
                     audience=audience,
                     goal=goal,
                     prompt_template=prompt_template,
-                    message=(
-                        "Blocked keyword found after final extraction: "
-                        f"{final_blocked_keyword}"
-                    ),
-                        failure_kind="failed",
+                    message=final_validation.message,
+                    failure_kind=final_validation.failure_kind,
                 )
                 continue
 
