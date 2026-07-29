@@ -55,6 +55,8 @@ def run_generation_job(job_id):
     reset_job_for_start(job)
     log_job(job, "info", "Job started.")
 
+    active_fingerprint = None
+
     try:
         app_settings = get_app_settings()
 
@@ -128,6 +130,7 @@ def run_generation_job(job_id):
                 continue
             context = reservation.context
             fingerprint = reservation.fingerprint
+            active_fingerprint = fingerprint
             language = context["language"]
             topic = context["topic"]
             audience = context["audience"]
@@ -159,6 +162,7 @@ def run_generation_job(job_id):
                     fingerprint=fingerprint,
                     error_message=str(exc),
                 )
+                active_fingerprint = None
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -180,7 +184,8 @@ def run_generation_job(job_id):
             if not generated_validation.ok:
                 fail_fingerprint(
                     fingerprint=fingerprint,
-                )    
+                )
+                active_fingerprint = None    
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -278,6 +283,7 @@ def run_generation_job(job_id):
                 fail_fingerprint(
                     fingerprint=fingerprint,
                 )
+                active_fingerprint = None
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -307,6 +313,7 @@ def run_generation_job(job_id):
                 fail_fingerprint(
                     fingerprint=fingerprint,
                 )
+                active_fingerprint = None
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -334,6 +341,7 @@ def run_generation_job(job_id):
                 fail_fingerprint(
                     fingerprint=fingerprint,
                 )
+                active_fingerprint = None
                 handle_generation_failure(
                     job=job,
                     app_settings=app_settings,
@@ -367,6 +375,7 @@ def run_generation_job(job_id):
                 fingerprint=fingerprint,
                 content=content,
             )
+            active_fingerprint = None
 
             if selected_rules:
                 content.rules.set(selected_rules)
@@ -405,4 +414,15 @@ def run_generation_job(job_id):
         )
 
     except Exception as exc:
+        if active_fingerprint:
+            try:
+                fail_fingerprint(
+                    fingerprint=active_fingerprint,
+                    error_message=str(exc),
+                )
+            except Exception:
+                pass
+
+        fail_job(job, str(exc))
+
         fail_job(job, str(exc))
