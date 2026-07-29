@@ -92,29 +92,15 @@ class GenerationJobBoundsTests(TestCase):
 
             stack.enter_context(
                 patch(
-                    "contents.services.get_job_generation_pool",
-                    return_value=(
-                        [choice[0]],
-                        [choice[1]],
-                        [choice[2]],
-                        [choice[3]],
-                        [choice[4]],
-                        [],
-                    ),
-                )
-            )
-
-            stack.enter_context(
-                patch(
-                    "contents.services.intelligent_generation_choice",
-                    return_value=choice,
-                )
-            )
-
-            stack.enter_context(
-                patch(
-                    "contents.services.weighted_sample",
-                    return_value=[],
+                    "contents.services.get_job_generation_pool_v2",
+                    return_value={
+                        "language": {"items": [choice[0]]},
+                        "topic": {"items": [choice[1]]},
+                        "audience": {"items": [choice[2]]},
+                        "goal": {"items": [choice[3]]},
+                        "prompt_template": {"items": [choice[4]]},
+                        "content_rule": {"items": []},
+                    },
                 )
             )
 
@@ -122,6 +108,27 @@ class GenerationJobBoundsTests(TestCase):
                 patch(
                     "contents.services.get_generator",
                     return_value=fake_generator,
+                )
+            )
+
+            stack.enter_context(
+                patch(
+                    "contents.services.reserve_generation_context",
+                    return_value=SimpleNamespace(
+                        acquired=True,
+                        context={
+                            "language": choice[0],
+                            "topic": choice[1],
+                            "audience": choice[2],
+                            "goal": choice[3],
+                            "prompt_template": choice[4],
+                            "selected_rules": [],
+                        },
+                        fingerprint="test-generation-fingerprint",
+                        record=None,
+                        reason=None,
+                        attempts=1,
+                    ),
                 )
             )
 
@@ -298,15 +305,15 @@ class GenerationJobBoundsTests(TestCase):
             "contents.services.get_app_settings",
             return_value=self.settings(runtime=1),
         ), patch(
-            "contents.services.get_job_generation_pool",
-            return_value=(
-                [choice[0]],
-                [choice[1]],
-                [choice[2]],
-                [choice[3]],
-                [choice[4]],
-                [],
-            ),
+            "contents.services.get_job_generation_pool_v2",
+            return_value={
+                "language": {"items": [choice[0]]},
+                "topic": {"items": [choice[1]]},
+                "audience": {"items": [choice[2]]},
+                "goal": {"items": [choice[3]]},
+                "prompt_template": {"items": [choice[4]]},
+                "content_rule": {"items": []},
+            },
         ), patch(
             "contents.services.time.monotonic",
             side_effect=[0, 2],

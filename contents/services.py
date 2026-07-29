@@ -5,10 +5,8 @@ from django.utils import timezone
 
 from .core_services.ai import generate_content
 from .core_services.cache import get_app_settings
-from .core_services.cleaner import normalize
 from .core_services.duplicate import is_duplicate_content
 from .core_services.delivery_queue import queue_content_deliveries
-from .core_services.dataset_resolver import DatasetResolver
 from .core_services.generation.reservation import (
     reserve_generation_context,
 )
@@ -37,10 +35,6 @@ from .core_services.runner import (
     mark_job_completed,
     mark_job_stopped,
     reset_job_for_start,
-)
-from .core_services.selector import (
-    intelligent_generation_choice,
-    weighted_sample,
 )
 from .models import Content, GenerationJob
 
