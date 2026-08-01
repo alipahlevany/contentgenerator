@@ -51,6 +51,7 @@ urlpatterns = [
         "api/docs/",
         SpectacularSwaggerView.as_view(
             url_name="schema",
+            template_name="api/swagger_ui.html",
             authentication_classes=[
                 SessionAuthentication,
             ],

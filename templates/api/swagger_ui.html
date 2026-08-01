@@ -1,0 +1,409 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b1220">
+
+    <title>{{ title|default:"Content Generator API" }}</title>
+
+    {% if favicon_href %}
+    <link rel="icon" href="{{ favicon_href }}">
+    {% endif %}
+
+    <link rel="stylesheet" href="{{ swagger_ui_css }}">
+    <link rel="stylesheet" href="{% static 'api/swagger.css' %}">
+</head>
+
+<body>
+
+<nav class="portal-nav">
+    <div class="portal-container portal-nav__inner">
+
+        <a href="/api/docs/" class="brand">
+            <div class="brand__logo">CG</div>
+
+            <div class="brand__copy">
+                <strong>Content Generator</strong>
+                <span>Developer Platform</span>
+            </div>
+        </a>
+
+        <div class="portal-nav__actions">
+
+            <a href="/api/docs/" class="nav-link">
+                API Docs
+            </a>
+
+            <a href="/api/schema/" class="nav-link">
+                OpenAPI
+            </a>
+
+            <a href="/admin/" class="nav-link">
+                Admin
+            </a>
+
+            <button
+                id="theme-toggle"
+                class="theme-toggle"
+                type="button"
+                aria-label="Toggle dark mode"
+            >
+                <span class="theme-light">☀</span>
+                <span class="theme-dark">☾</span>
+            </button>
+
+        </div>
+
+    </div>
+</nav>
+
+
+<header class="hero">
+
+    <div class="hero__orb hero__orb--one"></div>
+    <div class="hero__orb hero__orb--two"></div>
+
+    <div class="portal-container hero__inner">
+
+        <div class="hero__content">
+
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                Production API
+            </div>
+
+            <h1>
+                Content Generator
+                <span>Developer API</span>
+            </h1>
+
+            <p class="hero__description">
+                Generate, manage, monitor, export and deliver
+                AI-generated content through a production-ready
+                REST API.
+            </p>
+
+            <div class="hero__buttons">
+
+                <a href="#api-reference" class="button button--primary">
+                    Explore API
+                    <span>→</span>
+                </a>
+
+                <a href="/api/schema/" class="button button--ghost">
+                    View OpenAPI Schema
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <div class="overview-card">
+
+            <div class="overview-card__heading">
+
+                <div>
+                    <span class="overview-eyebrow">
+                        API OVERVIEW
+                    </span>
+
+                    <strong>
+                        Ready for integration
+                    </strong>
+                </div>
+
+                <span class="version-badge">
+                    v1
+                </span>
+
+            </div>
+
+
+            <div class="metrics-grid">
+
+                <div class="metric">
+                    <span>Base URL</span>
+                    <code>/api/v1/</code>
+                </div>
+
+                <div class="metric">
+                    <span>Format</span>
+                    <strong>JSON</strong>
+                </div>
+
+                <div class="metric">
+                    <span>Authentication</span>
+                    <strong>API Key</strong>
+                </div>
+
+                <div class="metric">
+                    <span>Environment</span>
+
+                    <strong class="live-value">
+                        <i></i>
+                        Live
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <div class="terminal">
+
+                <div class="terminal__bar">
+                    <div>
+                        <i></i>
+                        <i></i>
+                        <i></i>
+                    </div>
+
+                    <span>
+                        Authorization
+                    </span>
+                </div>
+
+                <div class="terminal__body">
+                    <span class="terminal-muted">
+                        Authorization:
+                    </span>
+
+                    <span class="terminal-value">
+                        Api-Key YOUR_API_KEY
+                    </span>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</header>
+
+
+<section class="capabilities">
+    <div class="portal-container capabilities__grid">
+
+        <article class="capability">
+            <div class="capability__icon">✦</div>
+
+            <div>
+                <strong>AI Generation</strong>
+                <span>Create scalable generation jobs</span>
+            </div>
+        </article>
+
+        <article class="capability">
+            <div class="capability__icon">⌁</div>
+
+            <div>
+                <strong>Dataset Driven</strong>
+                <span>Languages, topics and audiences</span>
+            </div>
+        </article>
+
+        <article class="capability">
+            <div class="capability__icon">↗</div>
+
+            <div>
+                <strong>Export API</strong>
+                <span>Export generated content safely</span>
+            </div>
+        </article>
+
+        <article class="capability">
+            <div class="capability__icon">◎</div>
+
+            <div>
+                <strong>Delivery</strong>
+                <span>Callback based content delivery</span>
+            </div>
+        </article>
+
+    </div>
+</section>
+
+
+<main class="portal-container docs-grid">
+
+    <aside class="sidebar">
+
+        <div class="sidebar-card">
+
+            <span class="sidebar-heading">
+                Navigation
+            </span>
+
+            <nav class="sidebar-links">
+                <a href="#api-reference">
+                    <span>01</span>
+                    API Reference
+                </a>
+
+                <a href="/api/schema/">
+                    <span>02</span>
+                    OpenAPI Schema
+                </a>
+
+                <a href="/admin/">
+                    <span>03</span>
+                    Admin Panel
+                </a>
+            </nav>
+
+        </div>
+
+
+        <div class="sidebar-card sidebar-card--accent">
+
+            <span class="sidebar-heading">
+                Authentication
+            </span>
+
+            <p>
+                Protected API endpoints require a valid
+                external client API key.
+            </p>
+
+            <div class="mini-code">
+                X-API-Key
+            </div>
+
+        </div>
+
+
+        <div class="sidebar-card">
+
+            <span class="sidebar-heading">
+                Response Contract
+            </span>
+
+            <div class="contract-row contract-row--success">
+                <span></span>
+                Success response
+            </div>
+
+            <div class="contract-row contract-row--error">
+                <span></span>
+                Error response
+            </div>
+
+        </div>
+
+
+        <div class="sidebar-card">
+
+            <span class="sidebar-heading">
+                Useful
+            </span>
+
+            <div class="sidebar-meta">
+                <div>
+                    <span>API Version</span>
+                    <strong>1.0.0</strong>
+                </div>
+
+                <div>
+                    <span>Transport</span>
+                    <strong>HTTPS</strong>
+                </div>
+
+                <div>
+                    <span>Payload</span>
+                    <strong>JSON</strong>
+                </div>
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <section id="api-reference" class="reference">
+
+        <div class="reference-heading">
+
+            <div>
+                <span class="section-label">
+                    API REFERENCE
+                </span>
+
+                <h2>
+                    Interactive Documentation
+                </h2>
+
+                <p>
+                    Inspect endpoints, parameters, request bodies,
+                    schemas and API responses.
+                </p>
+            </div>
+
+            <div class="search-shortcut">
+                <kbd>/</kbd>
+                Search endpoints
+            </div>
+
+        </div>
+
+
+        <div class="swagger-frame">
+            <div id="swagger-ui"></div>
+        </div>
+
+    </section>
+
+</main>
+
+
+<footer class="portal-footer">
+
+    <div class="portal-container portal-footer__inner">
+
+        <div>
+            <strong>
+                Content Generator API
+            </strong>
+
+            <span>
+                Internal Developer Documentation
+            </span>
+        </div>
+
+        <div class="portal-footer__status">
+            <span></span>
+            API v1
+        </div>
+
+    </div>
+
+</footer>
+
+
+<button
+    id="back-to-top"
+    class="back-to-top"
+    type="button"
+    aria-label="Back to top"
+>
+    ↑
+</button>
+
+
+<script src="{{ swagger_ui_bundle }}"></script>
+<script src="{{ swagger_ui_standalone }}"></script>
+
+{% if script_url %}
+<script src="{{ script_url }}"></script>
+{% else %}
+<script>
+{% include template_name_js %}
+</script>
+{% endif %}
+
+<script src="{% static 'api/swagger.js' %}"></script>
+
+</body>
+</html>
