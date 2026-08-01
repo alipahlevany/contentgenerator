@@ -3,8 +3,12 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from contents.api.responses import (
+    api_error,
+    api_success,
+)
 
 from contents.api.serializers.delivery import ContentDeliverySerializer
 from contents.core_services.delivery import validate_callback_url
@@ -31,9 +35,11 @@ class ContentDeliveryAPIView(APIView):
         try:
             validate_callback_url(callback_url)
         except ValidationError as exc:
-            return Response(
-                {"detail": exc.messages[0]},
-                status=status.HTTP_400_BAD_REQUEST,
+            return api_error(
+                code="invalid_callback_url",
+                detail=exc.messages[0],
+                message="Unable to create content delivery.",
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         with transaction.atomic():
@@ -51,7 +57,12 @@ class ContentDeliveryAPIView(APIView):
                     lambda: deliver_content_callback.delay(delivery.pk)
                 )
 
-        return Response(
-            ContentDeliverySerializer(delivery).data,
-            status=status.HTTP_202_ACCEPTED,
+        return api_success(
+            data={
+                "delivery": ContentDeliverySerializer(
+                    delivery
+                ).data,
+            },
+            message="Content delivery queued successfully.",
+            status_code=status.HTTP_202_ACCEPTED,
         )

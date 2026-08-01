@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 
+from contents.api.responses import api_error
 from contents.models import APIIdempotencyRecord
 
 
@@ -60,9 +61,14 @@ def execute_idempotent(request, operation, callback):
 
         if record is not None:
             if record.request_fingerprint != fingerprint:
-                return Response(
-                    {"detail": "Idempotency key was already used with a different request."},
-                    status=status.HTTP_409_CONFLICT,
+                return api_error(
+                    code="idempotency_conflict",
+                    detail=(
+                        "Idempotency key was already used "
+                        "with a different request."
+                    ),
+                    message="Idempotency conflict.",
+                    status_code=status.HTTP_409_CONFLICT,
                 )
             return Response(record.response_payload, status=record.response_status)
 
@@ -101,8 +107,18 @@ def _lock_value(client_id, operation, key):
 
 
 def _resource_reference(operation, payload):
+    data = payload.get("data") or {}
+
     if operation == "generation-job-create":
-        return "generation_job", payload.get("job", {}).get("id")
+        return (
+            "generation_job",
+            (data.get("job") or {}).get("id"),
+        )
+
     if operation == "content-delivery-create":
-        return "content_delivery", payload.get("id")
+        return (
+            "content_delivery",
+            (data.get("delivery") or {}).get("id"),
+        )
+
     return "", None

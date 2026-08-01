@@ -24,7 +24,14 @@ from contents.permissions import HasValidAPIKey
 
 class ExternalClientIsolationCharacterizationTests(TestCase):
     authentication_error = {
-        "detail": "Authentication credentials were not provided."
+        "success": False,
+        "message": "Authentication failed.",
+        "error": {
+            "code": "authentication_failed",
+            "detail": (
+                "Authentication credentials were not provided."
+            ),
+        },
     }
 
     @classmethod
@@ -92,7 +99,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         delay.assert_called_once()
-        return GenerationJob.objects.get(pk=response.json()["job"]["id"])
+        return GenerationJob.objects.get(pk=response.json()["data"]["job"]["id"])
 
     def test_each_client_authenticates_and_permission_sets_request_client(self):
         factory = APIRequestFactory()
@@ -207,13 +214,13 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
         )
 
         self.assertEqual(response_a.status_code, 200)
-        self.assertEqual(response_a.json()["client"], "client-a")
-        self.assertEqual(response_a.json()["exported"], 1)
+        self.assertEqual(response_a.json()["data"]["client"], "client-a")
+        self.assertEqual(response_a.json()["data"]["exported"], 1)
         self.assertEqual(response_a_again.status_code, 200)
-        self.assertEqual(response_a_again.json()["exported"], 0)
+        self.assertEqual(response_a_again.json()["data"]["exported"], 0)
         self.assertEqual(response_b.status_code, 200)
-        self.assertEqual(response_b.json()["client"], "client-b")
-        self.assertEqual(response_b.json()["exported"], 1)
+        self.assertEqual(response_b.json()["data"]["client"], "client-b")
+        self.assertEqual(response_b.json()["data"]["exported"], 1)
 
         exports = ContentExport.objects.filter(content=content).order_by("client_id")
         self.assertEqual(exports.count(), 2)
@@ -235,11 +242,11 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
         )
 
         self.assertEqual(list_response.status_code, 200)
-        self.assertNotIn(job.pk, [item["id"] for item in list_response.json()])
+        self.assertNotIn(job.pk, [item["id"] for item in list_response.json()["data"]])
         self.assertEqual(detail_response.status_code, 404)
         self.assertEqual(
             detail_response.json(),
-            {"detail": "No GenerationJob matches the given query."},
+            {"success": False, "message": "Resource not found.", "error": {"code": "not_found", "detail": "No GenerationJob matches the given query."}},
         )
 
     def test_client_a_cannot_start_job_created_through_client_b(self):
@@ -259,7 +266,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(
             response.json(),
-            {"detail": "No GenerationJob matches the given query."},
+            {"success": False, "message": "Resource not found.", "error": {"code": "not_found", "detail": "No GenerationJob matches the given query."}},
         )
         delay.assert_not_called()
         job.refresh_from_db()
@@ -280,7 +287,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(
             response.json(),
-            {"detail": "No GenerationJob matches the given query."},
+            {"success": False, "message": "Resource not found.", "error": {"code": "not_found", "detail": "No GenerationJob matches the given query."}},
         )
         job.refresh_from_db()
         self.assertEqual(job.status, "pending")
@@ -333,7 +340,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
             **self.headers(self.client_b),
         )
 
-        self.assertIn(job.pk, [item["id"] for item in list_response.json()])
+        self.assertIn(job.pk, [item["id"] for item in list_response.json()["data"]])
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(start_response.status_code, 200)
         delay.assert_called_once_with(job.pk)
@@ -371,12 +378,12 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
             **self.headers(self.client_a),
         )
 
-        self.assertNotIn(job.pk, [item["id"] for item in list_response.json()])
+        self.assertNotIn(job.pk, [item["id"] for item in list_response.json()["data"]])
         for response in (detail_response, start_response, stop_response):
             self.assertEqual(response.status_code, 404)
             self.assertEqual(
                 response.json(),
-                {"detail": "No GenerationJob matches the given query."},
+                {"success": False, "message": "Resource not found.", "error": {"code": "not_found", "detail": "No GenerationJob matches the given query."}},
             )
         delay.assert_not_called()
 

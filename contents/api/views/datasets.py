@@ -6,8 +6,12 @@ from drf_spectacular.utils import (
     extend_schema,
 )
 from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from contents.api.responses import (
+    api_error,
+    api_success,
+)
 
 from contents.api.serializers.datasets import (
     DatasetCollectionSerializer,
@@ -149,15 +153,15 @@ class DatasetAPIView(APIView):
             config = self.dataset_map.get(dataset_type)
 
             if config is None:
-                return Response(
-                    {
-                        "detail": (
-                            "Invalid dataset type. Supported values are: "
-                            + ", ".join(self.dataset_map.keys())
-                            + "."
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
+                return api_error(
+                    code="invalid_dataset_type",
+                    detail=(
+                        "Invalid dataset type. Supported values are: "
+                        + ", ".join(self.dataset_map.keys())
+                        + "."
+                    ),
+                    message="Unable to retrieve datasets.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
             model, serializer_class = config
@@ -168,14 +172,15 @@ class DatasetAPIView(APIView):
                 .order_by("name")
             )
 
-            return Response(
-                {
+            return api_success(
+                data={
                     dataset_type: serializer_class(
                         queryset,
                         many=True,
                     ).data
                 },
-                status=status.HTTP_200_OK,
+                message="Datasets retrieved successfully.",
+                status_code=status.HTTP_200_OK,
             )
 
         response_data = {}
@@ -192,7 +197,8 @@ class DatasetAPIView(APIView):
                 many=True,
             ).data
 
-        return Response(
-            response_data,
-            status=status.HTTP_200_OK,
+        return api_success(
+            data=response_data,
+            message="Datasets retrieved successfully.",
+            status_code=status.HTTP_200_OK,
         )

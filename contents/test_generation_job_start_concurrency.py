@@ -11,6 +11,23 @@ from rest_framework.test import APIClient
 from contents.models import ExternalClient, GenerationJob
 
 
+
+def api_error_payload(
+    *,
+    code,
+    detail,
+    message,
+):
+    return {
+        "success": False,
+        "message": message,
+        "error": {
+            "code": code,
+            "detail": detail,
+        },
+    }
+
+
 class GenerationJobStartConcurrencyTests(TransactionTestCase):
     reset_sequences = True
 
@@ -115,7 +132,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
         )
         self.assertEqual(
             unauthorized["body"],
-            {"detail": "No GenerationJob matches the given query."},
+            {"success": False, "message": "Resource not found.", "error": {"code": "not_found", "detail": "No GenerationJob matches the given query."}},
         )
         delay.assert_called_once_with(job.pk)
         self.assertEqual(save_order, ["start"])
@@ -143,7 +160,11 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
         successful = next(result for result in results if result["status_code"] == 200)
         rejected = next(result for result in results if result["status_code"] == 400)
         self.assertEqual(successful["body"]["message"], f"Generation job #{job.id} started.")
-        self.assertEqual(rejected["body"], {"detail": f"Job #{job.id} is already running."})
+        self.assertEqual(rejected["body"], api_error_payload(
+                code="job_already_running",
+                detail=f"Job #{job.id} is already running.",
+                message="Unable to start generation job.",
+            ))
         delay.assert_called_once_with(job.id)
         self.assertEqual(save_order, ["start"])
         job.refresh_from_db()
@@ -173,7 +194,11 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
         successful = next(result for result in results if result["status_code"] == 200)
         rejected = next(result for result in results if result["status_code"] == 400)
         self.assertEqual(successful["body"]["message"], f"Generation job #{job.id} resumed.")
-        self.assertEqual(rejected["body"], {"detail": f"Job #{job.id} is already running."})
+        self.assertEqual(rejected["body"], api_error_payload(
+                code="job_already_running",
+                detail=f"Job #{job.id} is already running.",
+                message="Unable to start generation job.",
+            ))
         delay.assert_called_once_with(job.id)
         self.assertEqual(save_order, ["start"])
         job.refresh_from_db()
@@ -207,7 +232,11 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
         self.assertEqual(successful["body"]["message"], f"Generation job #{job.id} stopped.")
         self.assertEqual(
             rejected["body"],
-            {"detail": f"Job #{job.id} is not pending or running."},
+            api_error_payload(
+                code="job_not_stoppable",
+                detail=f"Job #{job.id} is not pending or running.",
+                message="Unable to stop generation job.",
+            ),
         )
         delay.assert_not_called()
         self.assertEqual(save_order, ["stop"])
@@ -238,8 +267,16 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
         self.assertEqual(
             [result["body"] for result in results],
             [
-                {"detail": f"Job #{job.id} is already completed (10/10)."},
-                {"detail": f"Job #{job.id} is already completed (10/10)."},
+                api_error_payload(
+                code="job_already_completed",
+                detail=f"Job #{job.id} is already completed (10/10).",
+                message="Unable to start generation job.",
+            ),
+                api_error_payload(
+                code="job_already_completed",
+                detail=f"Job #{job.id} is already completed (10/10).",
+                message="Unable to start generation job.",
+            ),
             ],
         )
         delay.assert_not_called()

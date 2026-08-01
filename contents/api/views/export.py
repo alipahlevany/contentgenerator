@@ -1,6 +1,3 @@
-from django.db import IntegrityError, transaction
-from django.db.models import Exists, OuterRef
-from django.utils import timezone
 
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
@@ -19,12 +16,13 @@ from contents.api.serializers.export import (
     ContentExportResponseSerializer,
 )
 from contents.api.serializers.system import APIErrorSerializer
-from contents.models import Content, ContentExport
 from contents.permissions import HasValidAPIKey
 from contents.core_services.idempotency import execute_idempotent
-from contents.core_services.client_limits import (
-    lock_client_limit,
-    remaining_daily_export_quota,
+from contents.core_services.exports import (
+    export_contents_for_client,
+)
+from contents.core_services.exports.query import (
+    build_export_queryset,
 )
 
 
@@ -52,67 +50,17 @@ class ContentExportAPIView(APIView):
     content_type = "standard"
     idempotency_operation = "content-export"
 
-    filter_map = {
-        "languages": "language_id__in",
-        "topics": "topic_id__in",
-        "audiences": "audience_id__in",
-        "goals": "goal_id__in",
-        "prompt_templates": "prompt_template_id__in",
-    }
-
     def _build_queryset(self, validated_data, client):
-        successful_export = (
-            ContentExport.objects
-            .filter(
-                client=client,
-                content_id=OuterRef("pk"),
-                content_hash=OuterRef("content_hash"),
-                status="success",
-            )
+        """
+        Backward-compatible wrapper around the Export query service.
+
+        Query construction lives in the Service Layer.
+        """
+        return build_export_queryset(
+            validated_data=validated_data,
+            client=client,
+            content_type=self.content_type,
         )
-
-        queryset = (
-            Content.objects
-            .filter(
-                status="generated",
-                content_type=self.content_type,
-            )
-            .annotate(
-                already_exported=Exists(successful_export)
-            )
-            .filter(already_exported=False)
-            .select_related(
-                "language",
-                "topic",
-                "audience",
-                "goal",
-                "prompt_template",
-            )
-            .prefetch_related("rules")
-            .order_by("id")
-        )
-
-        for request_field, lookup in self.filter_map.items():
-            selection = validated_data[request_field]
-
-            if selection != "all":
-                queryset = queryset.filter(
-                    **{
-                        lookup: selection,
-                    }
-                )
-
-        rule_selection = validated_data["rules"]
-
-        if (
-            rule_selection != "all"
-            and rule_selection
-        ):
-            queryset = queryset.filter(
-                rules__id__in=rule_selection,
-            ).distinct()
-
-        return queryset
 
     @extend_schema(
         summary="Export existing contents for the current client",
@@ -179,140 +127,61 @@ class ContentExportAPIView(APIView):
         )
 
     def _export(self, request):
-        request_serializer = ContentExportRequestSerializer(
-            data=request.data,
+        request_serializer = (
+            ContentExportRequestSerializer(
+                data=request.data,
+            )
         )
-        request_serializer.is_valid(raise_exception=True)
 
-        validated_data = request_serializer.validated_data
-        requested_count = validated_data["count"]
-        client = request.client
+        request_serializer.is_valid(
+            raise_exception=True,
+        )
 
-        exported_contents = []
+        result = export_contents_for_client(
+            validated_data=(
+                request_serializer.validated_data
+            ),
+            client=request.client,
+            content_type=self.content_type,
+        )
 
-        with transaction.atomic():
-            lock_client_limit(client.pk, "export")
-            remaining_quota = remaining_daily_export_quota(client)
-            if remaining_quota == 0:
-                return Response(
-                    {"detail": "Daily export item quota exceeded."},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS,
-                )
-            effective_count = (
-                requested_count
-                if remaining_quota is None
-                else min(requested_count, remaining_quota)
+        if result.quota_exceeded:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Unable to export contents.",
+                    "error": {
+                        "code": "daily_export_quota_exceeded",
+                        "detail": (
+                            "Daily export item quota exceeded."
+                        ),
+                    },
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
-            candidate_ids = list(
-                self._build_queryset(
-                    validated_data,
-                    client,
-                ).values_list(
-                    "id",
-                    flat=True,
-                )[:effective_count]
-            )
-
-            candidates = list(
-                Content.objects
-                .filter(id__in=candidate_ids)
-                .select_for_update(of=("self",))
-                .select_related(
-                    "language",
-                    "topic",
-                    "audience",
-                    "goal",
-                    "prompt_template",
-                )
-                .prefetch_related("rules")
-                .order_by("id")
-            )
-
-            for content in candidates:
-                export = (
-                    ContentExport.objects
-                    .filter(
-                        content=content,
-                        client=client,
-                        content_hash=content.content_hash,
-                    )
-                    .first()
-                )
-
-                if export is not None:
-                    if export.status == "success":
-                        continue
-
-                    export.status = "success"
-                    export.exported_at = timezone.now()
-                    export.error_message = ""
-                    export.save(
-                        update_fields=[
-                            "status",
-                            "exported_at",
-                            "error_message",
-                            "updated_at",
-                        ]
-                    )
-                else:
-                    try:
-                        with transaction.atomic():
-                            ContentExport.objects.create(
-                                content=content,
-                                client=client,
-                                content_hash=content.content_hash,
-                                status="success",
-                                exported_at=timezone.now(),
-                            )
-                    except IntegrityError:
-                        export = (
-                            ContentExport.objects
-                            .filter(
-                                content=content,
-                                client=client,
-                                content_hash=content.content_hash,
-                            )
-                            .first()
-                        )
-
-                        if export is None:
-                            raise
-
-                        if export.status == "success":
-                            continue
-
-                        export.status = "success"
-                        export.exported_at = timezone.now()
-                        export.error_message = ""
-                        export.save(
-                            update_fields=[
-                                "status",
-                                "exported_at",
-                                "error_message",
-                                "updated_at",
-                            ]
-                        )
-
-                exported_contents.append(content)
-
-            remaining_queryset = self._build_queryset(
-                validated_data,
-                client,
-            )
-            remaining = remaining_queryset.count()
 
         return Response(
             {
-            "client": client.code,
-            "requested": requested_count,
-            "exported": len(exported_contents),
-            "remaining": remaining,
-            "items": ContentExportItemSerializer(
-                exported_contents,
-                many=True,
-            ).data,
-        },
-        status=status.HTTP_200_OK,
+                "success": True,
+                "message": (
+                    "Email replies exported successfully."
+                    if self.content_type == "email_reply"
+                    else "Contents exported successfully."
+                ),
+                "data": {
+                    "client": request.client.code,
+                    "requested": result.requested,
+                    "exported": len(
+                        result.exported_contents
+                    ),
+                    "remaining": result.remaining,
+                    "items": ContentExportItemSerializer(
+                        result.exported_contents,
+                        many=True,
+                    ).data,
+                },
+            },
+            status=status.HTTP_200_OK,
         )
 
 @extend_schema(

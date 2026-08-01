@@ -305,6 +305,9 @@ else:
 
 
 REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": (
+        "contents.api.exceptions.standardized_exception_handler"
+    ),
     "DEFAULT_SCHEMA_CLASS": (
         "drf_spectacular.openapi.AutoSchema"
     ),

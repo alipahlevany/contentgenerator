@@ -152,7 +152,7 @@ class ClientLimitTests(ClientLimitFixtureMixin, TestCase):
         )
 
         self.assertEqual(first.status_code, 200)
-        self.assertEqual(first.json()["exported"], 1)
+        self.assertEqual(first.json()["data"]["exported"], 1)
         self.assertEqual(second.status_code, 429)
 
     def test_idempotent_export_replay_does_not_consume_quota_twice(self):

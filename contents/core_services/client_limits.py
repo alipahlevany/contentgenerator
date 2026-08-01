@@ -3,8 +3,8 @@ import hashlib
 from django.db import connection
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.response import Response
 
+from contents.api.responses import api_error
 from contents.models import ContentExport, GenerationJob
 
 
@@ -22,9 +22,11 @@ def validate_generation_limits(client, requested_count):
         client.max_generation_content_count is not None
         and requested_count > client.max_generation_content_count
     ):
-        return Response(
-            {"detail": "Generation content quota exceeded."},
-            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        return api_error(
+            code="generation_content_quota_exceeded",
+            detail="Generation content quota exceeded.",
+            message="Generation quota exceeded.",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         )
     if client.max_active_generation_jobs is not None:
         active_count = GenerationJob.objects.filter(
@@ -32,9 +34,11 @@ def validate_generation_limits(client, requested_count):
             status__in=["pending", "running"],
         ).count()
         if active_count >= client.max_active_generation_jobs:
-            return Response(
-                {"detail": "Active generation job quota exceeded."},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            return api_error(
+                code="active_generation_job_quota_exceeded",
+                detail="Active generation job quota exceeded.",
+                message="Generation quota exceeded.",
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             )
     return None
 

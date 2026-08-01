@@ -129,8 +129,12 @@ class HealthEndpointTests(SimpleTestCase):
         self.assertEqual(
             response.json(),
             {
-                "status": "ok",
-                "service": "content-generator",
+                "success": True,
+                "message": "Service is healthy.",
+                "data": {
+                    "status": "ok",
+                    "service": "content-generator",
+                },
             },
         )
 
@@ -310,7 +314,16 @@ class DatasetEndpointTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.json(),
-            {"detail": "Authentication credentials were not provided."},
+            {
+            "success": False,
+            "message": "Authentication failed.",
+            "error": {
+                "code": "authentication_failed",
+                "detail": (
+                    "Authentication credentials were not provided."
+                ),
+            },
+        },
         )
 
     def test_invalid_api_key_returns_exact_forbidden_response(self):
@@ -319,7 +332,16 @@ class DatasetEndpointTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.json(),
-            {"detail": "Authentication credentials were not provided."},
+            {
+            "success": False,
+            "message": "Authentication failed.",
+            "error": {
+                "code": "authentication_failed",
+                "detail": (
+                    "Authentication credentials were not provided."
+                ),
+            },
+        },
         )
 
     def test_inactive_api_key_returns_exact_forbidden_response(self):
@@ -328,14 +350,33 @@ class DatasetEndpointTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.json(),
-            {"detail": "Authentication credentials were not provided."},
+            {
+            "success": False,
+            "message": "Authentication failed.",
+            "error": {
+                "code": "authentication_failed",
+                "detail": (
+                    "Authentication credentials were not provided."
+                ),
+            },
+        },
         )
 
     def test_valid_api_key_returns_all_active_datasets_in_exact_structure(self):
         response = self._get(api_key=self.client_record.api_key)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), self.expected)
+        payload = response.json()
+
+        self.assertTrue(payload["success"])
+        self.assertEqual(
+            payload["message"],
+            "Datasets retrieved successfully.",
+        )
+        self.assertEqual(
+            payload["data"],
+            self.expected,
+        )
 
     def test_each_supported_type_returns_only_that_active_ordered_dataset(self):
         for dataset_type in self.supported_types:
@@ -346,9 +387,21 @@ class DatasetEndpointTests(TestCase):
                 )
 
                 self.assertEqual(response.status_code, 200)
+
+                payload = response.json()
+
+                self.assertTrue(payload["success"])
                 self.assertEqual(
-                    response.json(),
-                    {dataset_type: self.expected[dataset_type]},
+                    payload["message"],
+                    "Datasets retrieved successfully.",
+                )
+                self.assertEqual(
+                    payload["data"],
+                    {
+                        dataset_type: self.expected[
+                            dataset_type
+                        ]
+                    },
                 )
 
     def test_unsupported_type_returns_exact_bad_request_response(self):
@@ -358,13 +411,22 @@ class DatasetEndpointTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+        payload = response.json()
+
+        self.assertFalse(payload["success"])
         self.assertEqual(
-            response.json(),
-            {
-                "detail": (
-                    "Invalid dataset type. Supported values are: "
-                    "languages, topics, audiences, goals, rules, "
-                    "prompt_templates."
-                )
-            },
+            payload["message"],
+            "Unable to retrieve datasets.",
+        )
+        self.assertEqual(
+            payload["error"]["code"],
+            "invalid_dataset_type",
+        )
+        self.assertEqual(
+            payload["error"]["detail"],
+            (
+                "Invalid dataset type. Supported values are: "
+                "languages, topics, audiences, goals, rules, "
+                "prompt_templates."
+            ),
         )

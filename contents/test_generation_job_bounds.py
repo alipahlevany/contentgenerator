@@ -85,14 +85,14 @@ class GenerationJobBoundsTests(TestCase):
         with ExitStack() as stack:
             stack.enter_context(
                 patch(
-                    "contents.services.get_app_settings",
+                    "contents.core_services.generation.job_service.get_app_settings",
                     return_value=self.settings(),
                 )
             )
 
             stack.enter_context(
                 patch(
-                    "contents.services.get_job_generation_pool_v2",
+                    "contents.core_services.generation.job_service.get_job_generation_pool_v2",
                     return_value={
                         "language": {"items": [choice[0]]},
                         "topic": {"items": [choice[1]]},
@@ -106,14 +106,14 @@ class GenerationJobBoundsTests(TestCase):
 
             stack.enter_context(
                 patch(
-                    "contents.services.get_generator",
+                    "contents.core_services.generation.job_service.get_generator",
                     return_value=fake_generator,
                 )
             )
 
             stack.enter_context(
                 patch(
-                    "contents.services.reserve_generation_context",
+                    "contents.core_services.generation.job_service.reserve_generation_context",
                     return_value=SimpleNamespace(
                         acquired=True,
                         context={
@@ -134,7 +134,7 @@ class GenerationJobBoundsTests(TestCase):
 
             stack.enter_context(
                 patch(
-                    "contents.services.generate_content",
+                    "contents.core_services.generation.job_service.generate_content",
                     side_effect=generated,
                 )
             )
@@ -142,28 +142,28 @@ class GenerationJobBoundsTests(TestCase):
             if blocked_keyword_results is None:
                 stack.enter_context(
                     patch(
-                        "contents.services.contains_blocked_keyword",
+                        "contents.core_services.generation.job_service.contains_blocked_keyword",
                         return_value=(False, None),
                     )
                 )
             else:
                 stack.enter_context(
                     patch(
-                        "contents.services.contains_blocked_keyword",
+                        "contents.core_services.generation.job_service.contains_blocked_keyword",
                         side_effect=blocked_keyword_results,
                     )
                 )
 
             stack.enter_context(
                 patch(
-                    "contents.services.remove_blocked_keywords",
+                    "contents.core_services.generation.job_service.remove_blocked_keywords",
                     return_value=cleaned_content,
                 )
             )
 
             stack.enter_context(
                 patch(
-                    "contents.services.is_duplicate_content",
+                    "contents.core_services.generation.job_service.is_duplicate_content",
                     return_value=duplicate_result,
                 )
             )
@@ -197,7 +197,7 @@ class GenerationJobBoundsTests(TestCase):
 
             stack.enter_context(
                 patch(
-                    "contents.services.log_job"
+                    "contents.core_services.generation.job_service.log_job"
                 )
             )
 
@@ -302,10 +302,10 @@ class GenerationJobBoundsTests(TestCase):
         choice = self.choice()
 
         with patch(
-            "contents.services.get_app_settings",
+            "contents.core_services.generation.job_service.get_app_settings",
             return_value=self.settings(runtime=1),
         ), patch(
-            "contents.services.get_job_generation_pool_v2",
+            "contents.core_services.generation.job_service.get_job_generation_pool_v2",
             return_value={
                 "language": {"items": [choice[0]]},
                 "topic": {"items": [choice[1]]},
@@ -315,10 +315,10 @@ class GenerationJobBoundsTests(TestCase):
                 "content_rule": {"items": []},
             },
         ), patch(
-            "contents.services.time.monotonic",
+            "contents.core_services.generation.job_service.time.monotonic",
             side_effect=[0, 2],
         ), patch(
-            "contents.services.log_job"
+            "contents.core_services.generation.job_service.log_job"
         ):
             run_generation_job(job.pk)
 

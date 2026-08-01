@@ -115,7 +115,16 @@ class ContentAPICharacterizationTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.json(),
-            {"detail": "Authentication credentials were not provided."},
+            {
+            "success": False,
+            "message": "Authentication failed.",
+            "error": {
+                "code": "authentication_failed",
+                "detail": (
+                    "Authentication credentials were not provided."
+                ),
+            },
+        },
         )
 
     def test_content_urls_have_exact_names_and_routes(self):
@@ -150,8 +159,8 @@ class ContentAPICharacterizationTests(TestCase):
         response = self._get_list(self.active_client.api_key)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 1)
-        item = response.json()[0]
+        self.assertEqual(len(response.json()["data"]), 1)
+        item = response.json()["data"][0]
         self.assertEqual(set(item), self.list_fields)
         self.assertNotIn("rules", item)
         self.assertNotIn("prompt", item)
@@ -188,7 +197,7 @@ class ContentAPICharacterizationTests(TestCase):
         response = self._get_list(self.active_client.api_key)
 
         self.assertEqual(response.status_code, 200)
-        item = response.json()[0]
+        item = response.json()["data"][0]
         self.assertIsNone(item["language"])
         self.assertIsNone(item["topic"])
         self.assertIsNone(item["audience"])
@@ -204,7 +213,7 @@ class ContentAPICharacterizationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            [item["id"] for item in response.json()],
+            [item["id"] for item in response.json()["data"]],
             [newest.id, middle.id, oldest.id],
         )
 
@@ -217,12 +226,12 @@ class ContentAPICharacterizationTests(TestCase):
         response = self._get_list(self.active_client.api_key)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 100)
+        self.assertEqual(len(response.json()["data"]), 100)
         self.assertEqual(
-            [item["id"] for item in response.json()],
+            [item["id"] for item in response.json()["data"]],
             [content.id for content in reversed(contents[1:])],
         )
-        self.assertNotIn(contents[0].id, [item["id"] for item in response.json()])
+        self.assertNotIn(contents[0].id, [item["id"] for item in response.json()["data"]])
 
     def test_content_list_filters_by_exact_status(self):
         generated = self._create_content(title="Generated", status="generated")
@@ -244,15 +253,15 @@ class ContentAPICharacterizationTests(TestCase):
 
         self.assertEqual(generated_response.status_code, 200)
         self.assertEqual(
-            [item["id"] for item in generated_response.json()],
+            [item["id"] for item in generated_response.json()["data"]],
             [generated.id],
         )
         self.assertEqual(
-            [item["id"] for item in published_response.json()],
+            [item["id"] for item in published_response.json()["data"]],
             [published.id],
         )
         self.assertEqual(mismatched_case_response.status_code, 200)
-        self.assertEqual(mismatched_case_response.json(), [])
+        self.assertEqual(mismatched_case_response.json()["data"], [])
 
     def test_content_list_searches_title_prompt_and_generated_content(self):
         title_match = self._create_content(
@@ -283,7 +292,7 @@ class ContentAPICharacterizationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            [item["id"] for item in response.json()],
+            [item["id"] for item in response.json()["data"]],
             [body_match.id, prompt_match.id, title_match.id],
         )
 
@@ -296,7 +305,7 @@ class ContentAPICharacterizationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), [])
+        self.assertEqual(response.json()["data"], [])
 
     def test_content_list_uses_one_content_query_with_related_joins(self):
         self._create_content()
@@ -344,7 +353,9 @@ class ContentAPICharacterizationTests(TestCase):
         response = self._get_detail(content.id, self.active_client.api_key)
 
         self.assertEqual(response.status_code, 200)
-        item = response.json()
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        item = payload["data"]["content"]
         self.assertEqual(set(item), self.detail_fields)
         self.assertEqual(
             item,
@@ -381,7 +392,7 @@ class ContentAPICharacterizationTests(TestCase):
         response = self._get_detail(content.id, self.active_client.api_key)
 
         self.assertEqual(response.status_code, 200)
-        item = response.json()
+        item = response.json()["data"]["content"]
         self.assertIsNone(item["language"])
         self.assertIsNone(item["topic"])
         self.assertIsNone(item["audience"])
@@ -393,7 +404,14 @@ class ContentAPICharacterizationTests(TestCase):
         response = self._get_detail(999999, self.active_client.api_key)
 
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json(), {"detail": "No Content matches the given query."})
+        self.assertEqual(response.json(), {
+            "success": False,
+            "message": "Resource not found.",
+            "error": {
+                "code": "not_found",
+                "detail": "No Content matches the given query.",
+            },
+        })
 
     def test_content_detail_uses_joined_relations_and_one_rules_prefetch(self):
         content = self._create_content()

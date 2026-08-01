@@ -1,24 +1,25 @@
 from django.db.models import Q
-
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework import status
-from rest_framework.response import Response
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 
+from contents.api.responses import (
+    api_error,
+    api_success,
+)
 from contents.api.serializers.content import (
     ContentDetailSerializer,
     ContentListSerializer,
 )
 from contents.api.serializers.system import APIErrorSerializer
-from contents.models import Content
-from contents.permissions import HasValidAPIKey
 from contents.core_services.pagination import (
     InvalidCursor,
     cursor_mode_requested,
     paginate_queryset,
 )
-
+from contents.models import Content
+from contents.permissions import HasValidAPIKey
 
 API_KEY_HEADER = OpenApiParameter(
     name="X-API-Key",
@@ -137,18 +138,51 @@ class ContentListAPIView(ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
         if not cursor_mode_requested(request):
-            serializer = self.get_serializer(queryset[:100], many=True)
-            return Response(serializer.data)
-        try:
-            items, next_cursor = paginate_queryset(queryset, request)
-        except InvalidCursor as exc:
-            return Response(
-                {"detail": str(exc)},
-                status=status.HTTP_400_BAD_REQUEST,
+            serializer = self.get_serializer(
+                queryset[:100],
+                many=True,
             )
-        serializer = self.get_serializer(items, many=True)
-        return Response({"results": serializer.data, "next_cursor": next_cursor})
+
+            return api_success(
+                data=serializer.data,
+                message=(
+                    "Generated contents retrieved successfully."
+                ),
+                status_code=status.HTTP_200_OK,
+            )
+
+        try:
+            items, next_cursor = paginate_queryset(
+                queryset,
+                request,
+            )
+        except InvalidCursor as exc:
+            return api_error(
+                code="invalid_cursor",
+                detail=str(exc),
+                message=(
+                    "Unable to retrieve generated contents."
+                ),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(
+            items,
+            many=True,
+        )
+
+        return api_success(
+            data={
+                "results": serializer.data,
+                "next_cursor": next_cursor,
+            },
+            message=(
+                "Generated contents retrieved successfully."
+            ),
+            status_code=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(
@@ -195,3 +229,20 @@ class ContentDetailAPIView(RetrieveAPIView):
         )
         .all()
     )
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        serializer = self.get_serializer(
+            instance
+        )
+
+        return api_success(
+            data={
+                "content": serializer.data,
+            },
+            message=(
+                "Generated content retrieved successfully."
+            ),
+            status_code=status.HTTP_200_OK,
+        )

@@ -59,7 +59,7 @@ class ExternalClientAPIKeySecurityTests(TestCase):
                 self.assertEqual(response.status_code, 403)
                 self.assertEqual(
                     response.json(),
-                    {"detail": "Authentication credentials were not provided."},
+                    {"success": False, "message": "Authentication failed.", "error": {"code": "authentication_failed", "detail": "Authentication credentials were not provided."}},
                 )
 
     def test_inactive_hashed_client_is_rejected(self):

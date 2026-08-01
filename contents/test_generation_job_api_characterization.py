@@ -20,6 +20,23 @@ from contents.models import (
 from contents.serializers import GenerationJobCreateSerializer
 
 
+
+def api_error_payload(
+    *,
+    code,
+    detail,
+    message,
+):
+    return {
+        "success": False,
+        "message": message,
+        "error": {
+            "code": code,
+            "detail": detail,
+        },
+    }
+
+
 class GenerationJobAPICharacterizationTests(TestCase):
     job_fields = {
         "id",
@@ -178,7 +195,16 @@ class GenerationJobAPICharacterizationTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.json(),
-            {"detail": "Authentication credentials were not provided."},
+            {
+            "success": False,
+            "message": "Authentication failed.",
+            "error": {
+                "code": "authentication_failed",
+                "detail": (
+                    "Authentication credentials were not provided."
+                ),
+            },
+        },
         )
 
     def test_exact_generation_job_routes_and_names(self):
@@ -291,10 +317,10 @@ class GenerationJobAPICharacterizationTests(TestCase):
         response = self.get_list(self.active_client.api_key)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["id"] for item in response.json()], [all_job.id, explicit.id])
-        for item in response.json():
+        self.assertEqual([item["id"] for item in response.json()["data"]], [all_job.id, explicit.id])
+        for item in response.json()["data"]:
             self.assertEqual(set(item), self.job_fields)
-        all_item, explicit_item = response.json()
+        all_item, explicit_item = response.json()["data"]
         for field in (
             "languages", "topics", "audiences", "goals", "rules", "prompt_templates"
         ):
@@ -323,7 +349,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
         response = self.get_list(self.active_client.api_key)
 
         self.assertEqual(response.status_code, 200)
-        item = response.json()[0]
+        item = response.json()["data"][0]
         for field in (
             "languages", "topics", "audiences", "goals", "rules", "prompt_templates"
         ):
@@ -341,9 +367,9 @@ class GenerationJobAPICharacterizationTests(TestCase):
         response = self.get_list(self.active_client.api_key)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 100)
+        self.assertEqual(len(response.json()["data"]), 100)
         self.assertEqual(
-            [item["id"] for item in response.json()],
+            [item["id"] for item in response.json()["data"]],
             [job.id for job in reversed(jobs[1:])],
         )
 
@@ -400,7 +426,10 @@ class GenerationJobAPICharacterizationTests(TestCase):
             with self.subTest(payload=payload):
                 response = self.create_via_api(payload)
                 self.assertEqual(response.status_code, 400)
-                self.assertEqual(response.json(), expected)
+                self.assertEqual(
+                    response.json()["error"]["fields"],
+                    expected,
+                )
 
         for payload in ({"count": 1}, {"count": 10000}, {"delay_seconds": 0}, {"delay_seconds": 60}):
             serializer = GenerationJobCreateSerializer(data=payload)
@@ -433,8 +462,8 @@ class GenerationJobAPICharacterizationTests(TestCase):
         job = GenerationJob.objects.get()
         delay.assert_called_once_with(job.id)
         self.assertEqual(response.json()["message"], f"Generation job #{job.id} created and started.")
-        self.assertEqual(set(response.json()), {"message", "job"})
-        self.assertEqual(set(response.json()["job"]), self.job_fields)
+        self.assertEqual(set(response.json()), {"success", "message", "data"})
+        self.assertEqual(set(response.json()["data"]["job"]), self.job_fields)
         self.assertEqual(job.count, 1)
         self.assertEqual(job.delay_seconds, 1.0)
         self.assertEqual(job.status, "pending")
@@ -473,7 +502,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
         for relation, expected_ids in relations:
             self.assertEqual(list(relation.order_by("id").values_list("id", flat=True)), expected_ids)
         "generation_type",
-        self.assertEqual(response.json()["job"]["languages"], [self.language_one.id, self.language_two.id])
+        self.assertEqual(response.json()["data"]["job"]["languages"], [self.language_one.id, self.language_two.id])
 
     def test_create_rules_empty_is_allowed_but_required_selections_are_not(self):
         with patch("contents.views.run_generation_job_task.delay"):
@@ -492,7 +521,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
                 response = self.create_via_api(self.explicit_payload(**{field: []}))
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(
-                    response.json(),
+                    response.json()["error"]["fields"],
                     {
                         field: [
                             f"{field} cannot be empty. Use \"all\" or provide at least one active ID."
@@ -515,7 +544,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
                 response = self.create_via_api(self.explicit_payload(**{field: [item_id]}))
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(
-                    response.json(),
+                    response.json()["error"]["fields"],
                     {field: [f"These IDs do not exist or are inactive: {item_id}"]},
                 )
 
@@ -544,16 +573,25 @@ class GenerationJobAPICharacterizationTests(TestCase):
         missing_response = self.get_detail(999999)
 
         self.assertEqual(all_response.status_code, 200)
-        self.assertEqual(set(all_response.json()), self.job_fields)
-        self.assertEqual(all_response.json()["progress_percent"], 100)
-        self.assertEqual(all_response.json()["languages"], "all")
+        self.assertEqual(set(all_response.json()["data"]["job"]), self.job_fields)
+        self.assertEqual(all_response.json()["data"]["job"]["progress_percent"], 100)
+        self.assertEqual(all_response.json()["data"]["job"]["languages"], "all")
         self.assertEqual(explicit_response.status_code, 200)
-        self.assertEqual(explicit_response.json()["progress_percent"], 33)
-        self.assertEqual(explicit_response.json()["languages"], [self.language_one.id])
-        self.assertEqual(explicit_response.json()["topics"], [])
-        self.assertEqual(explicit_response.json()["rules"], [self.rule_one.id])
+        self.assertEqual(explicit_response.json()["data"]["job"]["progress_percent"], 33)
+        self.assertEqual(explicit_response.json()["data"]["job"]["languages"], [self.language_one.id])
+        self.assertEqual(explicit_response.json()["data"]["job"]["topics"], [])
+        self.assertEqual(explicit_response.json()["data"]["job"]["rules"], [self.rule_one.id])
         self.assertEqual(missing_response.status_code, 404)
-        self.assertEqual(missing_response.json(), {"detail": "No GenerationJob matches the given query."})
+        self.assertEqual(missing_response.json(), {
+            "success": False,
+            "message": "Resource not found.",
+            "error": {
+                "code": "not_found",
+                "detail": (
+                    "No GenerationJob matches the given query."
+                ),
+            },
+        })
 
     def test_detail_and_action_authentication_are_exact(self):
         job = GenerationJob.objects.create()
@@ -631,13 +669,21 @@ class GenerationJobAPICharacterizationTests(TestCase):
         self.assertEqual(running_response.status_code, 400)
         self.assertEqual(
             running_response.json(),
-            {"detail": f"Job #{running.id} is already running."},
+            api_error_payload(
+                code="job_already_running",
+                detail=f"Job #{running.id} is already running.",
+                message="Unable to start generation job.",
+            ),
         )
         for job, response in ((reached, reached_response), (completed, completed_response)):
             self.assertEqual(response.status_code, 400)
             self.assertEqual(
                 response.json(),
-                {"detail": f"Job #{job.id} is already completed (10/10)."},
+                api_error_payload(
+                code="job_already_completed",
+                detail=f"Job #{job.id} is already completed (10/10).",
+                message="Unable to start generation job.",
+            ),
             )
 
     def test_start_and_stop_missing_jobs_return_exact_404(self):
@@ -646,12 +692,30 @@ class GenerationJobAPICharacterizationTests(TestCase):
         self.assertEqual(start.status_code, 404)
         self.assertEqual(
             start.json(),
-            {"detail": "No GenerationJob matches the given query."},
+            {
+            "success": False,
+            "message": "Resource not found.",
+            "error": {
+                "code": "not_found",
+                "detail": (
+                    "No GenerationJob matches the given query."
+                ),
+            },
+        },
         )
         self.assertEqual(stop.status_code, 404)
         self.assertEqual(
             stop.json(),
-            {"detail": "No GenerationJob matches the given query."},
+            {
+            "success": False,
+            "message": "Resource not found.",
+            "error": {
+                "code": "not_found",
+                "detail": (
+                    "No GenerationJob matches the given query."
+                ),
+            },
+        },
         )
 
     def test_stop_pending_and_running_jobs_sets_exact_state_without_dispatch(self):
@@ -698,7 +762,11 @@ class GenerationJobAPICharacterizationTests(TestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(
                     response.json(),
-                    {"detail": f"Job #{job.id} is not pending or running."},
+                    api_error_payload(
+                code="job_not_stoppable",
+                detail=f"Job #{job.id} is not pending or running.",
+                message="Unable to stop generation job.",
+            ),
                 )
                 job.refresh_from_db()
                 self.assertEqual(job.status, initial_status)

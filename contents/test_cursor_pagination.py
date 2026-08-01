@@ -62,8 +62,8 @@ class CursorPaginationTests(TestCase):
                 params["cursor"] = cursor
             response = self.api.get(url, params, **self.headers(client))
             self.assertEqual(response.status_code, 200)
-            collected.extend(item["id"] for item in response.json()["results"])
-            cursor = response.json()["next_cursor"]
+            collected.extend(item["id"] for item in response.json()["data"]["results"])
+            cursor = response.json()["data"]["next_cursor"]
             if not cursor:
                 return collected
 
@@ -105,17 +105,30 @@ class CursorPaginationTests(TestCase):
         )
 
         self.assertEqual(invalid_cursor.status_code, 400)
+        invalid_cursor_payload = invalid_cursor.json()
+        self.assertFalse(invalid_cursor_payload["success"])
         self.assertEqual(
-            invalid_cursor.json(),
-            {"detail": "Invalid or expired cursor."},
+            invalid_cursor_payload["error"]["code"],
+            "invalid_cursor",
         )
-        self.assertEqual(invalid_size.status_code, 400)
         self.assertEqual(
-            invalid_size.json(),
-            {"detail": "page_size must be between 1 and 100."},
+            invalid_cursor_payload["error"]["detail"],
+            "Invalid or expired cursor.",
         )
 
-    def test_legacy_requests_keep_raw_array_response(self):
+        self.assertEqual(invalid_size.status_code, 400)
+        invalid_size_payload = invalid_size.json()
+        self.assertFalse(invalid_size_payload["success"])
+        self.assertEqual(
+            invalid_size_payload["error"]["code"],
+            "invalid_cursor",
+        )
+        self.assertEqual(
+            invalid_size_payload["error"]["detail"],
+            "page_size must be between 1 and 100.",
+        )
+
+    def test_requests_use_standardized_response_envelope(self):
         content_response = self.api.get(
             self.content_url,
             **self.headers(self.client_a),
@@ -125,5 +138,11 @@ class CursorPaginationTests(TestCase):
             **self.headers(self.client_a),
         )
 
-        self.assertIsInstance(content_response.json(), list)
-        self.assertIsInstance(job_response.json(), list)
+        content_payload = content_response.json()
+        job_payload = job_response.json()
+
+        self.assertTrue(content_payload["success"])
+        self.assertIsInstance(content_payload["data"], list)
+
+        self.assertTrue(job_payload["success"])
+        self.assertIsInstance(job_payload["data"], list)

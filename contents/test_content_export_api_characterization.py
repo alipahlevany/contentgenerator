@@ -139,7 +139,7 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.json(),
-            {"detail": "Authentication credentials were not provided."},
+            {"success": False, "message": "Authentication failed.", "error": {"code": "authentication_failed", "detail": "Authentication credentials were not provided."}},
         )
 
     def test_exact_export_url_and_url_name(self):
@@ -163,7 +163,7 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
         response = self.export({"count": 1}, client=self.client_a)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["client"], self.client_a.code)
+        self.assertEqual(response.json()["data"]["client"], self.client_a.code)
         ledger = ContentExport.objects.get(content=content)
         self.assertEqual(ledger.client, self.client_a)
 
@@ -190,7 +190,7 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
             client=self.client_a,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["items"][0]["id"], content.id)
+        self.assertEqual(response.json()["data"]["items"][0]["id"], content.id)
 
     def test_count_minimum_maximum_and_delay_validation_errors(self):
         cases = (
@@ -215,7 +215,10 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
             with self.subTest(payload=payload):
                 response = self.export(payload, client=self.client_a)
                 self.assertEqual(response.status_code, 400)
-                self.assertEqual(response.json(), expected)
+                self.assertEqual(
+            response.json()["error"]["fields"],
+            expected,
+        )
 
     def test_count_accepts_exact_minimum_and_maximum(self):
         for count in (1, 1000):
@@ -253,7 +256,7 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
                 )
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(
-                    response.json(),
+                    response.json()["error"]["fields"],
                     {field: ["Use \"all\" or provide at least one ID."]},
                 )
 
@@ -283,7 +286,10 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
                     client=self.client_a,
                 )
                 self.assertEqual(response.status_code, 400)
-                self.assertEqual(response.json(), expected)
+                self.assertEqual(
+            response.json()["error"]["fields"],
+            expected,
+        )
 
     def test_rules_all_and_empty_list_apply_no_rule_filter(self):
         without_rules = self.create_content(title="Without rules")
@@ -301,11 +307,11 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
 
         expected_ids = [without_rules.id, with_rules.id]
         self.assertEqual(
-            [item["id"] for item in all_response.json()["items"]],
+            [item["id"] for item in all_response.json()["data"]["items"]],
             expected_ids,
         )
         self.assertEqual(
-            [item["id"] for item in empty_response.json()["items"]],
+            [item["id"] for item in empty_response.json()["data"]["items"]],
             expected_ids,
         )
 
@@ -319,7 +325,7 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            [item["id"] for item in response.json()["items"]],
+            [item["id"] for item in response.json()["data"]["items"]],
             [first.id, third.id],
         )
 
@@ -350,7 +356,7 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
             )
             with self.subTest(request_field=request_field):
                 self.assertEqual(response.status_code, 200)
-                returned_ids = [item["id"] for item in response.json()["items"]]
+                returned_ids = [item["id"] for item in response.json()["data"]["items"]]
                 self.assertIn(matching.id, returned_ids)
                 self.assertNotIn(nonmatching.id, returned_ids)
 
@@ -387,7 +393,7 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
         response = self.export(self.all_payload(), client=self.client_a)
 
         self.assertEqual(response.status_code, 200)
-        item = response.json()["items"][0]
+        item = response.json()["data"]["items"][0]
         self.assertEqual(item["id"], content.id)
         for field in ("language", "topic", "audience", "goal", "prompt_template"):
             self.assertIsNone(item[field])
@@ -399,10 +405,10 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
         same_client = self.export({"count": 1}, client=self.client_a)
         other_client = self.export({"count": 1}, client=self.client_b)
 
-        self.assertEqual(first.json()["exported"], 1)
-        self.assertEqual(same_client.json()["exported"], 0)
-        self.assertEqual(other_client.json()["exported"], 1)
-        self.assertEqual(other_client.json()["items"][0]["id"], content.id)
+        self.assertEqual(first.json()["data"]["exported"], 1)
+        self.assertEqual(same_client.json()["data"]["exported"], 0)
+        self.assertEqual(other_client.json()["data"]["exported"], 1)
+        self.assertEqual(other_client.json()["data"]["items"][0]["id"], content.id)
 
     def test_pending_and_failed_ledgers_are_reused_as_successful_exports(self):
         pending_content = self.create_content(title="Pending ledger")
@@ -426,7 +432,7 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            [item["id"] for item in response.json()["items"]],
+            [item["id"] for item in response.json()["data"]["items"]],
             [pending_content.id, failed_content.id],
         )
         pending_export.refresh_from_db()
@@ -440,14 +446,14 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
     def test_changed_content_hash_is_exportable_as_a_new_version(self):
         content = self.create_content(content_hash="version-one")
         first = self.export({"count": 1}, client=self.client_a)
-        self.assertEqual(first.json()["exported"], 1)
+        self.assertEqual(first.json()["data"]["exported"], 1)
 
         content.content_hash = "version-two"
         content.save(update_fields=["content_hash", "updated_at"])
         second = self.export({"count": 1}, client=self.client_a)
 
         self.assertEqual(second.status_code, 200)
-        self.assertEqual(second.json()["exported"], 1)
+        self.assertEqual(second.json()["data"]["exported"], 1)
         self.assertEqual(
             list(
                 ContentExport.objects.filter(content=content)
@@ -469,8 +475,22 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
         response = self.export({"count": 1}, client=self.client_a)
 
         self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(set(data), {"client", "requested", "exported", "remaining", "items"})
+        payload = response.json()
+
+        self.assertTrue(payload["success"])
+        self.assertIn("message", payload)
+
+        data = payload["data"]
+        self.assertEqual(
+            set(data),
+            {
+                "client",
+                "requested",
+                "exported",
+                "remaining",
+                "items",
+            },
+        )
         self.assertEqual(data["client"], self.client_a.code)
         self.assertEqual(data["requested"], 1)
         self.assertEqual(data["exported"], 1)
@@ -514,16 +534,16 @@ class ContentExportAPICharacterizationTests(ExportFixtureMixin, TestCase):
         fewer = self.export({"count": 5}, client=self.client_a)
         empty = self.export({"count": 5}, client=self.client_a)
 
-        self.assertEqual(partial.json()["requested"], 1)
-        self.assertEqual(partial.json()["exported"], 1)
-        self.assertEqual(partial.json()["remaining"], 1)
-        self.assertEqual(partial.json()["items"][0]["id"], first.id)
-        self.assertEqual(fewer.json()["requested"], 5)
-        self.assertEqual(fewer.json()["exported"], 1)
-        self.assertEqual(fewer.json()["remaining"], 0)
-        self.assertEqual(fewer.json()["items"][0]["id"], second.id)
+        self.assertEqual(partial.json()["data"]["requested"], 1)
+        self.assertEqual(partial.json()["data"]["exported"], 1)
+        self.assertEqual(partial.json()["data"]["remaining"], 1)
+        self.assertEqual(partial.json()["data"]["items"][0]["id"], first.id)
+        self.assertEqual(fewer.json()["data"]["requested"], 5)
+        self.assertEqual(fewer.json()["data"]["exported"], 1)
+        self.assertEqual(fewer.json()["data"]["remaining"], 0)
+        self.assertEqual(fewer.json()["data"]["items"][0]["id"], second.id)
         self.assertEqual(
-            empty.json(),
+            empty.json()["data"],
             {
                 "client": self.client_a.code,
                 "requested": 5,
@@ -605,6 +625,6 @@ class ContentExportTransactionCharacterizationTests(
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["exported"], 1)
-        self.assertEqual(response.json()["items"][0]["id"], content.id)
+        self.assertEqual(response.json()["data"]["exported"], 1)
+        self.assertEqual(response.json()["data"]["items"][0]["id"], content.id)
         self.assertEqual(ContentExport.objects.count(), 1)

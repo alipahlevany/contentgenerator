@@ -85,7 +85,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
         self.assertEqual(second.status_code, 201)
         self.assertEqual(first.json(), second.json())
         self.assertEqual(GenerationJob.objects.count(), 1)
-        delay.assert_called_once_with(first.json()["job"]["id"])
+        delay.assert_called_once_with(first.json()["data"]["job"]["id"])
 
     def test_repeated_export_returns_exact_items_without_consuming_more(self):
         content = Content.objects.create(
@@ -111,7 +111,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
 
         self.assertEqual(first.status_code, 200)
         self.assertEqual(first.json(), second.json())
-        self.assertEqual(first.json()["items"][0]["id"], content.pk)
+        self.assertEqual(first.json()["data"]["items"][0]["id"], content.pk)
         self.assertEqual(content.exports.count(), 1)
 
     def test_conflicting_payload_returns_409(self):
@@ -132,7 +132,17 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(
             response.json(),
-            {"detail": "Idempotency key was already used with a different request."},
+            {
+                "success": False,
+                "message": "Idempotency conflict.",
+                "error": {
+                    "code": "idempotency_conflict",
+                    "detail": (
+                        "Idempotency key was already used "
+                        "with a different request."
+                    ),
+                },
+            },
         )
 
     def test_keys_are_isolated_between_clients(self):
@@ -152,7 +162,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
 
         self.assertEqual(first.status_code, 201)
         self.assertEqual(second.status_code, 201)
-        self.assertNotEqual(first.json()["job"]["id"], second.json()["job"]["id"])
+        self.assertNotEqual(first.json()["data"]["job"]["id"], second.json()["data"]["job"]["id"])
 
     def test_expired_record_allows_a_new_operation(self):
         with patch("contents.tasks.run_generation_job_task.delay") as delay:
@@ -172,7 +182,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
                     **self.headers(self.client_record, "expired-key"),
                 )
 
-        self.assertNotEqual(first.json()["job"]["id"], second.json()["job"]["id"])
+        self.assertNotEqual(first.json()["data"]["job"]["id"], second.json()["data"]["job"]["id"])
         self.assertEqual(delay.call_count, 2)
 
     def test_missing_and_malformed_keys_preserve_non_idempotent_behavior(self):
@@ -192,8 +202,8 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
                         **self.headers(self.client_record, key),
                     )
                 self.assertNotEqual(
-                    first.json()["job"]["id"],
-                    second.json()["job"]["id"],
+                    first.json()["data"]["job"]["id"],
+                    second.json()["data"]["job"]["id"],
                 )
 
     def test_validation_failure_does_not_persist_idempotency_record(self):

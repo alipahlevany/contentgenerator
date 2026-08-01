@@ -81,9 +81,9 @@ class ContentDeliveryTests(TestCase):
         self.assertEqual(first.status_code, 202)
         self.assertEqual(second.status_code, 202)
         self.assertEqual(first.json(), second.json())
-        self.assertEqual(first.json()["destination_url"], self.client_a.callback_url)
+        self.assertEqual(first.json()["data"]["delivery"]["destination_url"], self.client_a.callback_url)
         self.assertEqual(ContentDelivery.objects.count(), 1)
-        delay.assert_called_once_with(first.json()["id"])
+        delay.assert_called_once_with(first.json()["data"]["delivery"]["id"])
 
     @patch("contents.core_services.delivery.socket.getaddrinfo", return_value=PUBLIC_DNS)
     def test_clients_cannot_select_or_trigger_another_clients_callback(self, _):
