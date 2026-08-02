@@ -11,6 +11,7 @@ from .api.views import (
     GenerationJobListCreateAPIView,
     GenerationJobStartAPIView,
     GenerationJobStopAPIView,
+    GreetingGenerationJobCreateAPIView,
     HealthCheckAPIView,
     ReplyExportAPIView,
     ReplyGenerationJobCreateAPIView,
@@ -82,6 +83,11 @@ urlpatterns = [
         "generation-jobs/reply/",
         ReplyGenerationJobCreateAPIView.as_view(),
         name="api-reply-generation-job-create",
+    ),
+    path(
+        "generation-jobs/greeting/",
+        GreetingGenerationJobCreateAPIView.as_view(),
+        name="api-greeting-generation-job-create",
     ),
 
     # Export

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from contents.core_services.dataset_resolver import DatasetResolver
+from contents.models import GenerationType
 from contents.core_services.generation.fingerprint import (
     make_generation_fingerprint,
     reserve_fingerprint,
@@ -63,6 +64,20 @@ def _get_generation_type_key(job) -> str:
     return str(generation_type)
 
 
+def _get_generation_type_instance(job):
+    generation_type = job.generation_type
+
+    if isinstance(generation_type, GenerationType):
+        return generation_type
+
+    generation_type_key = _get_generation_type_key(job)
+
+    return GenerationType.objects.get(
+        key=generation_type_key,
+        is_active=True,
+    )
+
+
 def reserve_generation_context(
     *,
     job,
@@ -99,7 +114,9 @@ def reserve_generation_context(
 
         reservation = reserve_fingerprint(
             fingerprint=fingerprint,
-            generation_type=job.generation_type,
+            generation_type=(
+                _get_generation_type_instance(job)
+            ),
             job=job,
         )
 

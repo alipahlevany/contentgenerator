@@ -242,6 +242,7 @@ class Content(models.Model):
     CONTENT_TYPE_CHOICES = [
         ("standard", "Standard Content"),
         ("email_reply", "Email Reply"),
+        ("greeting", "Greeting"),
     ]
 
     title = models.CharField(max_length=255)
@@ -550,6 +551,7 @@ class GenerationJob(models.Model):
     GENERATION_TYPE_CHOICES = [
         ("standard", "Standard Content"),
         ("email_reply", "Email Reply"),
+        ("greeting", "Greeting"),
     ]
 
     external_client = models.ForeignKey(
@@ -1414,4 +1416,3 @@ class GenerationFingerprint(models.Model):
             f"{self.fingerprint[:12]}:"
             f"{self.status}"
         )
-

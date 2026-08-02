@@ -9,6 +9,7 @@ from .export import (
     ReplyExportAPIView,
 )
 from .generation_jobs import (
+    GreetingGenerationJobCreateAPIView,
     ContentGenerationJobCreateAPIView,
     GenerationJobDetailAPIView,
     GenerationJobListCreateAPIView,

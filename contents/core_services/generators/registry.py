@@ -9,11 +9,13 @@ to register new generation types without changing the factory.
 
 from .standard import StandardGenerator
 from .email_reply import EmailReplyGenerator
+from .greeting import GreetingGenerator
 
 
 GENERATOR_REGISTRY = {
     "standard": StandardGenerator,
     "email_reply": EmailReplyGenerator,
+    "greeting": GreetingGenerator,
 }
 
 

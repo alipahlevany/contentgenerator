@@ -39,6 +39,7 @@ from .common import API_KEY_HEADER
 class GenerationJobListCreateAPIView(APIView):
     permission_classes = [HasValidAPIKey]
 
+    serializer_class = GenerationJobCreateSerializer
     generation_type = None
     idempotency_operation = "generation-job-create"
 
@@ -183,7 +184,9 @@ class GenerationJobListCreateAPIView(APIView):
                 self.generation_type
             )
 
-        serializer = GenerationJobCreateSerializer(
+        serializer_class = self.serializer_class
+
+        serializer = serializer_class(
             data=request_data,
         )
 

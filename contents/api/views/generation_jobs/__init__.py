@@ -3,6 +3,7 @@ from .actions import (
     GenerationJobStopAPIView,
 )
 from .create_views import (
+    GreetingGenerationJobCreateAPIView,
     ContentGenerationJobCreateAPIView,
     ReplyGenerationJobCreateAPIView,
 )

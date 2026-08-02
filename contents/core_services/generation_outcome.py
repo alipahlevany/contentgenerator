@@ -9,6 +9,54 @@ def is_email_reply_job(job):
     return job.generation_type == "email_reply"
 
 
+def uses_dataset_intelligence(job):
+    """
+    Dataset intelligence currently applies only to standard
+    content generation.
+
+    Lightweight generation types such as email_reply and
+    greeting intentionally do not use Topic, Audience, Goal,
+    PromptTemplate, refill, or weight optimization.
+    """
+    return job.generation_type == "standard"
+
+
+def _dataset_name(value):
+    if value is None:
+        return None
+
+    return getattr(
+        value,
+        "name",
+        str(value),
+    )
+
+
+def _build_generation_context_label(
+    *,
+    language,
+    topic,
+    audience,
+    goal,
+    prompt_template,
+):
+    values = (
+        language,
+        topic,
+        audience,
+        goal,
+        prompt_template,
+    )
+
+    names = [
+        _dataset_name(value)
+        for value in values
+        if value is not None
+    ]
+
+    return " | ".join(names)
+
+
 def handle_generation_failure(
     job,
     app_settings,
@@ -47,9 +95,9 @@ def handle_generation_failure(
         message,
     )
 
-    # Email replies do not use Topic, Audience, Goal,
-    # PromptTemplate or dataset intelligence.
-    if is_email_reply_job(job):
+    # Lightweight generation types do not participate
+    # in standard dataset intelligence.
+    if not uses_dataset_intelligence(job):
         return
 
     record_generation_event(
@@ -80,19 +128,33 @@ def handle_generation_success(
     prompt_template,
     content,
 ):
-    if is_email_reply_job(job):
-        language_name = getattr(
-            language,
-            "name",
-            str(language),
-        )
+    context_label = _build_generation_context_label(
+        language=language,
+        topic=topic,
+        audience=audience,
+        goal=goal,
+        prompt_template=prompt_template,
+    )
 
+    if is_email_reply_job(job):
         log_job(
             job,
             "success",
             (
                 f"Generated email reply #{content.id}: "
-                f"{language_name}"
+                f"{context_label}"
+            ),
+        )
+        return
+
+    if not uses_dataset_intelligence(job):
+        log_job(
+            job,
+            "success",
+            (
+                f"Generated {job.generation_type} "
+                f"content #{content.id}: "
+                f"{context_label}"
             ),
         )
         return
@@ -114,9 +176,7 @@ def handle_generation_success(
         "success",
         (
             f"Generated content #{content.id}: "
-            f"{language.name} | {topic.name} | "
-            f"{audience.name} | {goal.name} | "
-            f"{prompt_template.name}"
+            f"{context_label}"
         ),
     )
 
