@@ -46,6 +46,20 @@ class AppSettingsForm(forms.ModelForm):
         help_text="Server time. Example: 03:00",
     )
 
+    daily_greeting_generation_time = forms.TimeField(
+        label="Daily greeting generation time",
+        required=True,
+        input_formats=["%H:%M"],
+        widget=forms.TimeInput(
+            format="%H:%M",
+            attrs={
+                "type": "time",
+                "style": "width: 160px;",
+            },
+        ),
+        help_text="Server time. Example: 04:00",
+    )
+
     class Meta:
         model = AppSettings
         fields = "__all__"
@@ -69,6 +83,16 @@ class AppSettingsForm(forms.ModelForm):
         )
         self.fields["daily_reply_generation_delay_seconds"].label = (
             "Delay between replies"
+        )
+
+        self.fields["auto_daily_greeting_generation_enabled"].label = (
+            "Enable daily greeting generation"
+        )
+        self.fields["daily_greeting_generation_count"].label = (
+            "Greetings per day"
+        )
+        self.fields["daily_greeting_generation_delay_seconds"].label = (
+            "Delay between greetings"
         )
 
         self.fields["daily_generation_count"].widget.attrs.update(
@@ -104,9 +128,21 @@ class AppSettingsForm(forms.ModelForm):
             self.initial["daily_reply_generation_time"] = (
                 f"{reply_hour}:{reply_minute}"
             )
+
+            greeting_hour = str(
+                self.instance.daily_greeting_generation_hour
+            ).zfill(2)
+            greeting_minute = str(
+                self.instance.daily_greeting_generation_minute
+            ).zfill(2)
+
+            self.initial["daily_greeting_generation_time"] = (
+                f"{greeting_hour}:{greeting_minute}"
+            )
         else:
             self.initial["daily_generation_time"] = "02:00"
             self.initial["daily_reply_generation_time"] = "03:00"
+            self.initial["daily_greeting_generation_time"] = "04:00"
 
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -127,6 +163,18 @@ class AppSettingsForm(forms.ModelForm):
             )
             instance.daily_reply_generation_minute = (
                 daily_reply_generation_time.minute
+            )
+
+        daily_greeting_generation_time = self.cleaned_data.get(
+            "daily_greeting_generation_time"
+        )
+
+        if daily_greeting_generation_time:
+            instance.daily_greeting_generation_hour = (
+                daily_greeting_generation_time.hour
+            )
+            instance.daily_greeting_generation_minute = (
+                daily_greeting_generation_time.minute
             )
 
         if commit:

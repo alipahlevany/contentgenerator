@@ -54,7 +54,10 @@ def build_export_queryset(
     )
 
     for request_field, lookup in FILTER_MAP.items():
-        selection = validated_data[request_field]
+        selection = validated_data.get(
+            request_field,
+            "all",
+        )
 
         if selection != "all":
             queryset = queryset.filter(
@@ -63,7 +66,10 @@ def build_export_queryset(
                 }
             )
 
-    rule_selection = validated_data["rules"]
+    rule_selection = validated_data.get(
+        "rules",
+        "all",
+    )
 
     if (
         rule_selection != "all"

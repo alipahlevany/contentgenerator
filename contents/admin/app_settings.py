@@ -5,15 +5,15 @@ from django import forms
 from django.contrib import admin, messages
 from django.core.cache import cache
 from django.db import transaction
-from django.shortcuts import redirect
-from django.urls import NoReverseMatch, path, reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
 from contents.admin.forms import AppSettingsForm
-from contents.models import AppSettings, GenerationJob
+from contents.models import GenerationJob
 from contents.tasks import (
     run_daily_generation_task,
+    run_daily_greeting_generation_task,
     run_daily_reply_generation_task,
 )
 
@@ -45,6 +45,15 @@ class AppSettingsAdminForm(AppSettingsForm):
         ),
     )
 
+    run_daily_greeting_generation_immediately = forms.BooleanField(
+        required=False,
+        label="Run Daily Greeting Generation Immediately",
+        help_text=(
+            "Check this option and save the settings to start greeting "
+            "generation immediately. This option is one-time only."
+        ),
+    )
+
 
 class AppSettingsAdmin(admin.ModelAdmin):
     form = AppSettingsAdminForm
@@ -52,6 +61,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
     actions = (
         "run_daily_generation_now",
         "run_daily_reply_generation_now",
+        "run_daily_greeting_generation_now",
     )
 
     list_display = (
@@ -72,6 +82,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
         "is_active",
         "auto_daily_generation_enabled",
         "auto_daily_reply_generation_enabled",
+        "auto_daily_greeting_generation_enabled",
     )
 
     readonly_fields = (
@@ -82,6 +93,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
         "time_until_next_daily_generation",
         "last_daily_generation_date",
         "last_daily_reply_generation_date",
+        "last_daily_greeting_generation_date",
     )
 
     fieldsets = (
@@ -153,6 +165,25 @@ class AppSettingsAdmin(admin.ModelAdmin):
         ),
 
         (
+            "👋 Automatic Daily Greeting Generation",
+            {
+                "fields": (
+                    "auto_daily_greeting_generation_enabled",
+                    "daily_greeting_generation_count",
+                    "daily_greeting_generation_time",
+                    "daily_greeting_generation_delay_seconds",
+                    "run_daily_greeting_generation_immediately",
+                    "last_daily_greeting_generation_date",
+                ),
+                "description": (
+                    "Greeting jobs are created independently with "
+                    'generation_type="greeting". Greeting generation '
+                    "uses the Language dataset only."
+                ),
+            },
+        ),
+
+        (
             "📌 Status",
             {
                 "fields": (
@@ -203,6 +234,13 @@ class AppSettingsAdmin(admin.ModelAdmin):
             )
         )
 
+        should_run_greeting_immediately = bool(
+            form.cleaned_data.get(
+                "run_daily_greeting_generation_immediately",
+                False,
+            )
+        )
+
         super().save_model(
             request,
             obj,
@@ -241,6 +279,23 @@ class AppSettingsAdmin(admin.ModelAdmin):
                 (
                     "Settings saved successfully. "
                     "The daily email reply generation task was queued "
+                    "for immediate execution."
+                ),
+                messages.SUCCESS,
+            )
+
+        if should_run_greeting_immediately:
+            transaction.on_commit(
+                lambda: run_daily_greeting_generation_task.delay(
+                    force=True
+                )
+            )
+
+            self.message_user(
+                request,
+                (
+                    "Settings saved successfully. "
+                    "The daily greeting generation task was queued "
                     "for immediate execution."
                 ),
                 messages.SUCCESS,
@@ -1145,3 +1200,38 @@ class AppSettingsAdmin(admin.ModelAdmin):
         )
 
     status_panel.short_description = "System Status"
+
+    @admin.action(
+        description="Run Daily Greeting Generation Now"
+    )
+    def run_daily_greeting_generation_now(
+        self,
+        request,
+        queryset,
+    ):
+        selected_settings = queryset.filter(
+            is_active=True,
+        ).first()
+
+        if not selected_settings:
+            self.message_user(
+                request,
+                "No active AppSettings selected.",
+                messages.ERROR,
+            )
+            return
+
+        transaction.on_commit(
+            lambda: run_daily_greeting_generation_task.delay(
+                force=True
+            )
+        )
+
+        self.message_user(
+            request,
+            (
+                "Daily greeting generation task was queued "
+                "for immediate execution."
+            ),
+            messages.SUCCESS,
+        )

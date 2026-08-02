@@ -786,6 +786,42 @@ class AppSettings(models.Model):
         blank=True,
     )
 
+    auto_daily_greeting_generation_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable automatic daily greeting generation.",
+    )
+
+    daily_greeting_generation_count = models.PositiveIntegerField(
+        default=10,
+        validators=[MinValueValidator(1)],
+    )
+
+    daily_greeting_generation_delay_seconds = models.FloatField(
+        default=1.0,
+        validators=[MinValueValidator(0)],
+    )
+
+    daily_greeting_generation_hour = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(23),
+        ],
+    )
+
+    daily_greeting_generation_minute = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(59),
+        ],
+    )
+
+    last_daily_greeting_generation_date = models.DateField(
+        null=True,
+        blank=True,
+    )
+
     is_active = models.BooleanField(default=True)
 
 

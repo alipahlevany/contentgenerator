@@ -284,6 +284,13 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 60.0,
         "args": (False,),
     },
+    "check-daily-greeting-generation-every-minute": {
+        "task": (
+            "contents.tasks.run_daily_greeting_generation_task"
+        ),
+        "schedule": 60.0,
+        "args": (False,),
+    },
     "recover-stuck-generation-jobs-every-5-minutes": {
         "task": (
             "contents.tasks."

@@ -15,6 +15,9 @@ from contents.api.serializers.export import (
     ContentExportRequestSerializer,
     ContentExportResponseSerializer,
 )
+from contents.api.serializers.greeting_export import (
+    GreetingExportRequestSerializer,
+)
 from contents.api.serializers.system import APIErrorSerializer
 from contents.permissions import HasValidAPIKey
 from contents.core_services.idempotency import execute_idempotent
@@ -49,6 +52,9 @@ class ContentExportAPIView(APIView):
 
     content_type = "standard"
     idempotency_operation = "content-export"
+    request_serializer_class = (
+        ContentExportRequestSerializer
+    )
 
     def _build_queryset(self, validated_data, client):
         """
@@ -128,7 +134,7 @@ class ContentExportAPIView(APIView):
 
     def _export(self, request):
         request_serializer = (
-            ContentExportRequestSerializer(
+            self.request_serializer_class(
                 data=request.data,
             )
         )
@@ -163,10 +169,17 @@ class ContentExportAPIView(APIView):
         return Response(
             {
                 "success": True,
-                "message": (
-                    "Email replies exported successfully."
-                    if self.content_type == "email_reply"
-                    else "Contents exported successfully."
+                "message": {
+                    "standard": "Contents exported successfully.",
+                    "email_reply": (
+                        "Email replies exported successfully."
+                    ),
+                    "greeting": (
+                        "Greetings exported successfully."
+                    ),
+                }.get(
+                    self.content_type,
+                    "Contents exported successfully.",
                 ),
                 "data": {
                     "client": request.client.code,
@@ -219,3 +232,63 @@ class ReplyExportAPIView(ContentExportAPIView):
     def post(self, request):
         return super().post(request)
 
+
+
+
+@extend_schema(
+    tags=["Greeting Export"],
+    parameters=[
+        API_KEY_HEADER,
+    ],
+)
+class GreetingExportAPIView(ContentExportAPIView):
+    content_type = "greeting"
+    idempotency_operation = "greeting-export"
+    request_serializer_class = (
+        GreetingExportRequestSerializer
+    )
+
+    @extend_schema(
+        summary=(
+            "Export existing greetings for the current client"
+        ),
+        description=(
+            "Returns generated greetings that have not already "
+            "been exported successfully to the current client. "
+            "Greeting export supports language filtering only."
+        ),
+        request=GreetingExportRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=ContentExportResponseSerializer,
+                description=(
+                    "Matching greetings were exported."
+                ),
+            ),
+            400: OpenApiResponse(
+                response=APIErrorSerializer,
+                description=(
+                    "Invalid filters or request body."
+                ),
+            ),
+            403: OpenApiResponse(
+                response=APIErrorSerializer,
+                description=(
+                    "Missing or invalid client API key."
+                ),
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                name="Export greetings",
+                value={
+                    "count": 100,
+                    "delay_seconds": 0,
+                    "languages": "all",
+                },
+                request_only=True,
+            ),
+        ],
+    )
+    def post(self, request):
+        return super().post(request)
