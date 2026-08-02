@@ -1,0 +1,49 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link
+    rel="stylesheet"
+    href="{% static 'admin/content_generator_admin.css' %}"
+>
+{% endblock %}
+
+{% block content %}
+<div class="cg-settings-page cg-theme-{{ cg_theme }}">
+    <section class="cg-settings-hero">
+        <div class="cg-settings-hero__content">
+            <div class="cg-settings-icon">
+                {{ cg_icon }}
+            </div>
+
+            <div>
+                <div class="cg-kicker">
+                    Content Generator
+                </div>
+
+                <h1>
+                    {{ cg_title }}
+                </h1>
+
+                <p>
+                    {{ cg_description }}
+                </p>
+            </div>
+        </div>
+
+        {% if cg_run_url %}
+        <a
+            class="cg-run-button"
+            href="{{ cg_run_url }}"
+        >
+            ▶ {{ cg_run_label }}
+        </a>
+        {% endif %}
+    </section>
+
+    <div class="cg-settings-shell">
+        {{ block.super }}
+    </div>
+</div>
+{% endblock %}

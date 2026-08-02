@@ -1,0 +1,245 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link
+    rel="stylesheet"
+    href="{% static 'admin/content_generator_admin.css' %}"
+>
+<style>
+.cg-dashboard {
+    display: grid;
+    gap: 22px;
+}
+
+.cg-dashboard-hero {
+    padding: 26px;
+    border-radius: 20px;
+    color: white;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(255,255,255,.18),
+            transparent 32%
+        ),
+        linear-gradient(
+            135deg,
+            #0f172a,
+            #1e293b
+        );
+    box-shadow:
+        0 20px 50px rgba(15,23,42,.16);
+}
+
+.cg-dashboard-hero h1 {
+    margin: 0;
+    color: white;
+    font-size: 28px;
+}
+
+.cg-dashboard-hero p {
+    max-width: 760px;
+    margin: 8px 0 0;
+    color: #cbd5e1;
+}
+
+.cg-section-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.cg-section-card {
+    --accent: #475569;
+    --soft: #f8fafc;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-top: 4px solid var(--accent);
+    border-radius: 18px;
+    background:
+        linear-gradient(
+            180deg,
+            var(--soft),
+            #ffffff 42%
+        );
+    box-shadow:
+        0 12px 32px rgba(15,23,42,.06);
+}
+
+.cg-section-standard {
+    --accent: #2563eb;
+    --soft: #eff6ff;
+}
+
+.cg-section-reply {
+    --accent: #7c3aed;
+    --soft: #f5f3ff;
+}
+
+.cg-section-greeting {
+    --accent: #059669;
+    --soft: #ecfdf5;
+}
+
+.cg-section-shared {
+    --accent: #334155;
+    --soft: #f8fafc;
+}
+
+.cg-section-head {
+    padding: 18px 18px 14px;
+}
+
+.cg-section-head h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 18px;
+}
+
+.cg-section-head p {
+    min-height: 40px;
+    margin: 6px 0 0;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.cg-model-links {
+    display: grid;
+    gap: 8px;
+    padding: 0 14px 16px;
+}
+
+.cg-model-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 13px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    color: #0f172a !important;
+    text-decoration: none !important;
+    font-weight: 800;
+}
+
+.cg-model-link:hover {
+    border-color: var(--accent);
+}
+
+.cg-arrow {
+    color: var(--accent);
+}
+
+.cg-other {
+    margin-top: 4px;
+}
+
+.cg-other h2 {
+    color: #0f172a;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="cg-dashboard">
+
+    <section class="cg-dashboard-hero">
+        <h1>AI Content Dashboard</h1>
+        <p>
+            Manage Standard content, Email Replies,
+            Greetings and shared generation infrastructure
+            from one organized control center.
+        </p>
+    </section>
+
+    <section class="cg-section-grid">
+        {% for section in generation_sections %}
+        <article
+            class="
+                cg-section-card
+                cg-section-{{ section.key }}
+            "
+        >
+            <div class="cg-section-head">
+                <h2>
+                    {{ section.icon }}
+                    {{ section.title }}
+                </h2>
+
+                <p>
+                    {{ section.description }}
+                </p>
+            </div>
+
+            <div class="cg-model-links">
+                {% for model in section.models %}
+                    {% if model.admin_url %}
+                    <a
+                        href="{{ model.admin_url }}"
+                        class="cg-model-link"
+                    >
+                        <span>
+                            {{ model.name }}
+                        </span>
+
+                        <span class="cg-arrow">
+                            →
+                        </span>
+                    </a>
+                    {% endif %}
+                {% empty %}
+                    <div class="cg-model-link">
+                        No accessible models
+                    </div>
+                {% endfor %}
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+
+    {% if other_app_list %}
+    <section class="cg-other">
+        <h2>System & Dataset Management</h2>
+
+        {% for app in other_app_list %}
+        <div class="module">
+            <table>
+                <caption>
+                    {{ app.name }}
+                </caption>
+
+                {% for model in app.models %}
+                <tr>
+                    <th scope="row">
+                        {% if model.admin_url %}
+                        <a href="{{ model.admin_url }}">
+                            {{ model.name }}
+                        </a>
+                        {% else %}
+                            {{ model.name }}
+                        {% endif %}
+                    </th>
+
+                    <td>
+                        {% if model.add_url %}
+                        <a
+                            href="{{ model.add_url }}"
+                            class="addlink"
+                        >
+                            Add
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+</div>
+{% endblock %}

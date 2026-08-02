@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from contents.models import Content, EmailReply
+from contents.models import Content, EmailReply, Greeting
 
 
 class BaseContentAdmin(admin.ModelAdmin):
@@ -124,4 +124,64 @@ class EmailReplyAdmin(BaseContentAdmin):
         "goal",
         "status",
         "created_at",
+    )
+
+
+
+class GreetingAdmin(BaseContentAdmin):
+    content_type_value = "greeting"
+
+    list_display = (
+        "id",
+        "title",
+        "language",
+        "status",
+        "created_at",
+    )
+
+    list_filter = (
+        "status",
+        "language",
+        "created_at",
+    )
+
+    filter_horizontal = ()
+
+    fieldsets = (
+        (
+            "👋 Greeting",
+            {
+                "fields": (
+                    "title",
+                    "generated_content",
+                    "content_hash",
+                ),
+            },
+        ),
+        (
+            "🌐 Language",
+            {
+                "fields": (
+                    "language",
+                    "status",
+                ),
+            },
+        ),
+        (
+            "Prompt",
+            {
+                "fields": (
+                    "prompt",
+                ),
+            },
+        ),
+        (
+            "Dates",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                ),
+            },
+        ),
     )

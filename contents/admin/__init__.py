@@ -4,7 +4,6 @@ from .intelligence_dashboard import custom_admin_index
 
 
 from contents.models import (
-    AppSettings,
     Audience,
     BlockedKeyword,
     Content,
@@ -15,13 +14,17 @@ from contents.models import (
     GenerationJob,
     GenerationJobLog,
     GenerationPattern,
+    Greeting,
+    StandardGenerationSettings,
+    SharedGenerationSettings,
+    ReplyGenerationSettings,
+    GreetingGenerationSettings,
     Goal,
     Language,
     PromptTemplate,
     Topic,
 )
 
-from .app_settings import AppSettingsAdmin
 from .base_items import (
     AudienceAdmin,
     BlockedKeywordAdmin,
@@ -31,7 +34,11 @@ from .base_items import (
     PromptTemplateAdmin,
     TopicAdmin,
 )
-from .content import ContentAdmin, EmailReplyAdmin
+from .content import (
+    ContentAdmin,
+    EmailReplyAdmin,
+    GreetingAdmin,
+)
 from .generation_job import GenerationJobAdmin
 from .generation_log import (
     DatasetEventAdmin,
@@ -41,6 +48,7 @@ from .generation_log import (
 )
 
 # These modules register their models with @admin.register.
+from . import settings_sections  # noqa: F401
 from . import content_export  # noqa: F401
 from . import external_client  # noqa: F401
 
@@ -57,9 +65,9 @@ admin.site.register(DatasetEvent, DatasetEventAdmin)
 admin.site.register(DatasetPerformance, DatasetPerformanceAdmin)
 admin.site.register(GenerationPattern, GenerationPatternAdmin)
 
-admin.site.register(AppSettings, AppSettingsAdmin)
 admin.site.register(Content, ContentAdmin)
 admin.site.register(EmailReply, EmailReplyAdmin)
+admin.site.register(Greeting, GreetingAdmin)
 admin.site.register(GenerationJob, GenerationJobAdmin)
 admin.site.register(GenerationJobLog, GenerationJobLogAdmin)
 

@@ -675,6 +675,15 @@ class GenerationJob(models.Model):
         return f"Generation Job #{self.id} - {self.status}"
 
 
+
+class Greeting(Content):
+    class Meta:
+        proxy = True
+        verbose_name = "Greeting"
+        verbose_name_plural = "Greetings"
+
+
+
 class AppSettings(models.Model):
     min_words = models.PositiveIntegerField(default=45)
 
@@ -827,6 +836,36 @@ class AppSettings(models.Model):
 
     def __str__(self):
         return f"Settings #{self.id}"
+
+
+
+class StandardGenerationSettings(AppSettings):
+    class Meta:
+        proxy = True
+        verbose_name = "Standard Generation Settings"
+        verbose_name_plural = "Standard Generation Settings"
+
+
+class ReplyGenerationSettings(AppSettings):
+    class Meta:
+        proxy = True
+        verbose_name = "Email Reply Settings"
+        verbose_name_plural = "Email Reply Settings"
+
+
+class GreetingGenerationSettings(AppSettings):
+    class Meta:
+        proxy = True
+        verbose_name = "Greeting Settings"
+        verbose_name_plural = "Greeting Settings"
+
+
+class SharedGenerationSettings(AppSettings):
+    class Meta:
+        proxy = True
+        verbose_name = "Shared Generation Settings"
+        verbose_name_plural = "Shared Generation Settings"
+
 
 
 class GenerationJobLanguageDistribution(models.Model):
