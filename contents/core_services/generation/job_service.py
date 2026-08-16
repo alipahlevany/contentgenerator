@@ -287,7 +287,8 @@ def _persist_generated_content(
     if selected_rules:
         content.rules.set(selected_rules)
 
-    queue_content_deliveries(content)
+    if content.content_type == "standard":
+        queue_content_deliveries(content)
 
     handle_generation_success(
         job=job,
