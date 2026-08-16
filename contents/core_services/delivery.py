@@ -83,14 +83,23 @@ def deliver_content(delivery_id):
             ]
         )
 
-    payload = {
-        "category": (
-            delivery.content.topic.name
-            if delivery.content.topic
+    content = delivery.content
+
+    if content.content_type == "greeting":
+        category = "greeting"
+    elif content.content_type == "email_reply":
+        category = "email_reply"
+    else:
+        category = (
+            content.topic.name
+            if content.topic
             else ""
-        ),
-        "subject": delivery.content.title,
-        "content": delivery.content.generated_content,
+        )
+
+    payload = {
+        "category": category,
+        "subject": content.title,
+        "content": content.generated_content,
     }
 
     api_key = getattr(settings, "MTA_API_KEY", "")

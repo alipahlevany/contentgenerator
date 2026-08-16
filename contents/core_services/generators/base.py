@@ -31,6 +31,7 @@ class BaseGenerator(ABC):
         goal,
         prompt_template,
         selected_rules,
+        variation_key=None,
     ):
         """
         Build prompts and metadata required for generation.

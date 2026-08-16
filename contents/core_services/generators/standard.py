@@ -64,6 +64,7 @@ class StandardGenerator(BaseGenerator):
         goal,
         prompt_template,
         selected_rules,
+    variation_key=None,
     ):
         context = build_context(
             app_settings=app_settings,

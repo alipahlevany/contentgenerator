@@ -49,6 +49,7 @@ def build_context_fingerprint_payload(
             for rule in selected_rules
             if getattr(rule, "pk", None) is not None
         ),
+        "variation_key": context.get("variation_key"),
     }
 
 

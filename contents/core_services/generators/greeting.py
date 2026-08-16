@@ -13,8 +13,8 @@ class GreetingGenerator(BaseGenerator):
     Greeting generation intentionally depends only on Language.
     """
 
-    MIN_WORDS = 2
-    MAX_WORDS = 30
+    MIN_WORDS = 12
+    MAX_WORDS = 50
 
     def get_pool_log_message(
         self,
@@ -40,6 +40,10 @@ class GreetingGenerator(BaseGenerator):
             "goal": None,
             "prompt_template": None,
             "selected_rules": [],
+            "variation_key": random_module.randrange(
+                1,
+                1_000_000_000,
+            ),
         }
 
     def build_prompt_data(
@@ -51,6 +55,7 @@ class GreetingGenerator(BaseGenerator):
         goal,
         prompt_template,
         selected_rules,
+        variation_key=None,
     ):
         language_name = getattr(
             language,
@@ -59,8 +64,8 @@ class GreetingGenerator(BaseGenerator):
         )
 
         system_prompt = """
-You generate short, natural greetings for the beginning of
-emails and messages.
+You generate natural, warm, and ready-to-use greetings for the
+beginning of emails and messages.
 
 Rules:
 
@@ -69,24 +74,40 @@ Rules:
 - Do not explain the output.
 - Do not add labels such as "Greeting" or "Message".
 - Use the requested language naturally and fluently.
-- Sound human, warm, and conversational.
-- Avoid robotic or overly formal wording.
-- Keep the greeting short.
+- Sound human, warm, conversational, and varied.
+- Avoid robotic, generic, or overly formal wording.
+- Write a meaningful greeting of approximately 15 to 45 words.
+- The greeting may contain 1 to 3 short sentences.
+- It may include a friendly opening, a brief well-wish, or a natural
+  transition into the conversation.
 - Do not write a complete email.
+- Do not include the main purpose, request, offer, or detailed message.
 - Do not add a signature.
 - Do not invent names, companies, dates, links, or facts.
 - Do not use placeholders.
 - Do not use quotation marks around the output.
-- Generate one greeting only.
-- The result must be immediately usable.
+- Generate exactly one greeting.
+- Vary wording and sentence structure between outputs.
+- Avoid repeatedly using the same phrases such as
+  "I hope you are doing well."
+- The result must be immediately usable at the beginning of an email
+  or message.
         """.strip()
 
         user_prompt = f"""
-Generate one short and natural greeting in {language_name}.
+Generate one natural and warm greeting in {language_name}.
+
+Variation seed: {variation_key}
+Use this seed only to vary the wording, opening style, sentence
+structure, rhythm, and tone of the greeting.
+Never mention, print, explain, or expose the variation seed.
 
 Requirements:
-- Return only the greeting.
-- Keep it concise and human.
+- Return only the greeting text.
+- Write approximately 15 to 45 words.
+- Use 1 to 3 short sentences when natural.
+- Make it conversational and immediately usable.
+- Do not include the main body of an email.
 - Do not include a subject or signature.
 - Do not use placeholders.
 - Do not add explanations.

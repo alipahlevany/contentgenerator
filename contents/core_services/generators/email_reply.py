@@ -33,12 +33,21 @@ class EmailReplyGenerator(BaseGenerator):
             "goal": None,
             "prompt_template": None,
             "selected_rules": [],
+            "variation_key": random_module.randrange(
+                1,
+                1_000_000_000,
+            ),
         }
 
     ALLOWED_PLACEHOLDERS = {
-        "[[email]]",
         "[[name]]",
-        "[[code]]",
+        "[[first_name]]",
+        "[[company]]",
+        "[[email]]",
+        "[[phone]]",
+        "[[website]]",
+        "[[link]]",
+        "[[order_number]]",
         "[[date]]",
     }
 
@@ -55,6 +64,7 @@ class EmailReplyGenerator(BaseGenerator):
         goal,
         prompt_template,
         selected_rules,
+        variation_key=None,
     ):
         # Reply generation intentionally ignores:
         # topic, audience, goal, prompt_template and content rules.
@@ -105,6 +115,11 @@ class EmailReplyGenerator(BaseGenerator):
 
         user_prompt = f"""
         Generate one natural email reply in {language.name}.
+
+        Variation seed: {variation_key}
+        Use this seed only to vary wording, structure, tone,
+        paragraph flow, and response style.
+        Never mention, print, explain, or expose the variation seed.
 
         Requirements:
         - Sound human and conversational.

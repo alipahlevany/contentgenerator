@@ -142,7 +142,7 @@ class GreetingGenerationTests(TestCase):
         generator = get_generator("greeting")
 
         title, body = generator.extract_output(
-            "Hello, hope you're having a great day!",
+            "Hello, I hope you're having a wonderful day and everything is going smoothly for you!",
             "Greeting Test",
         )
 
@@ -153,7 +153,7 @@ class GreetingGenerationTests(TestCase):
 
         self.assertEqual(
             body,
-            "Hello, hope you're having a great day!",
+            "Hello, I hope you're having a wonderful day and everything is going smoothly for you!",
         )
 
     @patch(
@@ -164,7 +164,7 @@ class GreetingGenerationTests(TestCase):
         mock_generate_content,
     ):
         mock_generate_content.return_value = (
-            "Hello, hope you're doing well today!"
+            "Hello, I hope you're doing well today and having a pleasant start to your week!"
         )
 
         from contents.services import run_generation_job

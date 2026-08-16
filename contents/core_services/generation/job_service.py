@@ -397,6 +397,7 @@ def run_generation_job(job_id):
             goal = context["goal"]
             prompt_template = context["prompt_template"]
             selected_rules = context["selected_rules"]
+            variation_key = context.get("variation_key")
 
             prompt_data = generator.build_prompt_data(
                 app_settings=app_settings,
@@ -406,6 +407,7 @@ def run_generation_job(job_id):
                 goal=goal,
                 prompt_template=prompt_template,
                 selected_rules=selected_rules,
+                variation_key=variation_key,
             )
 
             system_prompt = prompt_data["system_prompt"]
