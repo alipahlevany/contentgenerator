@@ -69,8 +69,23 @@ beginning of emails and messages.
 
 Rules:
 
+Return a title and greeting.
+
+TITLE:
+A short email subject/title.
+
+GREETING:
+The greeting text.
+
+Rules for TITLE:
+- 3 to 8 words.
+- Natural email subject.
+- Related to the greeting.
+- No emojis.
+- No placeholders.
+
+Rules for GREETING:
 - Write only the greeting text.
-- Do not write a subject line.
 - Do not explain the output.
 - Do not add labels such as "Greeting" or "Message".
 - Use the requested language naturally and fluently.
@@ -126,17 +141,38 @@ Requirements:
         generated_text,
         fallback_title,
     ):
-        body = generated_text.strip()
+        text = generated_text.strip()
 
-        if not body:
+        if not text:
             raise GeneratorOutputError(
                 "Greeting output is empty."
             )
 
-        if "[[" in body or "]]" in body:
+        if "[[" in text or "]]" in text:
             raise GeneratorOutputError(
                 "Greeting output contains placeholders."
             )
+
+        title = fallback_title
+        body = text
+
+        if "TITLE:" in text and "GREETING:" in text:
+
+            title_part = text.split(
+                "TITLE:",
+                1
+            )[1]
+
+            title, body = title_part.split(
+                "GREETING:",
+                1
+            )
+
+            title = title.strip()
+            body = body.strip()
+
+        if not title:
+            title = fallback_title
 
         word_count = len(body.split())
 
@@ -150,4 +186,4 @@ Requirements:
                 "Greeting output is too long."
             )
 
-        return fallback_title, body
+        return title, body
