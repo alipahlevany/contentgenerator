@@ -45,6 +45,26 @@ class GenerationJobBoundsTests(TestCase):
             generation_max_runtime_seconds=runtime,
         )
 
+    def test_deleting_job_preserves_generated_content_and_greeting(self):
+        job = GenerationJob.objects.create(generation_type="greeting")
+        content = Content.objects.create(
+            title="Standard content",
+            content_type="standard",
+            prompt="Prompt",
+            generated_content="Body",
+        )
+        greeting = Content.objects.create(
+            title="Warm Email Greeting",
+            content_type="greeting",
+            prompt="Prompt",
+            generated_content="Hello, I hope you are doing well today.",
+        )
+
+        job.delete()
+
+        self.assertTrue(Content.objects.filter(pk=content.pk).exists())
+        self.assertTrue(Content.objects.filter(pk=greeting.pk).exists())
+
     def choice(self):
         return (
             self.language,
