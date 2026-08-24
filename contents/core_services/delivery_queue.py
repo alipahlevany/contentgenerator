@@ -14,6 +14,15 @@ def queue_content_deliveries(content):
     """
     clients = ExternalClient.objects.all()
 
+    preference_field = {
+        "standard": "receives_standard_content",
+        "email_reply": "receives_email_replies",
+        "greeting": "receives_greetings",
+    }.get(content.content_type)
+
+    if preference_field:
+        clients = clients.filter(**{preference_field: True})
+
     model_fields = {
         field.name
         for field in ExternalClient._meta.get_fields()

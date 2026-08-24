@@ -65,6 +65,7 @@ class EmailReplyGenerator(BaseGenerator):
         prompt_template,
         selected_rules,
         variation_key=None,
+        retry_feedback="",
     ):
         # Reply generation intentionally ignores:
         # topic, audience, goal, prompt_template and content rules.
@@ -129,6 +130,7 @@ class EmailReplyGenerator(BaseGenerator):
         - Use placeholders only when absolutely necessary.
         - Do not add a signature or sender name.
         - End with a complete sentence.
+        {retry_feedback}
         """.strip()
 
         return {

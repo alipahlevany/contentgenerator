@@ -14,6 +14,9 @@ class ExternalClientAdmin(admin.ModelAdmin):
         "code",
         "api_key_identifier",
         "callback_url",
+        "receives_standard_content",
+        "receives_email_replies",
+        "receives_greetings",
         "is_active",
         "created_at",
         "updated_at",
@@ -21,6 +24,9 @@ class ExternalClientAdmin(admin.ModelAdmin):
 
     list_filter = (
         "is_active",
+        "receives_standard_content",
+        "receives_email_replies",
+        "receives_greetings",
         "created_at",
         "updated_at",
     )
@@ -56,6 +62,9 @@ class ExternalClientAdmin(admin.ModelAdmin):
                 "fields": (
                     "api_key_identifier",
                     "callback_url",
+                    "receives_standard_content",
+                    "receives_email_replies",
+                    "receives_greetings",
                 ),
                 "description": (
                     "API key secrets are stored hashed and cannot be "

@@ -143,12 +143,12 @@ class GreetingGenerationTests(TestCase):
 
         title, body = generator.extract_output(
             "Hello, I hope you're having a wonderful day and everything is going smoothly for you!",
-            "Greeting Test",
+            "Warm Greeting Test",
         )
 
         self.assertEqual(
             title,
-            "Greeting Test",
+            "Warm Greeting Test",
         )
 
         self.assertEqual(
@@ -214,4 +214,30 @@ class GreetingGenerationTests(TestCase):
 
         self.assertIsNone(
             content.prompt_template
+        )
+
+    @patch(
+        "contents.core_services.generation.job_service.generate_content"
+    )
+    def test_too_long_greeting_is_retried_without_failing_job(
+        self,
+        mock_generate_content,
+    ):
+        mock_generate_content.side_effect = [
+            "word " * 51,
+            "Hello, I hope you're doing well today and having a pleasant start to your week!",
+        ]
+
+        from contents.services import run_generation_job
+
+        run_generation_job(self.job.pk)
+
+        self.job.refresh_from_db()
+
+        self.assertEqual(self.job.status, "completed")
+        self.assertEqual(self.job.generated_count, 1)
+        self.assertEqual(self.job.attempted_count, 2)
+        self.assertEqual(self.job.failed_count, 1)
+        self.assertTrue(
+            self.job.logs.filter(message="Greeting output is too long.").exists()
         )

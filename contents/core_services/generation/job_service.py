@@ -30,6 +30,7 @@ from contents.core_services.pipeline.validator import (
     validate_generated_text,
 )
 from contents.core_services.logger import fail_job, log_job
+from contents.core_services.generators.base import GeneratorOutputError
 from contents.core_services.generators.factory import get_generator
 from contents.core_services.runner import (
     increment_generated,
@@ -180,10 +181,21 @@ def _prepare_generated_output(
             ),
         )
 
-    title, content_body = generator.extract_output(
-        generated_text,
-        fallback_title,
-    )
+    try:
+        title, content_body = generator.extract_output(
+            generated_text,
+            fallback_title,
+        )
+    except GeneratorOutputError as exc:
+        # A format/length violation belongs to this attempt. Let the
+        # generation loop reserve a fresh context and retry instead of
+        # failing the entire job.
+        return PreparedGenerationOutput(
+            ok=False,
+            event_type="validation",
+            message=str(exc),
+            failure_kind="failed",
+        )
 
     title = title.strip()
     content_body = content_body.strip()
@@ -287,7 +299,7 @@ def _persist_generated_content(
     if selected_rules:
         content.rules.set(selected_rules)
 
-    if content.content_type == "standard":
+    if content.content_type in {"standard", "greeting"}:
         queue_content_deliveries(content)
 
     handle_generation_success(
@@ -318,6 +330,7 @@ def run_generation_job(job_id):
     log_job(job, "info", "Job started.")
 
     active_fingerprint = None
+    retry_feedback = ""
 
     try:
         app_settings = get_app_settings()
@@ -409,6 +422,7 @@ def run_generation_job(job_id):
                 prompt_template=prompt_template,
                 selected_rules=selected_rules,
                 variation_key=variation_key,
+                retry_feedback=retry_feedback,
             )
 
             system_prompt = prompt_data["system_prompt"]
@@ -421,6 +435,10 @@ def run_generation_job(job_id):
                     user_prompt=user_prompt,
                 )
             except Exception as exc:
+                retry_feedback = (
+                    "The previous generation attempt failed with an internal "
+                    f"error: {str(exc)[:240]}. Produce a fresh valid output."
+                )
                 fail_fingerprint(
                     fingerprint=fingerprint,
                     error_message=str(exc),
@@ -448,6 +466,10 @@ def run_generation_job(job_id):
             )
 
             if not prepared.ok:
+                retry_feedback = (
+                    "The previous output was rejected because: "
+                    f"{prepared.message} Fix this constraint in the next output."
+                )
                 fail_fingerprint(
                     fingerprint=fingerprint,
                 )
@@ -487,6 +509,10 @@ def run_generation_job(job_id):
             )
 
             if not persist_result.created:
+                retry_feedback = (
+                    "The previous output duplicated existing content. "
+                    "Use substantially different wording and structure."
+                )
                 fail_fingerprint(
                     fingerprint=fingerprint,
                 )
@@ -510,6 +536,7 @@ def run_generation_job(job_id):
                 continue
 
             active_fingerprint = None
+            retry_feedback = ""
 
             if job.delay_seconds:
                 time.sleep(job.delay_seconds)

@@ -64,7 +64,8 @@ class StandardGenerator(BaseGenerator):
         goal,
         prompt_template,
         selected_rules,
-    variation_key=None,
+        variation_key=None,
+        retry_feedback="",
     ):
         context = build_context(
             app_settings=app_settings,
@@ -84,6 +85,12 @@ class StandardGenerator(BaseGenerator):
             prompt_template.user_prompt_template,
             context,
         )
+
+        if retry_feedback:
+            user_prompt = (
+                f"{user_prompt}\n\nGeneration feedback:\n"
+                f"{retry_feedback}"
+            )
 
         fallback_title = f"{topic.name} for {audience.name}"
 

@@ -12,6 +12,7 @@ from contents.core_services.delivery import (
     deliver_content,
     validate_callback_url,
 )
+from contents.core_services.delivery_queue import queue_content_deliveries
 from contents.models import Content, ContentDelivery, ExternalClient
 from contents.tasks import deliver_content_callback
 
@@ -205,3 +206,34 @@ class ContentDeliveryTests(TestCase):
 
         task_source = Path("contents/tasks.py").read_text()
         self.assertNotIn("melal.org/createContentAPIView", task_source)
+
+    @patch("contents.tasks.deliver_content_callback.delay")
+    @patch("contents.core_services.delivery.socket.getaddrinfo", return_value=PUBLIC_DNS)
+    def test_delivery_preferences_separate_standard_and_greeting_clients(
+        self,
+        _,
+        delay,
+    ):
+        greeting_client = ExternalClient.objects.create(
+            name="Greeting Only",
+            code="greeting-only",
+            callback_url="https://greeting.example/callback",
+            receives_standard_content=False,
+            receives_greetings=True,
+        )
+        greeting = Content.objects.create(
+            title="Greeting",
+            content_type="greeting",
+            prompt="Prompt",
+            generated_content="Hello, I hope you are doing well today.",
+            content_hash="greeting-hash",
+            status="generated",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            ids = queue_content_deliveries(greeting)
+
+        self.assertEqual(len(ids), 1)
+        delivery = ContentDelivery.objects.get(pk=ids[0])
+        self.assertEqual(delivery.client, greeting_client)
+        delay.assert_called_once_with(delivery.pk)

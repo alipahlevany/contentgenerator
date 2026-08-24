@@ -169,6 +169,21 @@ class ExternalClient(models.Model):
         ),
     )
 
+    receives_standard_content = models.BooleanField(
+        default=True,
+        help_text="Allow generated standard content to be delivered here.",
+    )
+
+    receives_email_replies = models.BooleanField(
+        default=False,
+        help_text="Allow generated email replies to be delivered here.",
+    )
+
+    receives_greetings = models.BooleanField(
+        default=False,
+        help_text="Allow generated greetings to be delivered here.",
+    )
+
     notes = models.TextField(
         blank=True,
         default="",
