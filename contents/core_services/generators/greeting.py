@@ -117,14 +117,28 @@ Use this seed only to vary the wording, opening style, sentence
 structure, rhythm, and tone of the greeting.
 Never mention, print, explain, or expose the variation seed.
 
-Requirements:
-- Return only the greeting text.
+Return exactly this format:
+
+TITLE:
+A short email subject/title
+
+GREETING:
+The greeting text
+
+
+TITLE RULES:
+- 3 to 8 words.
+- Natural email subject.
+- Related to the greeting.
+- No emojis.
+- No placeholders.
+
+GREETING RULES:
 - Write approximately 15 to 45 words.
-- Use 1 to 3 short sentences when natural.
+- Use 1 to 3 short sentences.
 - Make it conversational and immediately usable.
-- Do not include the main body of an email.
-- Do not include a subject or signature.
-- Do not use placeholders.
+- Do not write a full email.
+- Do not add signature.
 - Do not add explanations.
         """.strip()
 
