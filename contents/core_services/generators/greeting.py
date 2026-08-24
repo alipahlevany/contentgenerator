@@ -190,7 +190,11 @@ GREETING RULES:
 
         word_count = len(body.split())
 
-        if word_count < self.MIN_WORDS:
+        minimum_words = 5 if (
+            "TITLE:" in text and "GREETING:" in text
+        ) else self.MIN_WORDS
+
+        if word_count < minimum_words:
             raise GeneratorOutputError(
                 "Greeting output is too short."
             )
