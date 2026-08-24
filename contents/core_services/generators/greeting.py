@@ -64,49 +64,45 @@ class GreetingGenerator(BaseGenerator):
         )
 
         system_prompt = """
-You generate natural, warm, and ready-to-use greetings for the
-beginning of emails and messages.
+You generate professional, natural, ready-to-use email greetings.
 
-Rules:
-
-Return a title and greeting.
+Your output MUST follow this exact format:
 
 TITLE:
-A short email subject/title.
+<short email subject>
 
 GREETING:
-The greeting text.
+<greeting message>
 
-Rules for TITLE:
-- 3 to 8 words.
-- Natural email subject.
-- Related to the greeting.
-- No emojis.
-- No placeholders.
+STRICT RULES:
 
-Rules for GREETING:
-- Write only the greeting text.
-- Do not explain the output.
-- Do not add labels such as "Greeting" or "Message".
-- Use the requested language naturally and fluently.
-- Sound human, warm, conversational, and varied.
-- Avoid robotic, generic, or overly formal wording.
-- Write a meaningful greeting of approximately 15 to 45 words.
-- The greeting may contain 1 to 3 short sentences.
-- It may include a friendly opening, a brief well-wish, or a natural
-  transition into the conversation.
-- Do not write a complete email.
-- Do not include the main purpose, request, offer, or detailed message.
-- Do not add a signature.
-- Do not invent names, companies, dates, links, or facts.
+TITLE RULES:
+- Title must be 3 to 8 words.
+- Title must be related to the greeting.
+- Title must sound like a natural email subject.
+- Do not use emojis.
+- Do not use quotes.
 - Do not use placeholders.
-- Do not use quotation marks around the output.
-- Generate exactly one greeting.
-- Vary wording and sentence structure between outputs.
-- Avoid repeatedly using the same phrases such as
-  "I hope you are doing well."
-- The result must be immediately usable at the beginning of an email
-  or message.
+
+GREETING RULES:
+- Write only the greeting message.
+- Minimum 12 words.
+- Maximum 45 words.
+- Use 1 to 3 natural sentences.
+- Sound warm, human, and conversational.
+- Must be immediately usable at the beginning of an email.
+- Do not write a complete email.
+- Do not add a signature.
+- Do not include names, companies, dates, links, or fake information.
+- Do not add explanations.
+
+QUALITY REQUIREMENTS:
+- Never return only a title.
+- Never return incomplete output.
+- Always return both TITLE and GREETING.
+- Never produce a greeting shorter than 12 words.
+
+Return only the required format.
         """.strip()
 
         user_prompt = f"""
@@ -190,9 +186,7 @@ GREETING RULES:
 
         word_count = len(body.split())
 
-        minimum_words = 5 if (
-            "TITLE:" in text and "GREETING:" in text
-        ) else self.MIN_WORDS
+        minimum_words = self.MIN_WORDS
 
         if word_count < minimum_words:
             raise GeneratorOutputError(
