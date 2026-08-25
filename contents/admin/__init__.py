@@ -50,6 +50,7 @@ from .generation_log import (
 # These modules register their models with @admin.register.
 from . import settings_sections  # noqa: F401
 from . import content_export  # noqa: F401
+from . import delivery  # noqa: F401
 from . import external_client  # noqa: F401
 
 

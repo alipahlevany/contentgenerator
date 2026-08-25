@@ -8,9 +8,16 @@ from drf_spectacular.views import (
 )
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAdminUser
+from contents.dashboard import operations_dashboard
 
 
 urlpatterns = [
+
+    path(
+        "dashboard/",
+        operations_dashboard,
+        name="operations-dashboard",
+    ),
 
     path(
         "",

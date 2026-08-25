@@ -1,0 +1,12 @@
+{% load i18n %}
+<button class="sticky toggle-nav-sidebar" id="toggle-nav-sidebar" aria-label="{% translate 'Toggle navigation' %}"></button>
+<nav class="sticky cg-nav" id="nav-sidebar" aria-label="{% translate 'Sidebar' %}">
+  <div class="cg-nav-head"><span>Workspace</span><strong>Content Studio</strong></div>
+  <div class="cg-nav-quick">
+    <a href="{% url 'admin:index' %}">⌂ <span>Overview</span></a>
+    <a href="{% url 'admin:contents_generationjob_add' %}" class="cg-nav-create">＋ <span>New generation</span></a>
+  </div>
+  <label class="cg-nav-search" for="nav-filter"><span>⌕</span><input type="search" id="nav-filter" placeholder="Search navigation…" aria-label="{% translate 'Filter navigation items' %}"></label>
+  <div class="cg-nav-models">{% include 'admin/app_list.html' with app_list=available_apps show_changelinks=False %}</div>
+  <div class="cg-nav-foot"><i></i> System navigation</div>
+</nav>
