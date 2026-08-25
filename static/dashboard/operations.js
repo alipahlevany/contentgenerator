@@ -1,7 +1,7 @@
 (() => {
     "use strict";
 
-    const palette = ["#3977f6", "#7c5ce7", "#16a978", "#e99a19", "#e05263", "#64748b"];
+    const palette = ["#7367e8", "#d66c9b", "#16a978", "#e9a23b", "#e05d65", "#7c8595"];
     const readJson = (id) => {
         const element = document.getElementById(id);
         return element ? JSON.parse(element.textContent || "[]") : [];
@@ -118,8 +118,8 @@
             value,
         }));
         const gradient = context.createLinearGradient(0, pad.top, 0, height - pad.bottom);
-        gradient.addColorStop(0, "rgba(57, 119, 246, .24)");
-        gradient.addColorStop(1, "rgba(57, 119, 246, 0)");
+        gradient.addColorStop(0, "rgba(115, 103, 232, .24)");
+        gradient.addColorStop(1, "rgba(115, 103, 232, 0)");
 
         context.beginPath();
         points.forEach((point, index) => {
@@ -145,7 +145,7 @@
                 context.bezierCurveTo(midpoint, previous.y, midpoint, point.y, point.x, point.y);
             }
         });
-        context.strokeStyle = "#3977f6";
+        context.strokeStyle = "#7367e8";
         context.lineWidth = 2.5;
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -156,7 +156,7 @@
             context.beginPath();
             context.arc(point.x, point.y, 4, 0, Math.PI * 2);
             context.fill();
-            context.strokeStyle = "#3977f6";
+            context.strokeStyle = "#7367e8";
             context.lineWidth = 2;
             context.stroke();
             context.fillStyle = "#8591a4";
