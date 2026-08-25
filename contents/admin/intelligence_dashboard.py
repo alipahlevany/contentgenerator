@@ -51,16 +51,52 @@ def get_dashboard_metrics():
     )
     generated = job_totals["generated"] or 0
     skipped = job_totals["skipped"] or 0
+    failed = job_totals["failed"] or 0
     total_outcomes = generated + skipped
+
+    job_status_counts = {
+        row["status"]: row["count"]
+        for row in GenerationJob.objects.values("status").annotate(
+            count=Count("id")
+        )
+    }
+    delivery_status_counts = {
+        row["status"]: row["count"]
+        for row in ContentDelivery.objects.values("status").annotate(
+            count=Count("id")
+        )
+    }
+    delivery_total = sum(delivery_status_counts.values())
+    delivery_successes = delivery_status_counts.get("success", 0)
+    recipient_counts = get_recipient_counts()
+    weekly_total = sum(daily.values())
 
     return {
         "content_total": Content.objects.count(),
         "content_today": Content.objects.filter(created_at__date=today).count(),
+        "content_this_week": weekly_total,
+        "daily_average": round(weekly_total / 7, 1),
+        "total_jobs": sum(job_status_counts.values()),
         "running_jobs": GenerationJob.objects.filter(status="running").count(),
         "failed_jobs": GenerationJob.objects.filter(status="failed").count(),
+        "completed_jobs": job_status_counts.get("completed", 0),
+        "generated_total": generated,
+        "skipped_total": skipped,
+        "failed_total": failed,
         "success_rate": round((generated / total_outcomes) * 100, 1) if total_outcomes else 0,
         "skip_rate": round((skipped / total_outcomes) * 100, 1) if total_outcomes else 0,
-        "recipient_counts": get_recipient_counts(),
+        "delivery_total": delivery_total,
+        "delivery_success_rate": (
+            round((delivery_successes / delivery_total) * 100, 1)
+            if delivery_total
+            else 0
+        ),
+        "recipient_counts": recipient_counts,
+        "recipient_total": sum(recipient_counts.values()),
+        "attention_total": (
+            job_status_counts.get("failed", 0)
+            + delivery_status_counts.get("failed", 0)
+        ),
         "content_by_type": list(
             Content.objects.values("content_type")
             .annotate(count=Count("id"))
@@ -71,16 +107,14 @@ def get_dashboard_metrics():
             .annotate(count=Count("id"))
             .order_by("status")
         ),
-        "jobs_by_status": list(
-            GenerationJob.objects.values("status")
-            .annotate(count=Count("id"))
-            .order_by("status")
-        ),
-        "deliveries_by_status": list(
-            ContentDelivery.objects.values("status")
-            .annotate(count=Count("id"))
-            .order_by("status")
-        ),
+        "jobs_by_status": [
+            {"status": status, "count": count}
+            for status, count in sorted(job_status_counts.items())
+        ],
+        "deliveries_by_status": [
+            {"status": status, "count": count}
+            for status, count in sorted(delivery_status_counts.items())
+        ],
         "recent_jobs": list(
             GenerationJob.objects.order_by("-created_at")[:8]
             .values("id", "generation_type", "status", "count", "generated_count", "skipped_count", "created_at")
