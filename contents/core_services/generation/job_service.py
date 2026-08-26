@@ -281,6 +281,7 @@ def _persist_generated_content(
     content = Content.objects.create(
         title=title,
         content_type=job.generation_type,
+        generation_job=job,
         language=language,
         topic=topic,
         audience=audience,

@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
 
 from contents.models import Content, EmailReply, Greeting
 
@@ -9,6 +11,7 @@ class BaseContentAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "title",
+        "source_job",
         "language",
         "topic",
         "audience",
@@ -40,6 +43,7 @@ class BaseContentAdmin(admin.ModelAdmin):
 
     readonly_fields = (
         "content_hash",
+        "generation_job",
         "created_at",
         "updated_at",
     )
@@ -64,6 +68,7 @@ class BaseContentAdmin(admin.ModelAdmin):
                     "prompt_template",
                     "rules",
                     "status",
+                    "generation_job",
                 )
             },
         ),
@@ -87,13 +92,35 @@ class BaseContentAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = super().get_queryset(request).select_related(
+            "generation_job",
+        )
 
         if self.content_type_value is None:
             return queryset
 
         return queryset.filter(
             content_type=self.content_type_value,
+        )
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
+
+    @admin.display(description="Source job", ordering="generation_job_id")
+    def source_job(self, obj):
+        if not obj.generation_job_id:
+            return "—"
+
+        url = reverse(
+            "admin:contents_generationjob_change",
+            args=(obj.generation_job_id,),
+        )
+        return format_html(
+            '<a href="{}">Job #{}</a>',
+            url,
+            obj.generation_job_id,
         )
 
     def save_model(self, request, obj, form, change):
@@ -118,6 +145,7 @@ class EmailReplyAdmin(BaseContentAdmin):
     list_display = (
         "id",
         "title",
+        "source_job",
         "language",
         "topic",
         "audience",
@@ -134,6 +162,7 @@ class GreetingAdmin(BaseContentAdmin):
     list_display = (
         "id",
         "title",
+        "source_job",
         "language",
         "status",
         "created_at",
@@ -164,6 +193,7 @@ class GreetingAdmin(BaseContentAdmin):
                 "fields": (
                     "language",
                     "status",
+                    "generation_job",
                 ),
             },
         ),

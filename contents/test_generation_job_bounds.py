@@ -50,12 +50,14 @@ class GenerationJobBoundsTests(TestCase):
         content = Content.objects.create(
             title="Standard content",
             content_type="standard",
+            generation_job=job,
             prompt="Prompt",
             generated_content="Body",
         )
         greeting = Content.objects.create(
             title="Warm Email Greeting",
             content_type="greeting",
+            generation_job=job,
             prompt="Prompt",
             generated_content="Hello, I hope you are doing well today.",
         )
@@ -64,6 +66,12 @@ class GenerationJobBoundsTests(TestCase):
 
         self.assertTrue(Content.objects.filter(pk=content.pk).exists())
         self.assertTrue(Content.objects.filter(pk=greeting.pk).exists())
+        self.assertIsNone(
+            Content.objects.get(pk=content.pk).generation_job_id
+        )
+        self.assertIsNone(
+            Content.objects.get(pk=greeting.pk).generation_job_id
+        )
 
     def choice(self):
         return (
@@ -375,3 +383,4 @@ class GenerationJobBoundsTests(TestCase):
         self.assertEqual(content.title, "Title")
         self.assertEqual(content.generated_content, "Body")
         self.assertEqual(content.content_hash, "hash")
+        self.assertEqual(content.generation_job_id, job.pk)

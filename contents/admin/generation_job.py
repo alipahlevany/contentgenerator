@@ -22,6 +22,9 @@ class GenerationJobLogInline(admin.TabularInline):
 
 
 class GenerationJobAdmin(admin.ModelAdmin):
+    delete_confirmation_template = (
+        "admin/contents/generationjob/delete_confirmation.html"
+    )
     inlines = (GenerationJobLogInline,)
 
     list_display = (
@@ -117,6 +120,11 @@ class GenerationJobAdmin(admin.ModelAdmin):
         if obj and obj.status in ("pending", "running"):
             return False
         return super().has_delete_permission(request, obj)
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
 
     def job_type_help(self, obj=None):
         if obj and obj.generation_type == "email_reply":

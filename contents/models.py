@@ -269,6 +269,19 @@ class Content(models.Model):
         db_index=True,
         
     )
+
+    generation_job = models.ForeignKey(
+        "GenerationJob",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_contents",
+        help_text=(
+            "Job that produced this output. The output is preserved when "
+            "the job is deleted."
+        ),
+    )
+
     language = models.ForeignKey(
         Language,
         on_delete=models.SET_NULL,
@@ -1247,8 +1260,8 @@ class GenerationJobLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "System Settings"
-        verbose_name_plural = "System Settings"
+        verbose_name = "Generation job log"
+        verbose_name_plural = "Generation job logs"
 
     def __str__(self):
         return f"Job #{self.job_id} - {self.level}"
