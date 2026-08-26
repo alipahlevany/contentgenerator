@@ -37,6 +37,7 @@
                     <a href="/api/docs/" target="_blank" rel="noreferrer">API docs</a>
                 </div>
             </div>
+            <div class="hero-art" aria-label="Animated AI content creator illustration" style="--hero-poster:url('{% static 'dashboard/animations/content-generator-hero.png' %}')"><div id="hero-lottie" data-animation-path="{% static 'dashboard/animations/content-generator-hero.json' %}"></div></div>
             <div class="hero-insight">
                 <div class="hero-stat"><span>This week</span><b>{{ dashboard_metrics.content_this_week }}</b></div>
                 <div class="hero-stat"><span>Quality</span><b>{{ health.average_quality }}%</b></div>
@@ -79,5 +80,6 @@
         </section>
         <footer class="page-footer"><span>Live database metrics</span><span>AI Content Admin</span></footer>
     </div>
+    <script src="{% static 'vendor/lottie-web/lottie_light.min.js' %}"></script>
     <script src="{% static 'dashboard/operations.js' %}"></script>
 {% endblock %}

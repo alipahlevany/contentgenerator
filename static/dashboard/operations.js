@@ -14,6 +14,28 @@
     const daily = readJson("dashboard-daily-counts");
     const dailyGreetings = readJson("dashboard-daily-greeting-counts");
 
+    const heroLottie = document.getElementById("hero-lottie");
+    if (heroLottie && window.lottie) {
+        const animation = window.lottie.loadAnimation({
+            container: heroLottie,
+            renderer: "svg",
+            loop: !reduceMotion,
+            autoplay: !reduceMotion,
+            path: heroLottie.dataset.animationPath,
+            rendererSettings: {
+                preserveAspectRatio: "xMidYMid meet",
+                progressiveLoad: true,
+                title: "AI content creator illustration",
+                description: "A gently animated content creator working with AI tools.",
+            },
+        });
+
+        animation.addEventListener("DOMLoaded", () => {
+            heroLottie.closest(".hero-art")?.classList.add("is-loaded");
+            if (reduceMotion) animation.goToAndStop(60, true);
+        });
+    }
+
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebar-overlay");
     const menuButton = document.getElementById("menu-toggle");

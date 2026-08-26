@@ -89,6 +89,7 @@
             <div class="dashboard">
                 <section class="hero">
                     <div class="hero-copy"><span class="eyebrow"><i></i>Live operations</span><h2>Your content engine,<br>clear at a glance.</h2><p>Monitor generation quality, job throughput, and delivery performance from one focused workspace.</p></div>
+                    <div class="hero-art" aria-label="Animated AI content creator illustration" style="--hero-poster:url('{% static 'dashboard/animations/content-generator-hero.png' %}')"><div id="hero-lottie" data-animation-path="{% static 'dashboard/animations/content-generator-hero.json' %}"></div></div>
                     <div class="hero-insight">
                         <div class="hero-stat"><span>This week</span><b>{{ dashboard_metrics.content_this_week }}</b></div>
                         <div class="hero-stat"><span>Daily average</span><b>{{ dashboard_metrics.daily_average }}</b></div>
@@ -142,6 +143,7 @@
             </div>
         </main>
     </div>
+    <script src="{% static 'vendor/lottie-web/lottie_light.min.js' %}"></script>
     <script src="{% static 'dashboard/operations.js' %}"></script>
 </body>
 </html>
