@@ -6,6 +6,30 @@ from contents.core_services.duplicate import (
     is_duplicate_content,
     make_content_hash,
 )
+from contents.core_services.generators.greeting import (
+    build_greeting_title,
+)
+
+
+class GreetingTitleTests(SimpleTestCase):
+    def test_title_uses_base_language_and_greeting_excerpt(self):
+        title = build_greeting_title(
+            "It is genuinely good to connect with you and begin today.",
+            "English Email Greeting",
+        )
+
+        self.assertEqual(
+            title,
+            "English Email Greeting — It is genuinely good to connect with…",
+        )
+
+    def test_title_is_limited_to_model_field_length(self):
+        title = build_greeting_title(
+            "word " * 100,
+            "Language " * 100,
+        )
+
+        self.assertLessEqual(len(title), 255)
 
 
 class DuplicateDetectionTests(SimpleTestCase):

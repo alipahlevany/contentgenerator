@@ -6,6 +6,33 @@ from contents.core_services.generators.base import (
 )
 
 
+def build_greeting_title(content_body, base_title="Email Greeting"):
+    """Build a short, useful title without asking the model for metadata."""
+    body = " ".join((content_body or "").split()).strip()
+    base = " ".join((base_title or "Email Greeting").split()).strip()
+
+    if not body:
+        return base[:255]
+
+    words = body.split()
+    excerpt = " ".join(words[:7]).strip(
+        " \t\r\n.,;:!?…،؛؟。！？”“\"'"
+    )
+    was_truncated = len(words) > 7
+
+    if len(excerpt) > 72:
+        excerpt = excerpt[:72].rstrip(
+            " \t\r\n.,;:!?…،؛؟。！？”“\"'"
+        )
+        was_truncated = True
+
+    if not excerpt:
+        return base[:255]
+
+    suffix = "…" if was_truncated else ""
+    return f"{base} — {excerpt}{suffix}"[:255]
+
+
 class GreetingGenerator(BaseGenerator):
     """
     Generate short, natural greetings in the requested language.
@@ -187,7 +214,7 @@ Return only the greeting itself, with no wrapper or extra text.
         return {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
-            "fallback_title": self.FALLBACK_TITLE,
+            "fallback_title": f"{language_name} Email Greeting",
         }
 
     def extract_output(
@@ -234,4 +261,7 @@ Return only the greeting itself, with no wrapper or extra text.
                 "Greeting output is too long."
             )
 
-        return fallback_title or self.FALLBACK_TITLE, body
+        return build_greeting_title(
+            body,
+            fallback_title or self.FALLBACK_TITLE,
+        ), body
