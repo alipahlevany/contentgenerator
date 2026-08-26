@@ -138,6 +138,64 @@ class GreetingGenerationTests(TestCase):
             prompt_data["system_prompt"].lower(),
         )
 
+        self.assertIn(
+            "Aim for 18 to 24 words",
+            prompt_data["system_prompt"],
+        )
+
+        self.assertIn(
+            "Avoid tired formulas",
+            prompt_data["system_prompt"],
+        )
+
+    def test_greeting_prompt_varies_creative_direction(self):
+        generator = get_generator("greeting")
+
+        first = generator.build_prompt_data(
+            app_settings=None,
+            language=self.language,
+            topic=None,
+            audience=None,
+            goal=None,
+            prompt_template=None,
+            selected_rules=[],
+            variation_key=1,
+        )
+        second = generator.build_prompt_data(
+            app_settings=None,
+            language=self.language,
+            topic=None,
+            audience=None,
+            goal=None,
+            prompt_template=None,
+            selected_rules=[],
+            variation_key=2,
+        )
+
+        self.assertNotEqual(
+            first["user_prompt"],
+            second["user_prompt"],
+        )
+
+    def test_greeting_extract_output_cleans_safe_wrappers(self):
+        generator = get_generator("greeting")
+
+        title, body = generator.extract_output(
+            'Greeting: "It is genuinely good to connect with you; '
+            'wishing you a calm, productive moment as we begin our '
+            'conversation today."',
+            "Warm Greeting Test",
+        )
+
+        self.assertEqual(title, "Warm Greeting Test")
+        self.assertEqual(
+            body,
+            (
+                "It is genuinely good to connect with you; wishing you a "
+                "calm, productive moment as we begin our conversation today."
+            ),
+        )
+
     def test_greeting_extract_output_accepts_valid_text(self):
         generator = get_generator("greeting")
 
