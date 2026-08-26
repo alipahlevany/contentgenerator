@@ -44,6 +44,20 @@ def get_dashboard_metrics():
         )
     }
 
+    greeting_daily = {
+        row["day"].isoformat(): row["count"]
+        for row in (
+            Content.objects
+            .filter(
+                content_type="greeting",
+                created_at__date__gte=start_date,
+            )
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(count=Count("id"))
+        )
+    }
+
     job_totals = GenerationJob.objects.aggregate(
         generated=Sum("generated_count"),
         skipped=Sum("skipped_count"),
@@ -70,11 +84,20 @@ def get_dashboard_metrics():
     delivery_successes = delivery_status_counts.get("success", 0)
     recipient_counts = get_recipient_counts()
     weekly_total = sum(daily.values())
+    greeting_weekly_total = sum(greeting_daily.values())
 
     return {
         "content_total": Content.objects.count(),
         "content_today": Content.objects.filter(created_at__date=today).count(),
         "content_this_week": weekly_total,
+        "greeting_total": Content.objects.filter(
+            content_type="greeting"
+        ).count(),
+        "greeting_today": Content.objects.filter(
+            content_type="greeting",
+            created_at__date=today,
+        ).count(),
+        "greetings_this_week": greeting_weekly_total,
         "daily_average": round(weekly_total / 7, 1),
         "total_jobs": sum(job_status_counts.values()),
         "running_jobs": GenerationJob.objects.filter(status="running").count(),
@@ -136,6 +159,13 @@ def get_dashboard_metrics():
         ],
         "daily_counts": [
             daily.get((start_date + timedelta(days=offset)).isoformat(), 0)
+            for offset in range(7)
+        ],
+        "daily_greeting_counts": [
+            greeting_daily.get(
+                (start_date + timedelta(days=offset)).isoformat(),
+                0,
+            )
             for offset in range(7)
         ],
     }

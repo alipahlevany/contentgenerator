@@ -12,6 +12,7 @@
     const deliveries = readJson("dashboard-delivery-statuses");
     const labels = readJson("dashboard-daily-labels");
     const daily = readJson("dashboard-daily-counts");
+    const dailyGreetings = readJson("dashboard-daily-greeting-counts");
 
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebar-overlay");
@@ -104,7 +105,7 @@
         const pad = { top: 21, right: 15, bottom: 30, left: 28 };
         const plotWidth = width - pad.left - pad.right;
         const plotHeight = height - pad.top - pad.bottom;
-        const max = Math.max(...daily, 1);
+        const max = Math.max(...daily, ...dailyGreetings, 1);
         const ceiling = Math.max(4, Math.ceil(max / 4) * 4);
         const step = plotWidth / Math.max(daily.length - 1, 1);
 
@@ -129,34 +130,41 @@
             y: pad.top + plotHeight - (value / ceiling) * plotHeight,
             value,
         }));
+        const greetingPoints = dailyGreetings.map((value, index) => ({
+            x: pad.left + index * step,
+            y: pad.top + plotHeight - (value / ceiling) * plotHeight,
+            value,
+        }));
+        const tracePath = (series) => {
+            context.beginPath();
+            series.forEach((point, index) => {
+                if (!index) context.moveTo(point.x, point.y);
+                else {
+                    const previous = series[index - 1];
+                    const midpoint = (previous.x + point.x) / 2;
+                    context.bezierCurveTo(
+                        midpoint,
+                        previous.y,
+                        midpoint,
+                        point.y,
+                        point.x,
+                        point.y,
+                    );
+                }
+            });
+        };
         const gradient = context.createLinearGradient(0, pad.top, 0, height - pad.bottom);
         gradient.addColorStop(0, "rgba(77, 133, 189, .24)");
         gradient.addColorStop(1, "rgba(77, 133, 189, 0)");
 
-        context.beginPath();
-        points.forEach((point, index) => {
-            if (!index) context.moveTo(point.x, point.y);
-            else {
-                const previous = points[index - 1];
-                const midpoint = (previous.x + point.x) / 2;
-                context.bezierCurveTo(midpoint, previous.y, midpoint, point.y, point.x, point.y);
-            }
-        });
+        tracePath(points);
         context.lineTo(points.at(-1)?.x || pad.left, height - pad.bottom);
         context.lineTo(points[0]?.x || pad.left, height - pad.bottom);
         context.closePath();
         context.fillStyle = gradient;
         context.fill();
 
-        context.beginPath();
-        points.forEach((point, index) => {
-            if (!index) context.moveTo(point.x, point.y);
-            else {
-                const previous = points[index - 1];
-                const midpoint = (previous.x + point.x) / 2;
-                context.bezierCurveTo(midpoint, previous.y, midpoint, point.y, point.x, point.y);
-            }
-        });
+        tracePath(points);
         context.strokeStyle = "#4d85bd";
         context.lineWidth = 2.5;
         context.lineCap = "round";
@@ -178,6 +186,25 @@
             const rawLabel = labels[index] || "";
             context.fillText(rawLabel.slice(5), point.x, height - 8);
         });
+
+        if (greetingPoints.length) {
+            tracePath(greetingPoints);
+            context.strokeStyle = "#18a77a";
+            context.lineWidth = 2.5;
+            context.lineCap = "round";
+            context.lineJoin = "round";
+            context.stroke();
+
+            greetingPoints.forEach((point) => {
+                context.fillStyle = "#fff";
+                context.beginPath();
+                context.arc(point.x, point.y, 3.5, 0, Math.PI * 2);
+                context.fill();
+                context.strokeStyle = "#18a77a";
+                context.lineWidth = 2;
+                context.stroke();
+            });
+        }
     };
 
     const drawMix = () => {

@@ -166,4 +166,31 @@ input:focus, textarea:focus, select:focus { border-color: #76a8cf; box-shadow: 0
     .breadcrumbs { padding: 9px 14px; }
     .object-tools { margin-top: 0; }
     #nav-sidebar.cg-nav { width: 270px; }
+    #nav-sidebar.cg-nav {
+        color: #294761 !important;
+        background: linear-gradient(180deg, #f2f9ff, #e6f1fb) !important;
+    }
+    .cg-nav-models .module {
+        margin: 0 0 10px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    .cg-nav-models td { display: none !important; }
+    .cg-nav-models tr, .cg-nav-models th {
+        border: 0 !important;
+        background: transparent !important;
+    }
+    .cg-nav-models th a {
+        min-height: 43px !important;
+        margin: 3px 0 !important;
+        padding: 0 10px !important;
+        border-radius: 11px !important;
+        color: #38536d !important;
+    }
+    .cg-nav-models .module caption {
+        padding: 12px 9px 7px !important;
+        background: transparent !important;
+    }
 }

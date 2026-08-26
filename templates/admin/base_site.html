@@ -13,6 +13,11 @@
 {% block extrastyle %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'admin/content_generator_admin.css' %}">
+{% endblock %}
+
+{% block responsive %}
+{{ block.super }}
+{# Loaded after Django responsive.css so the custom mobile shell wins. #}
 <link rel="stylesheet" href="{% static 'admin/admin_shell.css' %}">
 {% endblock %}
 

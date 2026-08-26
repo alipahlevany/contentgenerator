@@ -321,6 +321,11 @@ button { font: inherit; }
 .panel-title p { margin: 4px 0 0; color: #8a96a8; font-size: 10px; }
 .panel-link { color: #695bcf; text-decoration: none; font-size: 10px; font-weight: 800; }
 .panel-link:hover { text-decoration: underline; }
+.series-legend { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px 12px; color: #60758a; font-size: 9px; font-weight: 800; }
+.series-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.series-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(77, 133, 189, .10); }
+.series-dot--total { background: #4d85bd; }
+.series-dot--greeting { background: #18a77a; box-shadow: 0 0 0 3px rgba(24, 167, 122, .10); }
 .chart { display: block; width: 100%; height: 248px; }
 .chart--compact { height: 220px; }
 

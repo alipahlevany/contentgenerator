@@ -22,6 +22,7 @@
     {{ dashboard_metrics.deliveries_by_status|json_script:"dashboard-delivery-statuses" }}
     {{ dashboard_metrics.daily_labels|json_script:"dashboard-daily-labels" }}
     {{ dashboard_metrics.daily_counts|json_script:"dashboard-daily-counts" }}
+    {{ dashboard_metrics.daily_greeting_counts|json_script:"dashboard-daily-greeting-counts" }}
 
     <div class="dashboard">
         <section class="hero">
@@ -52,7 +53,7 @@
         </section>
 
         <section class="layout-primary">
-            <article class="panel"><div class="panel-head"><div class="panel-title"><h3>Production trend</h3><p>Generated content over the last seven days</p></div><span class="trend-chip">{{ dashboard_metrics.content_this_week }} this week</span></div><canvas class="chart" id="production-trend"></canvas></article>
+            <article class="panel"><div class="panel-head"><div class="panel-title"><h3>Production trend</h3><p>All generated content compared with greetings</p></div><div class="series-legend"><span><i class="series-dot series-dot--total"></i>{{ dashboard_metrics.content_this_week }} total</span><span><i class="series-dot series-dot--greeting"></i>{{ dashboard_metrics.greetings_this_week }} greetings</span></div></div><canvas class="chart" id="production-trend"></canvas></article>
             <article class="panel"><div class="panel-head"><div class="panel-title"><h3>Content distribution</h3><p>Output mix by generation type</p></div><a class="panel-link" href="{% url 'admin:contents_content_changelist' %}">View content</a></div><canvas class="chart chart--compact" id="content-mix"></canvas></article>
         </section>
 
