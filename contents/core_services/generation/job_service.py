@@ -269,6 +269,7 @@ def _persist_generated_content(
     ) = is_duplicate_content(
         title,
         content_body,
+        content_type=job.generation_type,
     )
 
     if is_duplicate:
