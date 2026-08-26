@@ -17,15 +17,30 @@ class Command(BaseCommand):
             action="store_true",
             help="Show the number of affected greetings without updating.",
         )
+        parser.add_argument(
+            "--include-legacy",
+            action="store_true",
+            help=(
+                "Also replace legacy greeting titles that do not use the "
+                "current language-and-excerpt format."
+            ),
+        )
 
     def handle(self, *args, **options):
-        queryset = (
-            Content.objects
-            .filter(content_type="greeting")
-            .filter(
+        queryset = Content.objects.filter(content_type="greeting")
+
+        if options["include_legacy"]:
+            queryset = queryset.exclude(
+                title__contains="Email Greeting —"
+            )
+        else:
+            queryset = queryset.filter(
                 Q(title__iexact=GreetingGenerator.FALLBACK_TITLE)
                 | Q(title="")
             )
+
+        queryset = (
+            queryset
             .select_related("language")
             .order_by("pk")
         )
