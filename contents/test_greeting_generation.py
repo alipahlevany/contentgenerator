@@ -149,7 +149,7 @@ class GreetingGenerationTests(TestCase):
         )
         self.assertEqual(
             prompt_data["fallback_title"],
-            "English Email Greeting",
+            "Greeting",
         )
 
     def test_greeting_prompt_varies_creative_direction(self):
@@ -193,7 +193,7 @@ class GreetingGenerationTests(TestCase):
 
         self.assertEqual(
             title,
-            "Warm Greeting Test — It is genuinely good to connect with…",
+            "It is genuinely good to connect with…",
         )
         self.assertEqual(
             body,
@@ -213,7 +213,7 @@ class GreetingGenerationTests(TestCase):
 
         self.assertEqual(
             title,
-            "Warm Greeting Test — Hello, I hope you're having a wonderful…",
+            "Hello, I hope you're having a wonderful…",
         )
 
         self.assertEqual(
@@ -265,8 +265,9 @@ class GreetingGenerationTests(TestCase):
             self.language,
         )
 
-        self.assertTrue(
-            content.title.startswith("English Email Greeting — ")
+        self.assertEqual(
+            content.title,
+            "Hello, I hope you're doing well today…",
         )
 
         self.assertIsNone(

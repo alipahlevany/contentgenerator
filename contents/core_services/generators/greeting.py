@@ -6,13 +6,15 @@ from contents.core_services.generators.base import (
 )
 
 
-def build_greeting_title(content_body, base_title="Email Greeting"):
+def build_greeting_title(content_body, fallback_title="Greeting"):
     """Build a short, useful title without asking the model for metadata."""
     body = " ".join((content_body or "").split()).strip()
-    base = " ".join((base_title or "Email Greeting").split()).strip()
+    fallback = " ".join(
+        (fallback_title or "Greeting").split()
+    ).strip()
 
     if not body:
-        return base[:255]
+        return fallback[:255]
 
     words = body.split()
     excerpt = " ".join(words[:7]).strip(
@@ -27,10 +29,10 @@ def build_greeting_title(content_body, base_title="Email Greeting"):
         was_truncated = True
 
     if not excerpt:
-        return base[:255]
+        return fallback[:255]
 
     suffix = "…" if was_truncated else ""
-    return f"{base} — {excerpt}{suffix}"[:255]
+    return f"{excerpt}{suffix}"[:255]
 
 
 class GreetingGenerator(BaseGenerator):
@@ -214,7 +216,7 @@ Return only the greeting itself, with no wrapper or extra text.
         return {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
-            "fallback_title": f"{language_name} Email Greeting",
+            "fallback_title": "Greeting",
         }
 
     def extract_output(

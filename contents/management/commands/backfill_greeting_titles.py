@@ -18,22 +18,15 @@ class Command(BaseCommand):
             help="Show the number of affected greetings without updating.",
         )
         parser.add_argument(
-            "--include-legacy",
+            "--all",
             action="store_true",
-            help=(
-                "Also replace legacy greeting titles that do not use the "
-                "current language-and-excerpt format."
-            ),
+            help="Rebuild titles for every greeting from its content body.",
         )
 
     def handle(self, *args, **options):
         queryset = Content.objects.filter(content_type="greeting")
 
-        if options["include_legacy"]:
-            queryset = queryset.exclude(
-                title__contains="Email Greeting —"
-            )
-        else:
+        if not options["all"]:
             queryset = queryset.filter(
                 Q(title__iexact=GreetingGenerator.FALLBACK_TITLE)
                 | Q(title="")
@@ -58,15 +51,8 @@ class Command(BaseCommand):
         batch = []
 
         for content in queryset.iterator(chunk_size=500):
-            language_name = getattr(content.language, "name", "")
-            base_title = (
-                f"{language_name} Email Greeting"
-                if language_name
-                else GreetingGenerator.FALLBACK_TITLE
-            )
             content.title = build_greeting_title(
                 content.generated_content,
-                base_title,
             )
             batch.append(content)
 

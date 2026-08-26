@@ -12,7 +12,7 @@ from contents.core_services.generators.greeting import (
 
 
 class GreetingTitleTests(SimpleTestCase):
-    def test_title_uses_base_language_and_greeting_excerpt(self):
+    def test_title_contains_only_the_greeting_excerpt(self):
         title = build_greeting_title(
             "It is genuinely good to connect with you and begin today.",
             "English Email Greeting",
@@ -20,7 +20,7 @@ class GreetingTitleTests(SimpleTestCase):
 
         self.assertEqual(
             title,
-            "English Email Greeting — It is genuinely good to connect with…",
+            "It is genuinely good to connect with…",
         )
 
     def test_title_is_limited_to_model_field_length(self):
