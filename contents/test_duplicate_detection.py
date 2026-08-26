@@ -1,64 +1,73 @@
-from django.test import TestCase
+from unittest.mock import MagicMock, patch
 
-from contents.core_services.duplicate import is_duplicate_content
-from contents.models import Content
+from django.test import SimpleTestCase
+
+from contents.core_services.duplicate import (
+    is_duplicate_content,
+    make_content_hash,
+)
 
 
-class DuplicateDetectionTests(TestCase):
-    def create_content(self, *, title, body, content_type="standard"):
-        duplicate, _, content_hash = is_duplicate_content(
-            title,
-            body,
-            content_type=content_type,
+class DuplicateDetectionTests(SimpleTestCase):
+    def duplicate_query(self, objects_all, *, exists):
+        scoped_query = MagicMock()
+        hash_query = MagicMock()
+        hash_query.exists.return_value = exists
+        scoped_query.filter.return_value = hash_query
+        objects_all.return_value.filter.return_value = scoped_query
+
+        return scoped_query, hash_query
+
+    @patch("contents.core_services.duplicate.Content.objects.all")
+    def test_same_title_with_different_body_is_not_duplicate(
+        self,
+        objects_all,
+    ):
+        scoped_query, hash_query = self.duplicate_query(
+            objects_all,
+            exists=False,
         )
-        self.assertFalse(duplicate)
 
-        return Content.objects.create(
-            title=title,
-            content_type=content_type,
-            prompt="Prompt",
-            generated_content=body,
-            content_hash=content_hash,
-            status="generated",
-        )
-
-    def test_same_title_with_different_body_is_not_duplicate(self):
-        self.create_content(
-            title="Warm Email Greeting",
-            body="A warm and useful first greeting.",
-            content_type="greeting",
-        )
-
-        duplicate, reason, _ = is_duplicate_content(
+        duplicate, reason, content_hash = is_duplicate_content(
             "Warm Email Greeting",
-            "A completely different and useful second greeting.",
+            "A completely different and useful greeting.",
             content_type="greeting",
         )
 
         self.assertFalse(duplicate)
         self.assertIsNone(reason)
-
-    def test_same_normalized_body_in_same_type_is_duplicate(self):
-        self.create_content(
-            title="First title",
-            body="A genuinely useful piece of content.",
+        objects_all.return_value.filter.assert_called_once_with(
+            content_type="greeting"
+        )
+        hash_query.exists.assert_called_once_with()
+        scoped_query.filter.assert_called_once_with(
+            content_hash=content_hash
         )
 
-        duplicate, reason, _ = is_duplicate_content(
+    @patch("contents.core_services.duplicate.Content.objects.all")
+    def test_same_normalized_body_in_same_type_is_duplicate(
+        self,
+        objects_all,
+    ):
+        self.duplicate_query(objects_all, exists=True)
+        body = "  A genuinely USEFUL piece of   content.  "
+
+        duplicate, reason, content_hash = is_duplicate_content(
             "Another title",
-            "  A genuinely USEFUL piece of   content.  ",
+            body,
             content_type="standard",
         )
 
         self.assertTrue(duplicate)
         self.assertEqual(reason, "duplicate content")
+        self.assertEqual(content_hash, make_content_hash(body))
 
-    def test_identical_body_in_different_types_is_not_duplicate(self):
-        self.create_content(
-            title="Standard title",
-            body="Shared wording for separate content products.",
-            content_type="standard",
-        )
+    @patch("contents.core_services.duplicate.Content.objects.all")
+    def test_duplicate_lookup_is_scoped_to_requested_content_type(
+        self,
+        objects_all,
+    ):
+        self.duplicate_query(objects_all, exists=False)
 
         duplicate, reason, _ = is_duplicate_content(
             "Email Reply",
@@ -68,3 +77,6 @@ class DuplicateDetectionTests(TestCase):
 
         self.assertFalse(duplicate)
         self.assertIsNone(reason)
+        objects_all.return_value.filter.assert_called_once_with(
+            content_type="email_reply"
+        )
