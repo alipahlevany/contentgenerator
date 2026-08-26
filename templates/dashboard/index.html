@@ -46,7 +46,7 @@
             <div class="sidebar-scroll">
                 <div class="nav-caption">Workspace</div>
                 <nav class="nav-list">
-                    <a class="nav-link" data-match="exact" href="{% url 'operations-dashboard' %}"><span class="nav-icon"><svg><use href="#i-grid"></use></svg></span>Overview</a>
+                    <a class="nav-link" data-match="exact" href="{% url 'admin:index' %}"><span class="nav-icon"><svg><use href="#i-grid"></use></svg></span>Overview</a>
                     <a class="nav-link nav-link--primary" href="{% url 'admin:contents_generationjob_add' %}"><span class="nav-icon"><svg><use href="#i-plus"></use></svg></span>New generation</a>
                 </nav>
                 <div class="nav-caption">Content studio</div>
@@ -66,10 +66,12 @@
                 <nav class="nav-list">
                     <a class="nav-link" href="{% url 'admin:contents_sharedgenerationsettings_changelist' %}"><span class="nav-icon"><svg><use href="#i-settings"></use></svg></span>Settings</a>
                     <a class="nav-link" href="/api/docs/" target="_blank" rel="noreferrer"><span class="nav-icon"><svg><use href="#i-code"></use></svg></span>API documentation</a>
-                    <a class="nav-link" href="{% url 'admin:index' %}"><span class="nav-icon"><svg><use href="#i-external"></use></svg></span>Django admin</a>
                 </nav>
             </div>
-            <div class="sidebar-footer"><div class="system-card"><i class="status-dot"></i><span><strong>Production system</strong><small>Live data connection</small></span></div></div>
+            <div class="sidebar-footer">
+                <div class="system-card"><i class="status-dot"></i><span><strong>Production system</strong><small>Live data connection</small></span></div>
+                <div class="sidebar-user"><span class="user-avatar">{{ request.user.get_username|first|upper }}</span><span><strong>{{ request.user.get_username }}</strong><small>Administrator</small></span><a href="{% url 'admin:logout' %}" aria-label="Sign out">Sign out</a></div>
+            </div>
         </aside>
 
         <button class="sidebar-overlay" id="sidebar-overlay" type="button" aria-label="Close navigation"></button>
@@ -81,7 +83,7 @@
                     <div class="page-title"><h1>Operations overview</h1><p>Content production, quality, and delivery health</p></div>
                 </div>
                 <div class="top-actions">
-                    <a class="button" href="{% url 'admin:index' %}">Open admin <svg><use href="#i-external"></use></svg></a>
+                    <span class="live-badge"><i></i>Live</span>
                     <a class="button button--primary" href="{% url 'admin:contents_generationjob_add' %}"><svg><use href="#i-plus"></use></svg>Create job</a>
                 </div>
             </header>

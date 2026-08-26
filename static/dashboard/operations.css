@@ -171,6 +171,59 @@ button { font: inherit; }
     background: rgba(4, 12, 27, .22);
 }
 
+.sidebar-user {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    margin-top: 9px;
+    padding: 9px 10px;
+    border: 1px solid rgba(255, 255, 255, .07);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .025);
+}
+
+.user-avatar {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    color: #17324c;
+    background: linear-gradient(145deg, #ddecff, #b9e9e2);
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.sidebar-user strong,
+.sidebar-user small { display: block; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-user strong { color: #e7eef8; font-size: 10px; white-space: nowrap; }
+.sidebar-user small { margin-top: 1px; color: #6f86a4; font-size: 8px; }
+.sidebar-user a { color: #94afd0; font-size: 9px; font-weight: 800; text-decoration: none; }
+.sidebar-user a:hover { color: #fff; }
+
+.live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid #dfe8ee;
+    border-radius: 10px;
+    color: #587084;
+    background: rgba(255, 255, 255, .72);
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.live-badge i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #20b889;
+    box-shadow: 0 0 0 4px rgba(32, 184, 137, .1);
+}
+
 .system-card {
     display: flex;
     align-items: center;
