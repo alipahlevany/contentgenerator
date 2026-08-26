@@ -1,7 +1,7 @@
 (() => {
     "use strict";
 
-    const palette = ["#4d85bd", "#72afd8", "#16a978", "#e9a23b", "#7d6bb2", "#7c91a6"];
+    const palette = ["#4d85bd", "#72afd8", "#16a978", "#e9a23b", "#58a7b2", "#7c91a6"];
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const readJson = (id) => {
         const element = document.getElementById(id);
