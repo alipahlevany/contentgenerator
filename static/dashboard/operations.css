@@ -293,11 +293,15 @@ button { font: inherit; }
     min-height: 145px;
     overflow: hidden;
     padding: 17px 18px;
+    transform: perspective(800px) rotateX(var(--tilt-x, 0)) rotateY(var(--tilt-y, 0));
+    transform-style: preserve-3d;
     transition: transform .18s ease, box-shadow .18s ease;
 }
 
-.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(28, 47, 78, .1); }
+.kpi-card:hover { transform: perspective(800px) translateY(-3px) rotateX(var(--tilt-x, 0)) rotateY(var(--tilt-y, 0)); box-shadow: 0 18px 42px rgba(28, 47, 78, .12); }
 .kpi-card::after { content: ""; position: absolute; right: -22px; top: -30px; width: 90px; height: 90px; border-radius: 50%; background: var(--tone); opacity: .075; }
+.kpi-card.motion-card::before, .recipient-card.motion-card::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(255,255,255,.9), transparent 36%); transition: opacity .2s ease; }
+.kpi-card.motion-card:hover::before, .recipient-card.motion-card:hover::before { opacity: .38; }
 .kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .kpi-label { color: #6e7b90; font-size: 10px; font-weight: 850; letter-spacing: .075em; text-transform: uppercase; }
 .kpi-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--tone); background: color-mix(in srgb, var(--tone) 11%, white); }
@@ -324,11 +328,23 @@ button { font: inherit; }
 .health-row { display: grid; grid-template-columns: 84px 1fr 36px; align-items: center; gap: 10px; color: #607087; font-size: 10px; }
 .health-row strong { color: #28374e; font-size: 11px; text-transform: capitalize; }
 .bar-track { height: 8px; overflow: hidden; border-radius: 99px; background: #eef2f7; }
-.bar-fill { height: 100%; border-radius: inherit; background: var(--bar); }
+.bar-fill { height: 100%; border-radius: inherit; background: var(--bar); transition: width .9s cubic-bezier(.2,.8,.2,1); }
 .health-row b { color: #35445a; font-size: 11px; text-align: right; }
 
 .recipient-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.recipient-card { padding: 14px; border: 1px solid #e7ebf2; border-radius: 14px; background: linear-gradient(145deg, #fff, #f8faff); }
+.recipient-card { position: relative; overflow: hidden; padding: 14px; border: 1px solid #e7ebf2; border-radius: 14px; background: linear-gradient(145deg, #fff, #f8faff); transform: perspective(800px) rotateX(var(--tilt-x, 0)) rotateY(var(--tilt-y, 0)); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.recipient-card:hover { border-color: #cbddeb; box-shadow: 0 12px 28px rgba(28,47,78,.09); }
+
+.motion-ready .hero, .motion-ready .kpi-card, .motion-ready .panel, .motion-ready .page-footer { opacity: 0; transform: translateY(15px) scale(.992); }
+.motion-ready .hero.is-visible, .motion-ready .panel.is-visible, .motion-ready .page-footer.is-visible { opacity: 1; transform: none; transition: opacity .55s ease, transform .55s cubic-bezier(.2,.75,.25,1); }
+.motion-ready .kpi-card.is-visible { opacity: 1; transform: perspective(800px) rotateX(var(--tilt-x, 0)) rotateY(var(--tilt-y, 0)); transition: opacity .5s ease, transform .5s cubic-bezier(.2,.75,.25,1), box-shadow .18s ease; }
+.motion-ready .kpi-card.is-visible:hover { transform: perspective(800px) translateY(-3px) rotateX(var(--tilt-x, 0)) rotateY(var(--tilt-y, 0)); }
+.motion-ready .chart { animation: chart-arrive .7s .2s both ease; }
+@keyframes chart-arrive { from { opacity: 0; transform: scale(.985) translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
 .recipient-top { display: flex; align-items: center; justify-content: space-between; color: #7a8799; font-size: 9px; font-weight: 800; text-transform: uppercase; }
 .recipient-card b { display: block; margin-top: 10px; color: #1d2a3f; font-size: 23px; }
 .recipient-card small { display: block; margin-top: 3px; color: #9aa4b3; font-size: 9px; }

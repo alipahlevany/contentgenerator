@@ -1,7 +1,8 @@
 (() => {
     "use strict";
 
-    const palette = ["#7367e8", "#d66c9b", "#16a978", "#e9a23b", "#e05d65", "#7c8595"];
+    const palette = ["#4d85bd", "#72afd8", "#16a978", "#e9a23b", "#7d6bb2", "#7c91a6"];
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const readJson = (id) => {
         const element = document.getElementById(id);
         return element ? JSON.parse(element.textContent || "[]") : [];
@@ -57,7 +58,8 @@
             const fill = document.createElement("div");
             fill.className = "bar-fill";
             fill.style.setProperty("--bar", palette[index % palette.length]);
-            fill.style.width = `${Math.max(3, Math.round((item.count / total) * 100))}%`;
+            fill.style.setProperty("--bar-width", `${Math.max(3, Math.round((item.count / total) * 100))}%`);
+            fill.style.width = reduceMotion ? "var(--bar-width)" : "0";
             track.append(fill);
             const value = document.createElement("b");
             value.textContent = item.count;
@@ -68,6 +70,16 @@
 
     renderBars("job-health", jobs);
     renderBars("delivery-health", deliveries);
+
+    if (!reduceMotion) {
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+                document.querySelectorAll(".bar-fill").forEach((bar) => {
+                    bar.style.width = "var(--bar-width)";
+                });
+            });
+        });
+    }
 
     const setupCanvas = (canvas) => {
         const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -118,8 +130,8 @@
             value,
         }));
         const gradient = context.createLinearGradient(0, pad.top, 0, height - pad.bottom);
-        gradient.addColorStop(0, "rgba(115, 103, 232, .24)");
-        gradient.addColorStop(1, "rgba(115, 103, 232, 0)");
+        gradient.addColorStop(0, "rgba(77, 133, 189, .24)");
+        gradient.addColorStop(1, "rgba(77, 133, 189, 0)");
 
         context.beginPath();
         points.forEach((point, index) => {
@@ -145,7 +157,7 @@
                 context.bezierCurveTo(midpoint, previous.y, midpoint, point.y, point.x, point.y);
             }
         });
-        context.strokeStyle = "#7367e8";
+        context.strokeStyle = "#4d85bd";
         context.lineWidth = 2.5;
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -156,7 +168,7 @@
             context.beginPath();
             context.arc(point.x, point.y, 4, 0, Math.PI * 2);
             context.fill();
-            context.strokeStyle = "#7367e8";
+            context.strokeStyle = "#4d85bd";
             context.lineWidth = 2;
             context.stroke();
             context.fillStyle = "#8591a4";
@@ -233,4 +245,66 @@
 
     renderCharts();
     window.addEventListener("resize", renderCharts, { passive: true });
+
+    const animateNumber = (element) => {
+        const raw = element.textContent.trim();
+        const match = raw.match(/^([\d,]+(?:\.\d+)?)(.*)$/);
+        if (!match) return;
+        const target = Number(match[1].replaceAll(",", ""));
+        if (!Number.isFinite(target)) return;
+        const suffix = match[2];
+        const decimals = (match[1].split(".")[1] || "").length;
+        const duration = Math.min(1200, 550 + target * 4);
+        const started = performance.now();
+        const tick = (now) => {
+            const progress = Math.min(1, (now - started) / duration);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const value = target * eased;
+            element.textContent = `${value.toLocaleString(undefined, {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals,
+            })}${suffix}`;
+            if (progress < 1) window.requestAnimationFrame(tick);
+        };
+        window.requestAnimationFrame(tick);
+    };
+
+    const revealTargets = document.querySelectorAll(".hero, .kpi-card, .panel, .page-footer");
+    if (reduceMotion) {
+        revealTargets.forEach((element) => element.classList.add("is-visible"));
+    } else {
+        document.documentElement.classList.add("motion-ready");
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                const index = Number(entry.target.dataset.revealIndex || 0);
+                window.setTimeout(() => entry.target.classList.add("is-visible"), Math.min(index * 55, 260));
+                observer.unobserve(entry.target);
+            });
+        }, { threshold: .08 });
+        revealTargets.forEach((element, index) => {
+            element.dataset.revealIndex = String(index);
+            observer.observe(element);
+        });
+
+        document.querySelectorAll(".kpi-value, .hero-stat b, .recipient-card b").forEach(animateNumber);
+
+        document.querySelectorAll(".kpi-card, .recipient-card").forEach((card) => {
+            card.classList.add("motion-card");
+            card.addEventListener("pointermove", (event) => {
+                if (event.pointerType === "touch") return;
+                const rect = card.getBoundingClientRect();
+                const x = (event.clientX - rect.left) / rect.width - .5;
+                const y = (event.clientY - rect.top) / rect.height - .5;
+                card.style.setProperty("--tilt-x", `${(-y * 2.3).toFixed(2)}deg`);
+                card.style.setProperty("--tilt-y", `${(x * 2.3).toFixed(2)}deg`);
+                card.style.setProperty("--glow-x", `${((x + .5) * 100).toFixed(0)}%`);
+                card.style.setProperty("--glow-y", `${((y + .5) * 100).toFixed(0)}%`);
+            });
+            card.addEventListener("pointerleave", () => {
+                card.style.removeProperty("--tilt-x");
+                card.style.removeProperty("--tilt-y");
+            });
+        });
+    }
 })();
