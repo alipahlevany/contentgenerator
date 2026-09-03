@@ -126,6 +126,34 @@ class ClientLimitTests(ClientLimitFixtureMixin, TestCase):
         self.assertEqual(accepted.status_code, 201)
         self.assertEqual(active_limit.status_code, 429)
 
+    def test_active_generation_quota_is_scoped_to_generation_type(self):
+        self.client_a.limits_enabled = True
+        self.client_a.max_active_generation_jobs = 1
+        self.client_a.save()
+
+        GenerationJob.objects.create(
+            external_client=self.client_a,
+            generation_type="greeting",
+            status="running",
+        )
+
+        with patch("contents.tasks.run_generation_job_task.delay"):
+            accepted_standard = self.api.post(
+                self.jobs_url,
+                {"count": 1, "generation_type": "standard"},
+                format="json",
+                **self.headers(self.client_a),
+            )
+            blocked_standard = self.api.post(
+                self.jobs_url,
+                {"count": 1, "generation_type": "standard"},
+                format="json",
+                **self.headers(self.client_a),
+            )
+
+        self.assertEqual(accepted_standard.status_code, 201)
+        self.assertEqual(blocked_standard.status_code, 429)
+
     def test_daily_export_quota_limits_actual_exported_items(self):
         self.client_a.limits_enabled = True
         self.client_a.daily_export_item_quota = 1

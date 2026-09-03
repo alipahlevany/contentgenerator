@@ -15,7 +15,7 @@ def lock_client_limit(client_id, operation):
         cursor.execute("SELECT pg_advisory_xact_lock(%s)", [value])
 
 
-def validate_generation_limits(client, requested_count):
+def validate_generation_limits(client, requested_count, generation_type=None):
     if not client.limits_enabled:
         return None
     if (
@@ -29,10 +29,17 @@ def validate_generation_limits(client, requested_count):
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         )
     if client.max_active_generation_jobs is not None:
-        active_count = GenerationJob.objects.filter(
+        active_jobs = GenerationJob.objects.filter(
             external_client=client,
             status__in=["pending", "running"],
-        ).count()
+        )
+
+        if generation_type:
+            active_jobs = active_jobs.filter(
+                generation_type=generation_type,
+            )
+
+        active_count = active_jobs.count()
         if active_count >= client.max_active_generation_jobs:
             return api_error(
                 code="active_generation_job_quota_exceeded",

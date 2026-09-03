@@ -44,6 +44,7 @@ def create_generation_job(
         limit_response = validate_generation_limits(
             client,
             serializer.validated_data["count"],
+            serializer.validated_data.get("generation_type"),
         )
 
         if limit_response is not None:
