@@ -35,6 +35,7 @@ from contents.core_services.generators.factory import get_generator
 from contents.core_services.runner import (
     increment_generated,
     mark_job_completed,
+    pause_job_for_resume,
     mark_job_stopped,
     reset_job_for_start,
 )
@@ -379,13 +380,22 @@ def run_generation_job(job_id):
                 run_started_at=run_started_at,
                 max_runtime_seconds=max_runtime_seconds,
             ):
-                fail_job(
-                    job,
-                    (
-                        "Generation runtime limit reached. "
-                        f"Generated: {job.generated_count}/{target_count}."
-                    ),
+                message = (
+                    "Generation paused at runtime limit. "
+                    f"Generated: {job.generated_count}/{target_count}; "
+                    "continuing automatically."
                 )
+
+                pause_job_for_resume(job, message)
+
+                from contents.tasks import run_generation_job_task
+
+                run_generation_job_task.apply_async(
+                    args=[job.id],
+                    kwargs={"auto_resume": True},
+                    countdown=2,
+                )
+
                 return
 
             _record_generation_attempt(job)

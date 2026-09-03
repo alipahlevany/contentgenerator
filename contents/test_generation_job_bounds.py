@@ -321,7 +321,7 @@ class GenerationJobBoundsTests(TestCase):
         self.assertEqual(job.attempted_count, 2)
         self.assertEqual(job.generated_count, 0)
 
-    def test_runtime_limit_fails_without_losing_partial_progress(self):
+    def test_runtime_limit_pauses_and_resumes_without_losing_progress(self):
         job = GenerationJob.objects.create(
             count=5,
             generated_count=2,
@@ -347,15 +347,23 @@ class GenerationJobBoundsTests(TestCase):
             side_effect=[0, 2],
         ), patch(
             "contents.core_services.generation.job_service.log_job"
-        ):
+        ), patch(
+            "contents.tasks.run_generation_job_task.apply_async"
+        ) as apply_async:
             run_generation_job(job.pk)
 
         job.refresh_from_db()
 
-        self.assertEqual(job.status, "failed")
+        self.assertEqual(job.status, "pending")
         self.assertEqual(job.generated_count, 2)
         self.assertEqual(job.attempted_count, 0)
         self.assertIn("runtime limit", job.error_message)
+        self.assertIn("continuing automatically", job.error_message)
+        apply_async.assert_called_once_with(
+            args=[job.id],
+            kwargs={"auto_resume": True},
+            countdown=2,
+        )
 
     def test_normal_generation_still_completes(self):
         job = GenerationJob.objects.create(

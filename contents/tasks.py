@@ -33,11 +33,23 @@ def deliver_content_callback(self, delivery_id):
     }
 
 
-@shared_task
-def run_generation_job_task(job_id):
+@shared_task(bind=True)
+def run_generation_job_task(self, job_id, auto_resume=False):
+    if auto_resume:
+        job = GenerationJob.objects.filter(pk=job_id).first()
+        if not job or job.status != "pending":
+            logger.info(
+                "Generation job auto-resume skipped | "
+                "job_id=%s | status=%s",
+                job_id,
+                getattr(job, "status", None),
+            )
+            return
+
     logger.info(
-        "Generation job task started | job_id=%s",
+        "Generation job task started | job_id=%s | auto_resume=%s",
         job_id,
+        auto_resume,
     )
 
     try:

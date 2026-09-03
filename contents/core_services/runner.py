@@ -60,6 +60,21 @@ def mark_job_stopped(job):
     )
 
 
+def pause_job_for_resume(job, message):
+    job.status = "pending"
+    job.error_message = message
+
+    job.save(
+        update_fields=[
+            "status",
+            "error_message",
+            "updated_at",
+        ]
+    )
+
+    log_job(job, "warning", message)
+
+
 def increment_skipped(job):
     job.skipped_count += 1
     job.current_step += 1
