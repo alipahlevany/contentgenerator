@@ -25,16 +25,16 @@ app.conf.task_routes = {
         "queue": "delivery",
     },
     "contents.tasks.run_daily_generation_task": {
-        "queue": "maintenance",
+        "queue": "generation",
     },
     "contents.tasks.run_daily_reply_generation_task": {
-        "queue": "maintenance",
+        "queue": "generation",
     },
     "contents.tasks.run_daily_greeting_generation_task": {
-        "queue": "maintenance",
+        "queue": "generation",
     },
     "contents.tasks.recover_stuck_generation_jobs": {
-        "queue": "maintenance",
+        "queue": "generation",
     },
 }
 
