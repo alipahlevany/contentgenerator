@@ -148,25 +148,27 @@ def run_daily_generation_task(force=False):
 
                 return "Daily generation already ran today."
 
-        has_active_job = GenerationJob.objects.filter(
+        has_active_standard_job = GenerationJob.objects.filter(
+            generation_type="standard",
             status__in=[
                 "pending",
                 "running",
             ]
         ).exists()
 
-        if has_active_job:
+        if has_active_standard_job:
             logger.warning(
-                "Daily generation skipped because another job "
-                "is pending or running."
+                "Daily generation skipped because another "
+                "standard job is pending or running."
             )
 
             return (
-                "Another generation job is already "
+                "Another standard generation job is already "
                 "pending or running."
             )
 
         job = GenerationJob.objects.create(
+            generation_type="standard",
             count=app_settings.daily_generation_count,
             delay_seconds=(
                 app_settings.daily_generation_delay_seconds
