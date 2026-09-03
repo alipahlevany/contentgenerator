@@ -42,6 +42,9 @@ from contents.core_services.runner import (
 from contents.models import Content, GenerationJob
 
 
+MAX_GENERATED_ITEMS_PER_RUN = 100
+MAX_GENERATION_ATTEMPTS_PER_RUN = 250
+
 
 def _get_generation_run_limits(
     *,
@@ -103,6 +106,37 @@ def _runtime_limit_reached(
     return (
         time.monotonic() - run_started_at
         >= max_runtime_seconds
+    )
+
+
+def _run_slice_limit_reached(
+    *,
+    job,
+    run_started_generated_count,
+    run_started_attempted_count,
+):
+    generated_in_run = (
+        job.generated_count - run_started_generated_count
+    )
+    attempted_in_run = (
+        job.attempted_count - run_started_attempted_count
+    )
+
+    return (
+        generated_in_run >= MAX_GENERATED_ITEMS_PER_RUN
+        or attempted_in_run >= MAX_GENERATION_ATTEMPTS_PER_RUN
+    )
+
+
+def _pause_job_and_schedule_resume(job, message):
+    pause_job_for_resume(job, message)
+
+    from contents.tasks import run_generation_job_task
+
+    run_generation_job_task.apply_async(
+        args=[job.id],
+        kwargs={"auto_resume": True},
+        countdown=2,
     )
 
 
@@ -350,6 +384,8 @@ def run_generation_job(job_id):
         )
 
         run_started_at = time.monotonic()
+        run_started_generated_count = job.generated_count
+        run_started_attempted_count = job.attempted_count
 
         pool_summary = (
             _build_generation_pool_summary(
@@ -376,6 +412,21 @@ def run_generation_job(job_id):
                 mark_job_stopped(job)
                 return
 
+            if _run_slice_limit_reached(
+                job=job,
+                run_started_generated_count=run_started_generated_count,
+                run_started_attempted_count=run_started_attempted_count,
+            ):
+                _pause_job_and_schedule_resume(
+                    job,
+                    (
+                        "Generation batch completed. "
+                        f"Generated: {job.generated_count}/{target_count}; "
+                        "continuing automatically."
+                    ),
+                )
+                return
+
             if _runtime_limit_reached(
                 run_started_at=run_started_at,
                 max_runtime_seconds=max_runtime_seconds,
@@ -386,16 +437,7 @@ def run_generation_job(job_id):
                     "continuing automatically."
                 )
 
-                pause_job_for_resume(job, message)
-
-                from contents.tasks import run_generation_job_task
-
-                run_generation_job_task.apply_async(
-                    args=[job.id],
-                    kwargs={"auto_resume": True},
-                    countdown=2,
-                )
-
+                _pause_job_and_schedule_resume(job, message)
                 return
 
             _record_generation_attempt(job)

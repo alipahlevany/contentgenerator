@@ -365,6 +365,83 @@ class GenerationJobBoundsTests(TestCase):
             countdown=2,
         )
 
+    def test_large_job_yields_queue_after_batch_limit(self):
+        job = GenerationJob.objects.create(
+            count=5,
+            max_attempts=10,
+        )
+
+        choice = self.choice()
+
+        with patch(
+            "contents.core_services.generation.job_service.MAX_GENERATED_ITEMS_PER_RUN",
+            1,
+        ), patch(
+            "contents.core_services.generation.job_service.get_app_settings",
+            return_value=self.settings(),
+        ), patch(
+            "contents.core_services.generation.job_service.get_job_generation_pool_v2",
+            return_value={
+                "language": {"items": [choice[0]]},
+                "topic": {"items": [choice[1]]},
+                "audience": {"items": [choice[2]]},
+                "goal": {"items": [choice[3]]},
+                "prompt_template": {"items": [choice[4]]},
+                "content_rule": {"items": []},
+            },
+        ), patch(
+            "contents.core_services.generation.job_service.get_generator",
+            return_value=self.create_fake_generator(),
+        ), patch(
+            "contents.core_services.generation.job_service.reserve_generation_context",
+            return_value=SimpleNamespace(
+                acquired=True,
+                context={
+                    "language": choice[0],
+                    "topic": choice[1],
+                    "audience": choice[2],
+                    "goal": choice[3],
+                    "prompt_template": choice[4],
+                    "selected_rules": [],
+                },
+                fingerprint="test-generation-fingerprint",
+                record=None,
+                reason=None,
+                attempts=1,
+            ),
+        ), patch(
+            "contents.core_services.generation.job_service.generate_content",
+            return_value="Generated",
+        ), patch(
+            "contents.core_services.generation.job_service.contains_blocked_keyword",
+            return_value=(False, None),
+        ), patch(
+            "contents.core_services.generation.job_service.is_duplicate_content",
+            return_value=(False, "", "hash"),
+        ), patch(
+            "contents.core_services.generation_outcome.record_generation_event"
+        ), patch(
+            "contents.core_services.generation_outcome.run_dataset_refill"
+        ), patch(
+            "contents.core_services.generation_outcome.optimize_dataset_weights"
+        ), patch(
+            "contents.core_services.generation.job_service.log_job"
+        ), patch(
+            "contents.tasks.run_generation_job_task.apply_async"
+        ) as apply_async:
+            run_generation_job(job.pk)
+
+        job.refresh_from_db()
+
+        self.assertEqual(job.status, "pending")
+        self.assertEqual(job.generated_count, 1)
+        self.assertIn("batch completed", job.error_message)
+        apply_async.assert_called_once_with(
+            args=[job.id],
+            kwargs={"auto_resume": True},
+            countdown=2,
+        )
+
     def test_normal_generation_still_completes(self):
         job = GenerationJob.objects.create(
             count=1,
