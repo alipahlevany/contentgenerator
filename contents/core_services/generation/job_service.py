@@ -131,11 +131,12 @@ def _run_slice_limit_reached(
 def _pause_job_and_schedule_resume(job, message):
     pause_job_for_resume(job, message)
 
-    from contents.tasks import run_generation_job_task
+    from contents.tasks import queue_generation_job
 
-    run_generation_job_task.apply_async(
-        args=[job.id],
-        kwargs={"auto_resume": True},
+    queue_generation_job(
+        job.id,
+        job.generation_type,
+        auto_resume=True,
         countdown=2,
     )
 

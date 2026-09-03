@@ -4,7 +4,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from contents.models import GenerationJob, GenerationJobLog
-from contents.tasks import run_generation_job_task
+from contents.tasks import queue_generation_job
 
 
 class GenerationJobLogInline(admin.TabularInline):
@@ -440,7 +440,7 @@ class GenerationJobAdmin(admin.ModelAdmin):
             ]
         )
 
-        run_generation_job_task.delay(job.id)
+        queue_generation_job(job.id, job.generation_type)
 
         action_text = (
             "resumed"

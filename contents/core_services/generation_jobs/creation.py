@@ -8,7 +8,7 @@ from contents.core_services.client_limits import (
     validate_generation_limits,
 )
 from contents.models import GenerationJob
-from contents.tasks import run_generation_job_task
+from contents.tasks import queue_generation_job
 
 
 @dataclass
@@ -76,11 +76,10 @@ def create_generation_job(
         )
 
         job_id = job.id
+        generation_type = job.generation_type
 
         transaction.on_commit(
-            lambda: run_generation_job_task.delay(
-                job_id
-            )
+            lambda: queue_generation_job(job_id, generation_type)
         )
 
     return GenerationJobCreationResult(

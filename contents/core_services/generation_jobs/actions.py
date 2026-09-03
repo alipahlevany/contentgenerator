@@ -5,7 +5,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from contents.models import GenerationJob
-from contents.tasks import run_generation_job_task
+from contents.tasks import queue_generation_job
 
 
 @dataclass
@@ -68,7 +68,7 @@ def start_generation_job(
         )
 
         transaction.on_commit(
-            lambda: run_generation_job_task.delay(job.id)
+            lambda: queue_generation_job(job.id, job.generation_type)
         )
 
         action_text = (

@@ -16,7 +16,7 @@ app.config_from_object(
 
 app.conf.task_routes = {
     "contents.tasks.run_generation_job_task": {
-        "queue": "generation",
+        "queue": "generation_standard",
     },
     "contents.tasks.deliver_content_callback": {
         "queue": "delivery",
@@ -25,16 +25,16 @@ app.conf.task_routes = {
         "queue": "delivery",
     },
     "contents.tasks.run_daily_generation_task": {
-        "queue": "generation",
+        "queue": "generation_standard",
     },
     "contents.tasks.run_daily_reply_generation_task": {
-        "queue": "generation",
+        "queue": "generation_reply",
     },
     "contents.tasks.run_daily_greeting_generation_task": {
-        "queue": "generation",
+        "queue": "generation_greeting",
     },
     "contents.tasks.recover_stuck_generation_jobs": {
-        "queue": "generation",
+        "queue": "generation_standard",
     },
 }
 

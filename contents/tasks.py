@@ -14,6 +14,20 @@ from contents.services import run_generation_job
 logger = logging.getLogger(__name__)
 
 
+GENERATION_QUEUE_BY_TYPE = {
+    "standard": "generation_standard",
+    "email_reply": "generation_reply",
+    "greeting": "generation_greeting",
+}
+
+
+def get_generation_queue(generation_type):
+    return GENERATION_QUEUE_BY_TYPE.get(
+        generation_type,
+        GENERATION_QUEUE_BY_TYPE["standard"],
+    )
+
+
 @shared_task(
     bind=True,
     queue="delivery",
@@ -66,6 +80,36 @@ def run_generation_job_task(self, job_id, auto_resume=False):
             job_id,
         )
         raise
+
+
+def queue_generation_job(
+    job_id,
+    generation_type=None,
+    *,
+    auto_resume=False,
+    countdown=None,
+):
+    if generation_type is None:
+        generation_type = (
+            GenerationJob.objects
+            .filter(pk=job_id)
+            .values_list("generation_type", flat=True)
+            .first()
+        )
+
+    queue = get_generation_queue(generation_type)
+    kwargs = {}
+
+    if auto_resume:
+        kwargs["auto_resume"] = True
+
+    return run_generation_job_task.apply_async(
+        args=[job_id],
+        kwargs=kwargs,
+        queue=queue,
+        routing_key=queue,
+        countdown=countdown,
+    )
 
 
 @shared_task
@@ -191,7 +235,10 @@ def run_daily_generation_task(force=False):
             ]
         )
 
-        task_result = run_generation_job_task.delay(job.id)
+        task_result = queue_generation_job(
+            job.id,
+            job.generation_type,
+        )
 
         logger.info(
             "Daily generation job queued | "
@@ -338,7 +385,10 @@ def run_daily_reply_generation_task(force=False):
             ]
         )
 
-        task_result = run_generation_job_task.delay(job.id)
+        task_result = queue_generation_job(
+            job.id,
+            job.generation_type,
+        )
 
         logger.info(
             "Daily reply generation job queued | "
@@ -511,8 +561,9 @@ def run_daily_greeting_generation_task(force=False):
             ]
         )
 
-        task_result = run_generation_job_task.delay(
-            job.id
+        task_result = queue_generation_job(
+            job.id,
+            job.generation_type,
         )
 
         logger.info(
