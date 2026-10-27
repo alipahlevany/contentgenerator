@@ -63,3 +63,18 @@ class AdminDeletionSafetyTests(TestCase):
 
         self.assertNotIn("delete_selected", job_actions)
         self.assertNotIn("delete_selected", greeting_actions)
+
+    def test_job_page_only_renders_latest_twenty_logs(self):
+        job = GenerationJob.objects.create(status="running")
+        other_job = GenerationJob.objects.create()
+        GenerationJobLog.objects.bulk_create([
+            GenerationJobLog(job=job, level="info", message=f"log-{index:04d}")
+            for index in range(100)
+        ] + [GenerationJobLog(job=other_job, level="info", message="other-job-log")])
+        response = self.client.get(reverse("admin:contents_generationjob_change", args=(job.pk,)))
+        self.assertEqual(response.status_code, 200)
+        formset = response.context["inline_admin_formsets"][0].formset
+        self.assertEqual(formset.total_form_count(), 20)
+        self.assertContains(response, "log-0099")
+        self.assertNotContains(response, "log-0000")
+        self.assertNotContains(response, "other-job-log")

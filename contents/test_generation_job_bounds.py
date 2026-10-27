@@ -249,6 +249,27 @@ class GenerationJobBoundsTests(TestCase):
         handle_failure.assert_not_called()
         release.assert_called_once()
 
+    def test_api_claimed_running_job_is_actually_generated(self):
+        job = GenerationJob.objects.create(count=1, status="running")
+        self.run_with_generation(job, ["Generated"])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "completed")
+        self.assertEqual(job.generated_count, 1)
+
+    def test_queued_task_does_not_restart_a_stopped_job(self):
+        job = GenerationJob.objects.create(count=1, status="stopped", should_stop=True)
+        self.run_with_generation(job, [AssertionError("Must not call the API")])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "stopped")
+        self.assertEqual(job.attempted_count, 0)
+
+    def test_delayed_duplicate_does_not_restart_a_completed_job(self):
+        job = GenerationJob.objects.create(count=1, status="completed", generated_count=1)
+        self.run_with_generation(job, [AssertionError("Must not call the API")])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "completed")
+        self.assertEqual(job.attempted_count, 0)
+
     def test_repeated_empty_output_stops_at_attempt_limit(self):
         job = GenerationJob.objects.create(
             count=5,

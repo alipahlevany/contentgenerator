@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import time
 
 from django.utils import timezone
+from django.db import transaction
 
 from contents.core_services.ai import PermanentGenerationError, generate_content
 from contents.core_services.cache import get_app_settings
@@ -11,6 +12,7 @@ from contents.core_services.delivery_queue import queue_content_deliveries
 from contents.core_services.generation.reservation import (
     reserve_generation_context,
 )
+from contents.core_services.generation.lock import generation_job_lock
 from contents.core_services.generation.fingerprint import (
     complete_fingerprint,
     fail_fingerprint,
@@ -358,13 +360,22 @@ def _persist_generated_content(
     )
 
 def run_generation_job(job_id):
-    job = GenerationJob.objects.get(id=job_id)
+    with generation_job_lock(job_id) as acquired:
+        if not acquired:
+            return
+        _run_generation_job(job_id)
 
-    if job.status == "running":
-        log_job(job, "warning", "Job is already running.")
-        return
 
-    reset_job_for_start(job)
+def _run_generation_job(job_id):
+    with transaction.atomic():
+        job = GenerationJob.objects.select_for_update().get(id=job_id)
+
+        # The API marks a dispatched job as running before the worker receives it.
+        # The advisory lock, rather than that UI status, proves worker ownership.
+        if job.should_stop or job.status in {"stopped", "completed"}:
+            return
+
+        reset_job_for_start(job)
     log_job(job, "info", "Job started.")
 
     active_fingerprint = None

@@ -88,7 +88,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
         )
 
     def create_job_through_client_b(self, payload=None):
-        with patch("contents.views.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.api.post(
                     self.jobs_url,
@@ -252,7 +252,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
     def test_client_a_cannot_start_job_created_through_client_b(self):
         job = self.create_job_through_client_b()
 
-        with patch("contents.views.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.api.post(
                     reverse(
@@ -321,7 +321,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
             reverse("contents:api-generation-job-detail", kwargs={"pk": job.pk}),
             **self.headers(self.client_b),
         )
-        with patch("contents.views.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 start_response = self.api.post(
                     reverse(
@@ -343,7 +343,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
         self.assertIn(job.pk, [item["id"] for item in list_response.json()["data"]])
         self.assertEqual(detail_response.status_code, 200)
         self.assertEqual(start_response.status_code, 200)
-        delay.assert_called_once_with(job.pk)
+        delay.assert_called_once_with(args=[job.pk], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
         self.assertEqual(stop_response.status_code, 200)
         job.refresh_from_db()
         self.assertEqual(job.status, "stopped")
@@ -360,7 +360,7 @@ class ExternalClientIsolationCharacterizationTests(TestCase):
             reverse("contents:api-generation-job-detail", kwargs={"pk": job.pk}),
             **self.headers(self.client_a),
         )
-        with patch("contents.views.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             start_response = self.api.post(
                 reverse(
                     "contents:api-generation-job-start",

@@ -99,7 +99,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
             GenerationJob,
             "save",
             new=tracked_save,
-        ), patch("contents.views.run_generation_job_task.delay") as delay:
+        ), patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with ThreadPoolExecutor(max_workers=len(actions)) as executor:
                 futures = [
                     executor.submit(worker, action, request_client)
@@ -134,7 +134,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
             unauthorized["body"],
             {"success": False, "message": "Resource not found.", "error": {"code": "not_found", "detail": "No GenerationJob matches the given query."}},
         )
-        delay.assert_called_once_with(job.pk)
+        delay.assert_called_once_with(args=[job.pk], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
         self.assertEqual(save_order, ["start"])
         job.refresh_from_db()
         self.assertEqual(job.status, "running")
@@ -165,7 +165,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
                 detail=f"Job #{job.id} is already running.",
                 message="Unable to start generation job.",
             ))
-        delay.assert_called_once_with(job.id)
+        delay.assert_called_once_with(args=[job.id], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
         self.assertEqual(save_order, ["start"])
         job.refresh_from_db()
         self.assertEqual(job.status, "running")
@@ -199,7 +199,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
                 detail=f"Job #{job.id} is already running.",
                 message="Unable to start generation job.",
             ))
-        delay.assert_called_once_with(job.id)
+        delay.assert_called_once_with(args=[job.id], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
         self.assertEqual(save_order, ["start"])
         job.refresh_from_db()
         self.assertEqual(job.status, "running")
@@ -310,7 +310,7 @@ class GenerationJobStartConcurrencyTests(TransactionTestCase):
             by_action["stop"]["body"]["message"],
             f"Generation job #{job.id} stopped.",
         )
-        delay.assert_called_once_with(job.id)
+        delay.assert_called_once_with(args=[job.id], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
         self.assertEqual(set(save_order), {"start", "stop"})
         self.assertEqual(len(save_order), 2)
         job.refresh_from_db()

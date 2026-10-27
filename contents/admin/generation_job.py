@@ -2,6 +2,7 @@ from django.contrib import admin, messages
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.db.models import Subquery
 
 from contents.models import GenerationJob, GenerationJobLog
 from contents.tasks import queue_generation_job
@@ -16,6 +17,19 @@ class GenerationJobLogInline(admin.TabularInline):
     ordering = ("-created_at",)
     max_num = 20
     verbose_name_plural = "Latest job logs"
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        match = getattr(request, "resolver_match", None)
+        object_id = match.kwargs.get("object_id") if match else None
+        if not object_id or not str(object_id).isdigit():
+            return queryset.none()
+        # max_num limits added forms, not existing rows. Restrict the query
+        # itself so a long-running job does not render thousands of forms.
+        latest_ids = queryset.filter(job_id=object_id).order_by(
+            "-created_at", "-pk"
+        ).values("pk")[:20]
+        return queryset.filter(pk__in=Subquery(latest_ids))
 
     def has_add_permission(self, request, obj=None):
         return False

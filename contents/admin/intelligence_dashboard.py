@@ -1,9 +1,10 @@
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
+from django.core.cache import cache
 from django.db import DatabaseError
 from django.db.models.functions import TruncDate
 from django.shortcuts import render
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from contents.core_services.analyzer import (
     get_best_dataset_items,
@@ -17,11 +18,11 @@ from contents.models import Content, ContentDelivery, ExternalClient, Generation
 
 def get_recipient_counts():
     try:
-        return {
-            "standard": ExternalClient.objects.filter(is_active=True, receives_standard_content=True).count(),
-            "reply": ExternalClient.objects.filter(is_active=True, receives_email_replies=True).count(),
-            "greeting": ExternalClient.objects.filter(is_active=True, receives_greetings=True).count(),
-        }
+        return ExternalClient.objects.filter(is_active=True).aggregate(
+            standard=Count("pk", filter=Q(receives_standard_content=True)),
+            reply=Count("pk", filter=Q(receives_email_replies=True)),
+            greeting=Count("pk", filter=Q(receives_greetings=True)),
+        )
     except DatabaseError:
         # Keep the dashboard available during rolling deployments before the
         # delivery-preference migration has reached the database.
@@ -31,30 +32,25 @@ def get_recipient_counts():
 def get_dashboard_metrics():
     today = timezone.localdate()
     start_date = today - timedelta(days=6)
+    start_at = timezone.make_aware(datetime.combine(start_date, time.min))
+    end_at = timezone.make_aware(datetime.combine(today + timedelta(days=1), time.min))
 
+    # Compare the indexed timestamp directly. Casting every row to a date
+    # forces a table scan even when only the current week is needed.
+    daily_rows = list(
+        Content.objects.filter(created_at__gte=start_at, created_at__lt=end_at)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(count=Count("id"), greetings=Count("id", filter=Q(content_type="greeting")))
+    )
     daily = {
         row["day"].isoformat(): row["count"]
-        for row in (
-            Content.objects
-            .filter(created_at__date__gte=start_date)
-            .annotate(day=TruncDate("created_at"))
-            .values("day")
-            .annotate(count=Count("id"))
-        )
+        for row in daily_rows
     }
 
     greeting_daily = {
-        row["day"].isoformat(): row["count"]
-        for row in (
-            Content.objects
-            .filter(
-                content_type="greeting",
-                created_at__date__gte=start_date,
-            )
-            .annotate(day=TruncDate("created_at"))
-            .values("day")
-            .annotate(count=Count("id"))
-        )
+        row["day"].isoformat(): row["greetings"]
+        for row in daily_rows
     }
 
     job_totals = GenerationJob.objects.aggregate(
@@ -84,23 +80,22 @@ def get_dashboard_metrics():
     recipient_counts = get_recipient_counts()
     weekly_total = sum(daily.values())
     greeting_weekly_total = sum(greeting_daily.values())
+    content_by_type = list(
+        Content.objects.values("content_type").annotate(count=Count("id"))
+        .order_by("content_type")
+    )
 
     return {
-        "content_total": Content.objects.count(),
-        "content_today": Content.objects.filter(created_at__date=today).count(),
+        "content_total": sum(row["count"] for row in content_by_type),
+        "content_today": daily.get(today.isoformat(), 0),
         "content_this_week": weekly_total,
-        "greeting_total": Content.objects.filter(
-            content_type="greeting"
-        ).count(),
-        "greeting_today": Content.objects.filter(
-            content_type="greeting",
-            created_at__date=today,
-        ).count(),
+        "greeting_total": sum(row["count"] for row in content_by_type if row["content_type"] == "greeting"),
+        "greeting_today": greeting_daily.get(today.isoformat(), 0),
         "greetings_this_week": greeting_weekly_total,
         "daily_average": round(weekly_total / 7, 1),
         "total_jobs": sum(job_status_counts.values()),
-        "running_jobs": GenerationJob.objects.filter(status="running").count(),
-        "failed_jobs": GenerationJob.objects.filter(status="failed").count(),
+        "running_jobs": job_status_counts.get("running", 0),
+        "failed_jobs": job_status_counts.get("failed", 0),
         "completed_jobs": job_status_counts.get("completed", 0),
         "generated_total": generated,
         "skipped_total": skipped,
@@ -119,11 +114,7 @@ def get_dashboard_metrics():
             job_status_counts.get("failed", 0)
             + delivery_status_counts.get("failed", 0)
         ),
-        "content_by_type": list(
-            Content.objects.values("content_type")
-            .annotate(count=Count("id"))
-            .order_by("content_type")
-        ),
+        "content_by_type": content_by_type,
         "content_by_status": list(
             Content.objects.values("status")
             .annotate(count=Count("id"))
@@ -183,7 +174,9 @@ def get_intelligence_context():
 def custom_admin_index(request, extra_context=None):
     context = {
         **get_intelligence_context(),
-        "dashboard_metrics": get_dashboard_metrics(),
+        "dashboard_metrics": cache.get_or_set(
+            "operations_dashboard_metrics_v1", get_dashboard_metrics, timeout=15,
+        ),
     }
 
     if extra_context:

@@ -442,7 +442,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
             rules=[str(self.rule_two.id), self.rule_one.id, self.rule_two.id],
         )
 
-        with patch("contents.views.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.create_via_api(payload)
 
@@ -450,17 +450,17 @@ class GenerationJobAPICharacterizationTests(TestCase):
         job = GenerationJob.objects.get()
         self.assertEqual(list(job.languages.order_by("id")), [self.language_one, self.language_two])
         self.assertEqual(list(job.rules.order_by("id")), [self.rule_one, self.rule_two])
-        delay.assert_called_once_with(job.id)
+        delay.assert_called_once_with(args=[job.id], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
 
     def test_create_all_sets_exact_flags_and_initial_state_after_commit(self):
-        with patch("contents.views.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.create_via_api({})
                 delay.assert_not_called()
 
         self.assertEqual(response.status_code, 201)
         job = GenerationJob.objects.get()
-        delay.assert_called_once_with(job.id)
+        delay.assert_called_once_with(args=[job.id], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
         self.assertEqual(response.json()["message"], f"Generation job #{job.id} created and started.")
         self.assertEqual(set(response.json()), {"success", "message", "data"})
         self.assertEqual(set(response.json()["data"]["job"]), self.job_fields)
@@ -479,13 +479,13 @@ class GenerationJobAPICharacterizationTests(TestCase):
             self.assertTrue(getattr(job, field))
 
     def test_create_explicit_sets_flags_relations_and_exact_response(self):
-        with patch("contents.views.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.create_via_api(self.explicit_payload())
 
         self.assertEqual(response.status_code, 201)
         job = GenerationJob.objects.get()
-        delay.assert_called_once_with(job.id)
+        delay.assert_called_once_with(args=[job.id], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
         for field in (
             "use_all_languages", "use_all_topics", "use_all_audiences",
             "use_all_goals", "use_all_rules", "use_all_prompt_templates",
@@ -505,7 +505,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
         self.assertEqual(response.json()["data"]["job"]["languages"], [self.language_one.id, self.language_two.id])
 
     def test_create_rules_empty_is_allowed_but_required_selections_are_not(self):
-        with patch("contents.views.run_generation_job_task.delay"):
+        with patch("contents.tasks.run_generation_job_task.apply_async"):
             response = self.create_via_api(self.explicit_payload(rules=[]))
         self.assertEqual(response.status_code, 201)
         job = GenerationJob.objects.get()
@@ -623,12 +623,12 @@ class GenerationJobAPICharacterizationTests(TestCase):
                 error_message="Previous error",
             )
             with self.subTest(initial_status=initial_status):
-                with patch("contents.views.run_generation_job_task.delay") as delay:
+                with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
                     with self.captureOnCommitCallbacks(execute=True):
                         response = self.post_start(job.id)
                         delay.assert_not_called()
                 self.assertEqual(response.status_code, 200)
-                delay.assert_called_once_with(job.id)
+                delay.assert_called_once_with(args=[job.id], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
                 job.refresh_from_db()
                 self.assertEqual(job.status, "running")
                 self.assertFalse(job.should_stop)
@@ -660,7 +660,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
             status="completed",
         )
 
-        with patch("contents.views.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             running_response = self.post_start(running.id)
             reached_response = self.post_start(reached.id)
             completed_response = self.post_start(completed.id)
@@ -731,7 +731,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
                 current_step=3,
             )
             with self.subTest(initial_status=initial_status):
-                with patch("contents.views.run_generation_job_task.delay") as delay:
+                with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
                     response = self.post_stop(job.id)
                 delay.assert_not_called()
                 self.assertEqual(response.status_code, 200)
@@ -756,7 +756,7 @@ class GenerationJobAPICharacterizationTests(TestCase):
                 error_message="Existing error",
             )
             with self.subTest(initial_status=initial_status):
-                with patch("contents.views.run_generation_job_task.delay") as delay:
+                with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
                     response = self.post_stop(job.id)
                 delay.assert_not_called()
                 self.assertEqual(response.status_code, 400)

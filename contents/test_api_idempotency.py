@@ -65,7 +65,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
         self.export_url = reverse("contents:api-content-export")
 
     def test_repeated_generation_create_returns_same_job_and_dispatches_once(self):
-        with patch("contents.tasks.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 first = self.api.post(
                     self.jobs_url,
@@ -85,7 +85,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
         self.assertEqual(second.status_code, 201)
         self.assertEqual(first.json(), second.json())
         self.assertEqual(GenerationJob.objects.count(), 1)
-        delay.assert_called_once_with(first.json()["data"]["job"]["id"])
+        delay.assert_called_once_with(args=[first.json()["data"]["job"]["id"]], kwargs={}, queue="generation_standard", routing_key="generation_standard", countdown=None)
 
     def test_repeated_export_returns_exact_items_without_consuming_more(self):
         content = Content.objects.create(
@@ -115,7 +115,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
         self.assertEqual(content.exports.count(), 1)
 
     def test_conflicting_payload_returns_409(self):
-        with patch("contents.tasks.run_generation_job_task.delay"):
+        with patch("contents.tasks.run_generation_job_task.apply_async"):
             self.api.post(
                 self.jobs_url,
                 {"count": 1},
@@ -146,7 +146,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
         )
 
     def test_keys_are_isolated_between_clients(self):
-        with patch("contents.tasks.run_generation_job_task.delay"):
+        with patch("contents.tasks.run_generation_job_task.apply_async"):
             first = self.api.post(
                 self.jobs_url,
                 {},
@@ -165,7 +165,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
         self.assertNotEqual(first.json()["data"]["job"]["id"], second.json()["data"]["job"]["id"])
 
     def test_expired_record_allows_a_new_operation(self):
-        with patch("contents.tasks.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 first = self.api.post(
                     self.jobs_url,
@@ -188,7 +188,7 @@ class APIIdempotencyTests(IdempotencyFixtureMixin, TestCase):
     def test_missing_and_malformed_keys_preserve_non_idempotent_behavior(self):
         for key in (None, "contains spaces"):
             with self.subTest(key=key):
-                with patch("contents.tasks.run_generation_job_task.delay"):
+                with patch("contents.tasks.run_generation_job_task.apply_async"):
                     first = self.api.post(
                         self.jobs_url,
                         {},
@@ -244,7 +244,7 @@ class APIIdempotencyConcurrencyTests(
             finally:
                 close_old_connections()
 
-        with patch("contents.tasks.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with ThreadPoolExecutor(max_workers=2) as executor:
                 results = [future.result(15) for future in [
                     executor.submit(worker),

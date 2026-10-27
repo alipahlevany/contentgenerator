@@ -71,7 +71,7 @@ class ClientLimitTests(ClientLimitFixtureMixin, TestCase):
         self.export_url = reverse("contents:api-content-export")
 
     def test_defaults_preserve_unlimited_behavior(self):
-        with patch("contents.tasks.run_generation_job_task.delay"):
+        with patch("contents.tasks.run_generation_job_task.apply_async"):
             response = self.api.post(
                 self.jobs_url,
                 {"count": 10000},
@@ -108,7 +108,7 @@ class ClientLimitTests(ClientLimitFixtureMixin, TestCase):
             format="json",
             **self.headers(self.client_a),
         )
-        with patch("contents.tasks.run_generation_job_task.delay"):
+        with patch("contents.tasks.run_generation_job_task.apply_async"):
             accepted = self.api.post(
                 self.jobs_url,
                 {"count": 2},
@@ -137,7 +137,7 @@ class ClientLimitTests(ClientLimitFixtureMixin, TestCase):
             status="running",
         )
 
-        with patch("contents.tasks.run_generation_job_task.delay"):
+        with patch("contents.tasks.run_generation_job_task.apply_async"):
             accepted_standard = self.api.post(
                 self.jobs_url,
                 {"count": 1, "generation_type": "standard"},
@@ -237,7 +237,7 @@ class ClientLimitConcurrencyTests(ClientLimitFixtureMixin, TransactionTestCase):
             finally:
                 close_old_connections()
 
-        with patch("contents.tasks.run_generation_job_task.delay") as delay:
+        with patch("contents.tasks.run_generation_job_task.apply_async") as delay:
             with ThreadPoolExecutor(max_workers=2) as executor:
                 statuses = [future.result(15) for future in [
                     executor.submit(worker),

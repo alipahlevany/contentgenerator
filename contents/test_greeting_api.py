@@ -34,8 +34,7 @@ class GreetingGenerationAPITests(APITestCase):
         }
 
     @patch(
-    "contents.core_services.generation_jobs.creation."
-    "run_generation_job_task.delay"
+    "contents.tasks.run_generation_job_task.apply_async"
 )
     def test_create_greeting_job_with_all_languages(
         self,
@@ -80,13 +79,10 @@ class GreetingGenerationAPITests(APITestCase):
             self.client_record,
         )
 
-        mock_delay.assert_called_once_with(
-            job.pk
-        )
+        mock_delay.assert_called_once_with(args=[job.pk], kwargs={}, queue="generation_greeting", routing_key="generation_greeting", countdown=None)
 
     @patch(
-    "contents.core_services.generation_jobs.creation."
-    "run_generation_job_task.delay"
+    "contents.tasks.run_generation_job_task.apply_async"
 )
     def test_create_greeting_job_with_selected_language(
         self,
@@ -129,9 +125,7 @@ class GreetingGenerationAPITests(APITestCase):
             ],
         )
 
-        mock_delay.assert_called_once_with(
-            job.pk
-        )
+        mock_delay.assert_called_once_with(args=[job.pk], kwargs={}, queue="generation_greeting", routing_key="generation_greeting", countdown=None)
 
     def test_greeting_endpoint_does_not_require_standard_datasets(
         self,
