@@ -4,7 +4,7 @@ import time
 
 from django.utils import timezone
 
-from contents.core_services.ai import generate_content
+from contents.core_services.ai import PermanentGenerationError, generate_content
 from contents.core_services.cache import get_app_settings
 from contents.core_services.duplicate import is_duplicate_content
 from contents.core_services.delivery_queue import queue_content_deliveries
@@ -489,6 +489,10 @@ def run_generation_job(job_id):
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                 )
+            except PermanentGenerationError:
+                # Stop before penalizing datasets or triggering paid refills.
+                # The outer handler releases the fingerprint and logs the cause.
+                raise
             except Exception as exc:
                 retry_feedback = (
                     "The previous generation attempt failed with an internal "

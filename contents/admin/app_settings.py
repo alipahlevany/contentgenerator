@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from contents.admin.forms import AppSettingsForm
+from contents.core_services.cache import APP_SETTINGS_CACHE_KEY
 from contents.models import GenerationJob
 from contents.tasks import (
     run_daily_generation_task,
@@ -248,7 +249,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
             change,
         )
 
-        cache.delete("active_app_settings")
+        cache.delete(APP_SETTINGS_CACHE_KEY)
 
         if should_run_immediately:
             transaction.on_commit(

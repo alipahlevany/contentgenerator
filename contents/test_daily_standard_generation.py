@@ -21,12 +21,12 @@ class DailyStandardGenerationTaskTests(TestCase):
             is_active=True,
         )
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_force_creates_and_queues_standard_job(
         self,
-        mock_delay,
+        mock_queue,
     ):
-        mock_delay.return_value = Mock(id="task-123")
+        mock_queue.return_value = Mock(id="task-123")
 
         result = run_daily_generation_task(force=True)
 
@@ -36,15 +36,15 @@ class DailyStandardGenerationTaskTests(TestCase):
 
         self.assertEqual(job.count, 5)
         self.assertEqual(job.delay_seconds, 0.5)
-        mock_delay.assert_called_once_with(job.id)
+        mock_queue.assert_called_once_with(job.id, "standard")
         self.assertIn(f"#{job.id}", result)
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_active_greeting_job_does_not_block_standard_job(
         self,
-        mock_delay,
+        mock_queue,
     ):
-        mock_delay.return_value = Mock(id="task-123")
+        mock_queue.return_value = Mock(id="task-123")
 
         GenerationJob.objects.create(
             generation_type="greeting",
@@ -57,13 +57,13 @@ class DailyStandardGenerationTaskTests(TestCase):
             generation_type="standard"
         )
 
-        mock_delay.assert_called_once_with(standard_job.id)
+        mock_queue.assert_called_once_with(standard_job.id, "standard")
         self.assertIn(f"#{standard_job.id}", result)
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_active_standard_job_blocks_new_standard_job(
         self,
-        mock_delay,
+        mock_queue,
     ):
         GenerationJob.objects.create(
             generation_type="standard",
@@ -79,4 +79,4 @@ class DailyStandardGenerationTaskTests(TestCase):
                 "pending or running."
             ),
         )
-        mock_delay.assert_not_called()
+        mock_queue.assert_not_called()

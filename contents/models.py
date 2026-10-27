@@ -723,7 +723,7 @@ class AppSettings(models.Model):
 
     model_name = models.CharField(
         max_length=100,
-        default="gpt-4.1-mini",
+        default="gpt-6-luna",
     )
 
 

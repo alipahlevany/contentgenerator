@@ -7,7 +7,12 @@ from contents.core_services.cleaner import clean_generated_content
 from contents.core_services.retry import RETRYABLE_ERRORS, sleep_before_retry
 
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+# Keep retries in one place; SDK retries would multiply our attempt budget.
+client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=60.0, max_retries=0)
+
+
+class PermanentGenerationError(RuntimeError):
+    """A configuration/account error that another generation cannot fix."""
 
 
 def get_response_text_from_content(content):
@@ -46,22 +51,44 @@ def generate_content(system_prompt, user_prompt=None, max_retries=3):
 
     for attempt in range(1, max_retries + 1):
         try:
-            response = client.responses.create(
-                model=app_settings.model_name,
-                instructions=system_prompt,
-                input=user_prompt or "",
-                max_output_tokens=app_settings.max_output_tokens,
-                temperature=app_settings.temperature,
-            )
+            request = {
+                "model": app_settings.model_name,
+                "instructions": system_prompt,
+                "input": user_prompt or "",
+                "max_output_tokens": app_settings.max_output_tokens,
+                "temperature": app_settings.temperature,
+            }
+            if app_settings.model_name == "gpt-6-luna":
+                request.update(
+                    reasoning={"effort": "none"},
+                    service_tier="default",
+                )
+            response = client.responses.create(**request)
+
+            if getattr(response, "status", None) in {"incomplete", "failed"}:
+                raise ValueError("OpenAI returned an incomplete or failed response.")
 
             text = extract_response_text(response)
 
             if not text:
                 raise ValueError("OpenAI returned empty output.")
 
-            return clean_generated_content(text)
+            cleaned_text = clean_generated_content(text)
+            if not cleaned_text:
+                raise ValueError("OpenAI returned empty output after cleanup.")
+            return cleaned_text
 
         except RETRYABLE_ERRORS as exc:
+            status = getattr(exc, "status_code", None)
+            code = getattr(exc, "code", None)
+            if (
+                status is not None
+                and status < 500
+                and status not in {408, 409, 429}
+            ) or code == "insufficient_quota":
+                raise PermanentGenerationError(
+                    f"OpenAI generation failed: {exc}"
+                ) from exc
             last_error = exc
 
             print(
@@ -77,4 +104,4 @@ def generate_content(system_prompt, user_prompt=None, max_retries=3):
             last_error = exc
             break
 
-    raise RuntimeError(f"OpenAI generation failed: {last_error}")
+    raise RuntimeError(f"OpenAI generation failed: {last_error}") from last_error

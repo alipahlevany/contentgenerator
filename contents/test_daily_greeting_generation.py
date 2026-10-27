@@ -22,12 +22,12 @@ class DailyGreetingGenerationTaskTests(TestCase):
             is_active=True,
         )
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_force_creates_and_queues_greeting_job(
         self,
-        mock_delay,
+        mock_queue,
     ):
-        mock_delay.return_value = Mock(id="task-123")
+        mock_queue.return_value = Mock(id="task-123")
 
         result = run_daily_greeting_generation_task(
             force=True
@@ -40,7 +40,7 @@ class DailyGreetingGenerationTaskTests(TestCase):
         self.assertEqual(job.count, 7)
         self.assertEqual(job.delay_seconds, 0.5)
 
-        mock_delay.assert_called_once_with(job.id)
+        mock_queue.assert_called_once_with(job.id, "greeting")
 
         self.assertIn(
             f"#{job.id}",
@@ -54,10 +54,10 @@ class DailyGreetingGenerationTaskTests(TestCase):
             timezone.localdate(),
         )
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_disabled_task_does_not_create_job(
         self,
-        mock_delay,
+        mock_queue,
     ):
         self.settings.auto_daily_greeting_generation_enabled = False
         self.settings.save(
@@ -81,12 +81,12 @@ class DailyGreetingGenerationTaskTests(TestCase):
             ).exists()
         )
 
-        mock_delay.assert_not_called()
+        mock_queue.assert_not_called()
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_same_day_generation_is_not_repeated(
         self,
-        mock_delay,
+        mock_queue,
     ):
         self.settings.last_daily_greeting_generation_date = (
             timezone.localdate()
@@ -112,12 +112,12 @@ class DailyGreetingGenerationTaskTests(TestCase):
             ).exists()
         )
 
-        mock_delay.assert_not_called()
+        mock_queue.assert_not_called()
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_active_greeting_job_blocks_new_daily_job(
         self,
-        mock_delay,
+        mock_queue,
     ):
         GenerationJob.objects.create(
             generation_type="greeting",
@@ -141,14 +141,14 @@ class DailyGreetingGenerationTaskTests(TestCase):
             1,
         )
 
-        mock_delay.assert_not_called()
+        mock_queue.assert_not_called()
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_standard_job_does_not_block_greeting_job(
         self,
-        mock_delay,
+        mock_queue,
     ):
-        mock_delay.return_value = Mock(id="task-456")
+        mock_queue.return_value = Mock(id="task-456")
 
         GenerationJob.objects.create(
             generation_type="standard",
@@ -169,16 +169,16 @@ class DailyGreetingGenerationTaskTests(TestCase):
             generation_type="greeting"
         )
 
-        mock_delay.assert_called_once_with(
-            greeting_job.id
+        mock_queue.assert_called_once_with(
+            greeting_job.id, "greeting"
         )
 
-    @patch("contents.tasks.run_generation_job_task.delay")
+    @patch("contents.tasks.queue_generation_job")
     def test_force_ignores_enabled_and_last_run_checks(
         self,
-        mock_delay,
+        mock_queue,
     ):
-        mock_delay.return_value = Mock(id="task-force")
+        mock_queue.return_value = Mock(id="task-force")
 
         self.settings.auto_daily_greeting_generation_enabled = False
         self.settings.last_daily_greeting_generation_date = (
@@ -204,6 +204,6 @@ class DailyGreetingGenerationTaskTests(TestCase):
             generation_type="greeting"
         )
 
-        mock_delay.assert_called_once_with(
-            job.id
+        mock_queue.assert_called_once_with(
+            job.id, "greeting"
         )

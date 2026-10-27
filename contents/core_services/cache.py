@@ -3,8 +3,11 @@ from django.core.cache import cache
 from contents.models import AppSettings, BlockedKeyword
 
 
+APP_SETTINGS_CACHE_KEY = "active_app_settings_v2"
+
+
 def get_app_settings():
-    cache_key = "active_app_settings"
+    cache_key = APP_SETTINGS_CACHE_KEY
     app_settings = cache.get(cache_key)
 
     if app_settings:
@@ -18,7 +21,7 @@ def get_app_settings():
             max_words=70,
             max_output_tokens=1200,
             temperature=1.05,
-            model_name="gpt-4.1-mini",
+            model_name="gpt-6-luna",
             is_active=True,
         )
 

@@ -14,6 +14,7 @@ from contents.models import (
     Topic,
 )
 from contents.services import run_generation_job
+from contents.core_services.ai import PermanentGenerationError
 
 
 class GenerationJobBoundsTests(TestCase):
@@ -231,6 +232,23 @@ class GenerationJobBoundsTests(TestCase):
 
             run_generation_job(job.pk)
 
+    def test_permanent_api_error_stops_job_without_paid_dataset_refills(self):
+        job = GenerationJob.objects.create(count=5, max_attempts=50)
+        with patch(
+            "contents.core_services.generation.job_service.handle_generation_failure"
+        ) as handle_failure, patch(
+            "contents.core_services.generation.job_service.fail_fingerprint"
+        ) as release:
+            self.run_with_generation(job, [PermanentGenerationError("Model not found")])
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, "failed")
+        self.assertEqual(job.attempted_count, 1)
+        self.assertEqual(job.generated_count, 0)
+        self.assertIn("Model not found", job.error_message)
+        handle_failure.assert_not_called()
+        release.assert_called_once()
+
     def test_repeated_empty_output_stops_at_attempt_limit(self):
         job = GenerationJob.objects.create(
             count=5,
@@ -362,6 +380,8 @@ class GenerationJobBoundsTests(TestCase):
         apply_async.assert_called_once_with(
             args=[job.id],
             kwargs={"auto_resume": True},
+            queue="generation_standard",
+            routing_key="generation_standard",
             countdown=2,
         )
 
@@ -439,6 +459,8 @@ class GenerationJobBoundsTests(TestCase):
         apply_async.assert_called_once_with(
             args=[job.id],
             kwargs={"auto_resume": True},
+            queue="generation_standard",
+            routing_key="generation_standard",
             countdown=2,
         )
 
