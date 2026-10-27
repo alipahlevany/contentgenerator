@@ -2,6 +2,7 @@
     "use strict";
 
     const palette = ["#4d85bd", "#72afd8", "#16a978", "#e9a23b", "#58a7b2", "#7c91a6"];
+    const themeColor = (token) => getComputedStyle(document.documentElement).getPropertyValue(token).trim();
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const readJson = (id) => {
         const element = document.getElementById(id);
@@ -136,13 +137,13 @@
         for (let index = 0; index <= 4; index += 1) {
             const y = pad.top + (plotHeight * index) / 4;
             const value = Math.round(ceiling - (ceiling * index) / 4);
-            context.strokeStyle = "#e9edf4";
+            context.strokeStyle = themeColor("--chart-grid");
             context.lineWidth = 1;
             context.beginPath();
             context.moveTo(pad.left, y);
             context.lineTo(width - pad.right, y);
             context.stroke();
-            context.fillStyle = "#9aa4b3";
+            context.fillStyle = themeColor("--chart-muted");
             context.textAlign = "right";
             context.fillText(String(value), pad.left - 8, y);
         }
@@ -187,21 +188,21 @@
         context.fill();
 
         tracePath(points);
-        context.strokeStyle = "#4d85bd";
+        context.strokeStyle = themeColor("--chart-blue");
         context.lineWidth = 2.5;
         context.lineCap = "round";
         context.lineJoin = "round";
         context.stroke();
 
         points.forEach((point, index) => {
-            context.fillStyle = "#fff";
+            context.fillStyle = themeColor("--chart-surface");
             context.beginPath();
             context.arc(point.x, point.y, 4, 0, Math.PI * 2);
             context.fill();
-            context.strokeStyle = "#4d85bd";
+            context.strokeStyle = themeColor("--chart-blue");
             context.lineWidth = 2;
             context.stroke();
-            context.fillStyle = "#8591a4";
+            context.fillStyle = themeColor("--chart-muted");
             context.font = "9px ui-sans-serif, system-ui";
             context.textAlign = "center";
             context.textBaseline = "alphabetic";
@@ -211,18 +212,18 @@
 
         if (greetingPoints.length) {
             tracePath(greetingPoints);
-            context.strokeStyle = "#18a77a";
+            context.strokeStyle = themeColor("--chart-green");
             context.lineWidth = 2.5;
             context.lineCap = "round";
             context.lineJoin = "round";
             context.stroke();
 
             greetingPoints.forEach((point) => {
-                context.fillStyle = "#fff";
+                context.fillStyle = themeColor("--chart-surface");
                 context.beginPath();
                 context.arc(point.x, point.y, 3.5, 0, Math.PI * 2);
                 context.fill();
-                context.strokeStyle = "#18a77a";
+                context.strokeStyle = themeColor("--chart-green");
                 context.lineWidth = 2;
                 context.stroke();
             });
@@ -241,7 +242,7 @@
         let start = -Math.PI / 2;
 
         if (!total) {
-            context.strokeStyle = "#edf1f6";
+            context.strokeStyle = themeColor("--chart-grid");
             context.lineWidth = lineWidth;
             context.beginPath();
             context.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -259,11 +260,11 @@
             start += angle;
         });
 
-        context.fillStyle = "#18243a";
+        context.fillStyle = themeColor("--chart-ink");
         context.textAlign = "center";
         context.font = "800 24px ui-sans-serif, system-ui";
         context.fillText(String(total), centerX, centerY + 5);
-        context.fillStyle = "#8a95a6";
+        context.fillStyle = themeColor("--chart-muted");
         context.font = "9px ui-sans-serif, system-ui";
         context.fillText("TOTAL ITEMS", centerX, centerY + 22);
 
@@ -274,10 +275,10 @@
             roundedRect(context, legendX, y - 7, 9, 9, 3);
             context.fill();
             context.textAlign = "left";
-            context.fillStyle = "#59677c";
+            context.fillStyle = themeColor("--chart-muted");
             context.font = "700 9px ui-sans-serif, system-ui";
             context.fillText(String(item.content_type || "Unknown").toUpperCase(), legendX + 16, y);
-            context.fillStyle = "#1f2d43";
+            context.fillStyle = themeColor("--chart-ink");
             context.font = "800 10px ui-sans-serif, system-ui";
             context.fillText(String(item.count), legendX + 16, y + 13);
         });
@@ -294,6 +295,9 @@
 
     renderCharts();
     window.addEventListener("resize", renderCharts, { passive: true });
+    new MutationObserver(renderCharts).observe(document.documentElement, {
+        attributes: true, attributeFilter: ["data-cg-theme"],
+    });
 
     const animateNumber = (element) => {
         const raw = element.textContent.trim();

@@ -19,9 +19,11 @@
 {{ block.super }}
 {# Loaded after Django responsive.css so the custom mobile shell wins. #}
 <link rel="stylesheet" href="{% static 'admin/admin_shell.css' %}">
+<link rel="stylesheet" href="{% static 'ui/theme.css' %}">
 {% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
+<script src="{% static 'ui/theme.js' %}"></script>
 <script defer src="{% static 'admin/admin_shell.js' %}"></script>
 {% endblock %}

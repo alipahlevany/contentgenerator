@@ -4,9 +4,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light">
+    <meta name="color-scheme" content="light dark">
+    <script src="{% static 'ui/theme.js' %}"></script>
     <title>Operations Overview · AI Content</title>
     <link rel="stylesheet" href="{% static 'dashboard/operations.css' %}">
+    <link rel="stylesheet" href="{% static 'ui/theme.css' %}">
 </head>
 <body>
     <svg aria-hidden="true" width="0" height="0" style="position:absolute">
@@ -146,6 +148,6 @@
         </main>
     </div>
     <script src="{% static 'vendor/lottie-web/lottie_light.min.js' %}"></script>
-    <script src="{% static 'dashboard/operations.js' %}"></script>
+    <script src="{% static 'dashboard/operations.js' %}?v=20261027-dark"></script>
 </body>
 </html>
