@@ -7,9 +7,9 @@ from django.apps import apps
 from django.core.cache import cache
 from django.db import connection
 from django.test import SimpleTestCase, TestCase
-from openai import APIConnectionError, AuthenticationError, InternalServerError, NotFoundError, RateLimitError
+from openai import APIConnectionError, APITimeoutError, AuthenticationError, InternalServerError, NotFoundError, RateLimitError
 
-from contents.core_services.ai import PermanentGenerationError, generate_content
+from contents.core_services.ai import PermanentGenerationError, TransientGenerationError, generate_content
 from contents.core_services.cache import APP_SETTINGS_CACHE_KEY, get_app_settings
 from contents.models import AppSettings
 
@@ -61,6 +61,7 @@ class AIGenerationTests(SimpleTestCase):
 
     def test_temporary_errors_retry_and_return_output(self):
         for error in [
+            APITimeoutError(request=httpx.Request("POST", "https://api.openai.com/v1/responses")),
             APIConnectionError(request=httpx.Request("POST", "https://api.openai.com/v1/responses")),
             self.api_error(InternalServerError, 503, "server_error"),
             self.api_error(RateLimitError, 429, "rate_limit_exceeded"),
@@ -77,7 +78,16 @@ class AIGenerationTests(SimpleTestCase):
 
     def test_temporary_errors_have_a_bounded_attempt_budget(self):
         self.client.responses.create.side_effect = self.api_error(InternalServerError, 503, "server_error")
-        with self.assertRaisesRegex(RuntimeError, "OpenAI generation failed"):
+        with self.assertRaisesRegex(TransientGenerationError, "OpenAI generation failed"):
+            generate_content("System", "User")
+        self.assertEqual(self.client.responses.create.call_count, 3)
+        self.assertEqual(self.sleep.call_count, 2)
+
+    def test_exhausted_timeouts_are_reported_as_transient(self):
+        self.client.responses.create.side_effect = APITimeoutError(
+            request=httpx.Request("POST", "https://api.openai.com/v1/responses"),
+        )
+        with self.assertRaises(TransientGenerationError):
             generate_content("System", "User")
         self.assertEqual(self.client.responses.create.call_count, 3)
         self.assertEqual(self.sleep.call_count, 2)

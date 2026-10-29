@@ -5,7 +5,9 @@ import time
 from django.utils import timezone
 from django.db import transaction
 
-from contents.core_services.ai import PermanentGenerationError, generate_content
+from contents.core_services.ai import (
+    PermanentGenerationError, TransientGenerationError, generate_content,
+)
 from contents.core_services.cache import get_app_settings
 from contents.core_services.duplicate import is_duplicate_content
 from contents.core_services.delivery_queue import queue_content_deliveries
@@ -130,7 +132,7 @@ def _run_slice_limit_reached(
     )
 
 
-def _pause_job_and_schedule_resume(job, message):
+def _pause_job_and_schedule_resume(job, message, countdown=2):
     pause_job_for_resume(job, message)
 
     from contents.tasks import queue_generation_job
@@ -139,7 +141,7 @@ def _pause_job_and_schedule_resume(job, message):
         job.id,
         job.generation_type,
         auto_resume=True,
-        countdown=2,
+        countdown=countdown,
     )
 
 
@@ -504,6 +506,27 @@ def _run_generation_job(job_id):
                 # Stop before penalizing datasets or triggering paid refills.
                 # The outer handler releases the fingerprint and logs the cause.
                 raise
+            except TransientGenerationError as exc:
+                # A network/API outage says nothing about dataset quality.
+                # Release this context and yield the worker instead of paying
+                # for unrelated dataset refills or retrying in a tight loop.
+                fail_fingerprint(fingerprint=fingerprint, error_message=str(exc))
+                active_fingerprint = None
+                job.refresh_from_db(fields=["should_stop", "status"])
+                if job.should_stop or job.status == "stopped":
+                    mark_job_stopped(job)
+                    return
+                job.retry_count += 1
+                job.save(update_fields=["retry_count", "updated_at"])
+                if job.retry_count > job.max_retries:
+                    raise
+                _pause_job_and_schedule_resume(
+                    job,
+                    f"Temporary API failure; retrying in 60 seconds "
+                    f"({job.retry_count}/{job.max_retries}): {exc}",
+                    countdown=60,
+                )
+                return
             except Exception as exc:
                 retry_feedback = (
                     "The previous generation attempt failed with an internal "
@@ -607,6 +630,9 @@ def _run_generation_job(job_id):
 
             active_fingerprint = None
             retry_feedback = ""
+            if job.retry_count:
+                job.retry_count = 0
+                job.save(update_fields=["retry_count", "updated_at"])
 
             if job.delay_seconds:
                 time.sleep(job.delay_seconds)

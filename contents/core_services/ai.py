@@ -1,5 +1,6 @@
 from django.conf import settings
 
+import httpx
 from openai import OpenAI
 
 from contents.core_services.cache import get_app_settings
@@ -8,11 +9,19 @@ from contents.core_services.retry import RETRYABLE_ERRORS, sleep_before_retry
 
 
 # Keep retries in one place; SDK retries would multiply our attempt budget.
-client = OpenAI(api_key=settings.OPENAI_API_KEY, timeout=60.0, max_retries=0)
+client = OpenAI(
+    api_key=settings.OPENAI_API_KEY,
+    timeout=httpx.Timeout(90.0, connect=10.0, write=30.0, pool=10.0),
+    max_retries=0,
+)
 
 
 class PermanentGenerationError(RuntimeError):
     """A configuration/account error that another generation cannot fix."""
+
+
+class TransientGenerationError(RuntimeError):
+    """The request retry budget was exhausted by a temporary API failure."""
 
 
 def get_response_text_from_content(content):
@@ -104,4 +113,9 @@ def generate_content(system_prompt, user_prompt=None, max_retries=3):
             last_error = exc
             break
 
-    raise RuntimeError(f"OpenAI generation failed: {last_error}") from last_error
+    error_type = (
+        TransientGenerationError
+        if isinstance(last_error, RETRYABLE_ERRORS)
+        else RuntimeError
+    )
+    raise error_type(f"OpenAI generation failed: {last_error}") from last_error

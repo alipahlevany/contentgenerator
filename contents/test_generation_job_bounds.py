@@ -14,7 +14,7 @@ from contents.models import (
     Topic,
 )
 from contents.services import run_generation_job
-from contents.core_services.ai import PermanentGenerationError
+from contents.core_services.ai import PermanentGenerationError, TransientGenerationError
 
 
 class GenerationJobBoundsTests(TestCase):
@@ -255,6 +255,64 @@ class GenerationJobBoundsTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, "completed")
         self.assertEqual(job.generated_count, 1)
+
+    def test_transient_outage_pauses_without_dataset_penalties_or_refills(self):
+        job = GenerationJob.objects.create(count=5, max_attempts=50)
+        with patch("contents.tasks.queue_generation_job") as queue, patch(
+            "contents.core_services.generation.job_service.handle_generation_failure"
+        ) as failure, patch(
+            "contents.core_services.generation.job_service.fail_fingerprint"
+        ) as release:
+            self.run_with_generation(job, [TransientGenerationError("Request timed out")])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "pending")
+        self.assertEqual(job.retry_count, 1)
+        self.assertEqual(job.attempted_count, 1)
+        self.assertEqual(job.failed_count, 0)
+        self.assertEqual(job.skipped_count, 0)
+        failure.assert_not_called()
+        release.assert_called_once()
+        queue.assert_called_once_with(job.pk, "standard", auto_resume=True, countdown=60)
+
+    def test_persistent_outage_stops_at_job_retry_budget(self):
+        job = GenerationJob.objects.create(count=5, retry_count=3, max_retries=3)
+        with patch("contents.tasks.queue_generation_job") as queue, patch(
+            "contents.core_services.generation.job_service.handle_generation_failure"
+        ) as failure:
+            self.run_with_generation(job, [TransientGenerationError("Request timed out")])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "failed")
+        self.assertEqual(job.attempted_count, 1)
+        self.assertIn("Request timed out", job.error_message)
+        queue.assert_not_called()
+        failure.assert_not_called()
+
+    def test_stop_during_timed_out_request_does_not_schedule_resume(self):
+        job = GenerationJob.objects.create(count=5)
+
+        def timeout_after_stop(*args, **kwargs):
+            GenerationJob.objects.filter(pk=job.pk).update(
+                should_stop=True, status="stopped",
+            )
+            raise TransientGenerationError("Request timed out")
+
+        with patch("contents.tasks.queue_generation_job") as queue:
+            self.run_with_generation(job, timeout_after_stop)
+        job.refresh_from_db()
+        self.assertEqual(job.status, "stopped")
+        self.assertTrue(job.should_stop)
+        self.assertEqual(job.retry_count, 0)
+        queue.assert_not_called()
+
+    def test_resumed_outage_preserves_progress_and_resets_retry_budget(self):
+        job = GenerationJob.objects.create(
+            count=2, generated_count=1, status="pending", retry_count=2,
+        )
+        self.run_with_generation(job, ["Recovered output"])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "completed")
+        self.assertEqual(job.generated_count, 2)
+        self.assertEqual(job.retry_count, 0)
 
     def test_queued_task_does_not_restart_a_stopped_job(self):
         job = GenerationJob.objects.create(count=1, status="stopped", should_stop=True)
