@@ -228,6 +228,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # OPENAI
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Separate organization credential, used only by the administrator's Usage card.
+OPENAI_ADMIN_KEY = os.getenv("OPENAI_ADMIN_KEY", "").strip()
+OPENAI_USAGE_PROJECT_IDS = tuple(
+    item.strip() for item in os.getenv("OPENAI_USAGE_PROJECT_IDS", "").split(",") if item.strip()
+)
 
 
 # REDIS CACHE

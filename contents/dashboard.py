@@ -16,3 +16,16 @@ def dashboard_metrics(request):
     response = JsonResponse(cached_dashboard_metrics(request.GET.get("days", 7)))
     response['Cache-Control'] = 'private, no-store'
     return response
+
+
+@staff_member_required
+@require_GET
+def openai_account_usage(request):
+    # Organization-wide usage can include projects outside this application.
+    if not request.user.is_superuser:
+        response = JsonResponse({"detail": "Administrator access required."}, status=403)
+    else:
+        from contents.openai_usage import get_openai_usage
+        response = JsonResponse(get_openai_usage(request.GET.get("days", 7)))
+    response['Cache-Control'] = 'private, no-store'
+    return response

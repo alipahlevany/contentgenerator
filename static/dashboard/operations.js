@@ -17,6 +17,64 @@
   const ratio = (value, total) => total ? Math.max(0, Math.min(100, value * 100 / total)) : 0;
   const jobURL = id => `/admin/contents/generationjob/${Number(id)}/change/`;
   const contentURL = id => `/admin/contents/greeting/${Number(id)}/change/`;
+  let accountRequest = null, accountSnapshot = null;
+
+  function renderAccountUsage(data) {
+    const totals = data.totals;
+    const states = {ready:'Connected', stale:'Last saved update', loading:'Updating…', not_configured:'Connection required', access_denied:'Access unavailable', rate_limited:'Retrying later', unavailable:'Update unavailable'};
+    text('account-usage-status', states[data.status] || 'Update unavailable');
+    $('account-usage').classList.toggle('account-usage-warning', !['ready','loading'].includes(data.status));
+    text('account-token-total', totals ? number(totals.tokens) : '—');
+    ['input','output','cached','requests'].forEach(field => text(`account-${field}`, totals ? number(totals[field]) : '—'));
+    text('account-today', totals ? `${number(data.today_tokens)} tokens today · UTC` : 'No account total available');
+    const scope = data.scope === 'selected_projects' ? `${data.project_count} selected projects` : 'All projects in this organization';
+    text('account-usage-period', `${shortDate(data.start_date)} – ${shortDate(data.end_date)} · ${data.period_days} days · UTC · ${scope}`);
+    let note;
+    if(data.status === 'not_configured') note = 'Connect an organization Admin API key on the server to display your OpenAI account usage here.';
+    else if(data.status === 'access_denied') note = 'OpenAI could not authorize this connection. Check the organization Admin API key on the server.';
+    else if(data.status === 'loading') note = 'Account usage is being updated. Your workspace is ready to use.';
+    else if(!totals) note = 'OpenAI usage is temporarily unavailable. It will retry automatically; no account total is assumed.';
+    else {
+      const fetched = date(data.fetched_at, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'UTC'});
+      note = `${data.status === 'stale' ? 'Refresh unavailable; showing the last successful update. ' : ''}Fetched ${fetched} UTC from OpenAI · Responses and Chat Completions · Checked every 5 minutes. Recent usage may appear later.`;
+    }
+    text('account-usage-note', note);
+  }
+
+  async function refreshAccountUsage(days = metrics.period_days) {
+    const panel = $('account-usage');
+    if(!panel) return;
+    if(accountRequest) accountRequest.abort();
+    const controller = new AbortController(); accountRequest = controller;
+    const samePeriod = accountSnapshot?.period_days === days && accountSnapshot?.end_date === new Date().toISOString().slice(0,10);
+    if(!samePeriod) {
+      accountSnapshot = null;
+      ['token-total','input','output','cached','requests'].forEach(field => text(`account-${field}`, '—'));
+      text('account-today', 'Checking reported usage…'); text('account-usage-status', 'Updating…');
+      text('account-usage-period', `${days} days · UTC`);
+      text('account-usage-note', 'Fetching your account usage from OpenAI.');
+    }
+    panel.setAttribute('aria-busy','true');
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(`${panel.dataset.url}?days=${days}`, {credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+      if(!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new Error('Account usage unavailable');
+      const data = await response.json();
+      if(data.period_days !== days || data.source !== 'OpenAI Usage API') throw new Error('Invalid account usage');
+      if(accountRequest !== controller) return;
+      accountSnapshot = data; renderAccountUsage(data);
+    } catch(error) {
+      if(accountRequest !== controller) return;
+      if(accountSnapshot?.totals) renderAccountUsage({...accountSnapshot,status:'stale'});
+      else {
+        text('account-usage-status','Update unavailable');
+        text('account-usage-note','Could not load OpenAI usage. Check your connection or sign in again; this card retries automatically.');
+      }
+    } finally {
+      clearTimeout(timer);
+      if(accountRequest === controller) { accountRequest = null; panel.setAttribute('aria-busy','false'); }
+    }
+  }
 
   function renderChart() {
     const counts = series === 'greetings' ? metrics.daily_greeting_counts : metrics.daily_counts;
@@ -164,6 +222,8 @@
   async function refresh(days = metrics.period_days) {
     if(refreshing) return;
     refreshing = true;
+    // Independent request: a provider outage cannot delay local production metrics.
+    refreshAccountUsage(days);
     $('refresh').disabled = true;
     document.querySelectorAll('[data-days]').forEach(button=>button.disabled = true);
     text('sync-text','Refreshing…');
@@ -180,6 +240,7 @@
     } catch(error) {
       text('sync-text','Update unavailable'); $('sync-status').classList.add('stale');
       text('refresh-error','Could not refresh. The last successful snapshot is still shown. Check your connection or sign in again, then refresh.'); $('refresh-error').hidden = false;
+      if(days !== metrics.period_days) refreshAccountUsage(metrics.period_days);
     } finally {
       clearTimeout(timer); refreshing = false; $('refresh').disabled = false;
       document.querySelectorAll('[data-days]').forEach(button=>button.disabled = false);
@@ -229,4 +290,5 @@
   let tokenChartWidth = 0;
   new ResizeObserver(entries=>{const width=entries[0].contentRect.width;if(width!==tokenChartWidth){tokenChartWidth=width;renderDailyTokens();}}).observe($('daily-token-container'));
   render();
+  refreshAccountUsage();
 })();

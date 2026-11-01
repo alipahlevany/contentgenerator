@@ -8,11 +8,12 @@ from drf_spectacular.views import (
 )
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAdminUser
-from contents.dashboard import operations_dashboard, dashboard_metrics
+from contents.dashboard import operations_dashboard, dashboard_metrics, openai_account_usage
 
 
 urlpatterns = [
     path("dashboard/metrics/", dashboard_metrics, name="dashboard-metrics"),
+    path("dashboard/openai-usage/", openai_account_usage, name="dashboard-openai-usage"),
 
     path(
         "dashboard/",
