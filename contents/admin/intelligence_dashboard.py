@@ -92,6 +92,7 @@ def get_dashboard_metrics(days=7):
     cost = Decimal(0)
     usage_by_type = {}
     usage_by_day = {}
+    daily_by_type = {"greeting": {}, "standard": {}}
     for row in usage_rows:
         kind = row["generation_type"] or "other"
         item = usage_by_type.setdefault(kind, {"type": kind, "requests": 0, "tokens": 0})
@@ -101,6 +102,15 @@ def get_dashboard_metrics(days=7):
         item["tokens"] += row["input"] + row["output"]
         day = row["day"].isoformat()
         usage_by_day[day] = usage_by_day.get(day, 0) + row["input"] + row["output"]
+        if kind in daily_by_type:
+            daily_type = daily_by_type[kind].setdefault(
+                day, {"requests": 0, "input": 0, "output": 0, "tokens": 0},
+            )
+            daily_type["requests"] += row["requests"]
+            daily_type["input"] += row["input"]
+            daily_type["output"] += row["output"]
+            # Cached input is already included in input_tokens; do not add it twice.
+            daily_type["tokens"] += row["input"] + row["output"]
         if usage["first_seen"] is None or row["first_seen"] < usage["first_seen"]:
             usage["first_seen"] = row["first_seen"]
         rates = TOKEN_RATES.get(row["model_name"]) if row["provider"] == "openai" else None
@@ -113,6 +123,10 @@ def get_dashboard_metrics(days=7):
     usage["estimated_cost"] = float(cost) if usage["requests"] and not usage["unpriced_requests"] else None
     usage["by_type"] = list(usage_by_type.values())
     usage["daily_tokens"] = [usage_by_day.get(day, 0) for day in labels]
+    usage["daily_by_type"] = {
+        kind: [rows.get(day, {"requests": 0, "input": 0, "output": 0, "tokens": 0}) for day in labels]
+        for kind, rows in daily_by_type.items()
+    }
     settings = AppSettings.objects.filter(is_active=True).order_by("-pk").values(
         "model_name", "daily_greeting_generation_count", "auto_daily_greeting_generation_enabled",
     ).first() or {}
@@ -165,7 +179,7 @@ def get_dashboard_metrics(days=7):
 
 def cached_dashboard_metrics(days=7):
     days = dashboard_period(days)
-    key = f"operations_dashboard_metrics_v3:{timezone.get_current_timezone_name()}:{days}"
+    key = f"operations_dashboard_metrics_v4:{timezone.get_current_timezone_name()}:{days}"
     return cache.get_or_set(key, lambda: get_dashboard_metrics(days), timeout=DASHBOARD_CACHE_SECONDS)
 
 

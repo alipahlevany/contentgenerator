@@ -66,6 +66,48 @@ class DashboardMetricsTests(TestCase):
         self.assertEqual(get_dashboard_metrics("invalid")["period_days"], 7)
 
 
+    def test_daily_tokens_split_streams_and_local_dates_without_double_counting_cache(self):
+        from contents.models import AIUsageLog
+        today = timezone.localdate()
+        midnight = timezone.make_aware(datetime.combine(today, time.min))
+        entries = [
+            ("greeting", 100, 20, 60, midnight-timedelta(seconds=1), "gpt-6-luna"),
+            ("greeting", 30, 10, 10, midnight, "gpt-6-luna"),
+            ("greeting", 20, 5, 0, midnight+timedelta(hours=1), "another-model"),
+            ("standard", 80, 40, 20, midnight, "gpt-6-luna"),
+            ("email_reply", 900, 100, 0, midnight, "gpt-6-luna"),
+            ("", 500, 100, 0, midnight, "gpt-6-luna"),
+            ("greeting", 11, 4, 0, midnight-timedelta(days=20), "gpt-6-luna"),
+            ("greeting", 999, 999, 0, midnight+timedelta(days=1), "gpt-6-luna"),
+        ]
+        for kind, input_tokens, output_tokens, cached, created_at, model in entries:
+            log = AIUsageLog.objects.create(generation_type=kind, model_name=model,
+                input_tokens=input_tokens, output_tokens=output_tokens, cached_input_tokens=cached)
+            AIUsageLog.objects.filter(pk=log.pk).update(created_at=created_at)
+        with CaptureQueriesContext(connection) as queries:
+            metrics = get_dashboard_metrics(7)
+        self.assertLessEqual(len(queries), 12)
+        daily = metrics["usage"]["daily_by_type"]
+        self.assertEqual(set(daily), {"greeting", "standard"})
+        self.assertEqual(len(daily["greeting"]), len(metrics["daily_labels"]))
+        self.assertEqual(daily["greeting"][-2], {"requests": 1, "input": 100, "output": 20, "tokens": 120})
+        self.assertEqual(daily["greeting"][-1], {"requests": 2, "input": 50, "output": 15, "tokens": 65})
+        self.assertEqual(daily["standard"][-1], {"requests": 1, "input": 80, "output": 40, "tokens": 120})
+        self.assertEqual(sum(day["tokens"] for day in daily["greeting"]), 185)
+        monthly = get_dashboard_metrics(30)["usage"]["daily_by_type"]
+        self.assertEqual(len(monthly["greeting"]), 30)
+        self.assertEqual(sum(day["tokens"] for day in monthly["greeting"]), 200)
+
+    def test_days_without_records_are_distinguishable_from_recorded_zero_usage(self):
+        from contents.models import AIUsageLog
+        AIUsageLog.objects.create(generation_type="greeting", model_name="gpt-6-luna", input_tokens=0, output_tokens=0)
+        daily = get_dashboard_metrics()["usage"]["daily_by_type"]
+        self.assertEqual(daily["greeting"][-1]["tokens"], 0)
+        self.assertEqual(daily["greeting"][-1]["requests"], 1)
+        self.assertEqual(daily["greeting"][-2]["requests"], 0)
+        self.assertTrue(all(day["requests"] == 0 for day in daily["standard"]))
+
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class DashboardAccessTests(TestCase):
     def setUp(self):

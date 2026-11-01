@@ -5,7 +5,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark"><title>Overview · Content Studio</title>
   <script src="{% static 'ui/theme.js' %}"></script>
-  <link rel="stylesheet" href="{% static 'dashboard/operations.css' %}?v=20261101-studio">
+  <link rel="stylesheet" href="{% static 'dashboard/operations.css' %}?v=20261101-daily-tokens">
 </head>
 <body data-metrics-url="{% url 'dashboard-metrics' %}">
 <a class="skip-link" href="#main">Skip to overview</a>
@@ -71,6 +71,27 @@
       <article class="panel production-panel"><div class="panel-heading"><div><h2>Production activity</h2><p>Saved content across your workspace</p></div><div class="segmented chart-select" role="group" aria-label="Chart content type"><button data-series="all" aria-pressed="true">All content</button><button data-series="greetings" aria-pressed="false">Greetings</button></div></div><div class="chart-summary"><strong id="production-total">—</strong><span>outputs <span id="period-range"></span></span><div class="chart-legend"><i></i><span id="chart-series-label">All content</span></div></div><div class="chart-container" id="chart-container"><svg id="production-chart" viewBox="0 0 720 220" role="img" aria-label="Daily saved content"></svg><div class="chart-tooltip" id="chart-tooltip" hidden></div></div><div class="chart-footer"><span><b id="daily-average">—</b> average / day</span><span><b id="library-total">—</b> in your library</span></div><details class="chart-data"><summary>View daily numbers</summary><div id="chart-table" class="table-scroll"></div></details></article>
       <article class="greeting-panel"><div class="greeting-heading"><span class="greeting-symbol"><svg><use href="#i-spark"/></svg></span><span class="eyebrow">GREETING STUDIO</span><a href="{% url 'admin:contents_greetinggenerationsettings_changelist' %}" class="icon-button" aria-label="Greeting settings"><svg><use href="#i-settings"/></svg></a></div><h2>Small words.<br>A better beginning.</h2><p class="greeting-description">Warm, natural openings.<br>Ready for the conversation ahead.</p><div class="goal-heading"><span>Today's progress</span><strong id="goal-percent">—</strong></div><div class="goal-track"><span id="goal-progress"></span></div><div class="goal-caption"><span id="goal-numbers">—</span><span id="schedule-badge">—</span></div><div class="last-run"><div><span class="run-dot"></span><strong>Latest greeting run</strong><span class="badge" id="latest-status">—</span></div><p id="latest-result">No greeting runs yet</p><a id="latest-link" hidden>View run <span>↗</span></a></div><a class="greeting-library-link" href="{% url 'admin:contents_greeting_changelist' %}">Explore greeting library<svg><use href="#i-arrow"/></svg></a></article>
     </section>
+    <section class="panel daily-token-panel" aria-labelledby="daily-token-heading">
+      <div class="panel-heading">
+        <div><h2 id="daily-token-heading">Daily token consumption</h2><p>Greetings and standard content, compared day by day</p></div>
+        <div class="segmented" role="group" aria-label="Token measurement">
+          <button data-token-measure="tokens" aria-pressed="true">Total</button>
+          <button data-token-measure="input" aria-pressed="false">Input</button>
+          <button data-token-measure="output" aria-pressed="false">Output</button>
+        </div>
+      </div>
+      <div class="daily-token-summary">
+        <div><span><i class="token-series-dot greeting"></i>Greetings</span><strong id="daily-greeting-total">—</strong></div>
+        <div><span><i class="token-series-dot standard"></i>Standard content</span><strong id="daily-standard-total">—</strong></div>
+        <p><span id="token-measure-label">Input + output tokens</span><span class="period-caption">over 7 days</span></p>
+      </div>
+      <div class="chart-container daily-token-chart" id="daily-token-container">
+        <svg id="daily-token-chart" viewBox="0 0 720 240" role="img" aria-label="Daily tokens for greetings and standard content"></svg>
+        <div class="chart-tooltip" id="daily-token-tooltip" hidden></div>
+      </div>
+      <p class="daily-token-note" id="daily-token-note">Only recorded requests are shown, including skipped attempts. Email replies and other requests are excluded.</p>
+      <details class="chart-data"><summary>View daily token numbers</summary><div id="daily-token-table" class="table-scroll"></div></details>
+    </section>
     <section class="secondary-grid">
       <article class="panel jobs-panel"><div class="panel-heading"><div><h2>Recent runs <span class="badge neutral" id="active-jobs">—</span></h2><p>Progress, results, and anything worth a closer look</p></div><a class="text-link" href="{% url 'admin:contents_generationjob_changelist' %}">All jobs <span>↗</span></a></div><div class="table-scroll"><table class="jobs-table"><thead><tr><th>Run / type</th><th>Status</th><th>Saved / target</th><th>Skipped</th><th>Created</th></tr></thead><tbody id="jobs-body"></tbody></table></div><div class="jobs-footer"><span id="queue-status">—</span><a class="text-link" href="{% url 'admin:contents_generationjob_add' %}">New generation <span>+</span></a></div></article>
       <article class="panel usage-panel"><div class="panel-heading"><div><h2>Where your tokens go</h2><p>Input and output, in one place</p></div><a class="icon-button" href="{% url 'admin:contents_aiusagelog_changelist' %}" aria-label="View token usage logs"><svg><use href="#i-arrow"/></svg></a></div><div class="usage-total"><strong id="usage-total">—</strong><span>total tokens</span></div><div class="token-split" id="token-split" aria-hidden="true"></div><div class="token-legend"><span><i class="input-dot"></i>Input <b id="input-tokens">—</b></span><span><i class="output-dot"></i>Output <b id="output-tokens">—</b></span></div><div class="usage-types" id="usage-types"></div><div class="skip-breakdown"><div><strong>Greeting skips</strong><span class="period-caption">over 7 days</span></div><p><span>Duplicates</span><b id="duplicate-count">—</b></p><p><span>Failed attempts</span><b id="invalid-count">—</b></p><a class="text-link" href="{% url 'admin:contents_generationjoblog_changelist' %}">Inspect generation logs ↗</a></div><div class="usage-note"><svg><use href="#i-chart"/></svg><p id="usage-note">Usage appears after generation. Estimates use Standard pricing and are not your account invoice.</p></div></article>
@@ -83,5 +104,5 @@
     <noscript><p class="refresh-error">Enable JavaScript for interactive metrics, or use the navigation to manage your content.</p></noscript>
   </main>
 </div>
-<script src="{% static 'dashboard/operations.js' %}?v=20261101-studio" defer></script>
+<script src="{% static 'dashboard/operations.js' %}?v=20261101-daily-tokens" defer></script>
 </body></html>

@@ -2,7 +2,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   let metrics = JSON.parse($('dashboard-data').textContent);
-  let series = 'all', sampleIndex = 0, refreshing = false;
+  let series = 'all', tokenMeasure = 'tokens', sampleIndex = 0, refreshing = false;
   const number = value => new Intl.NumberFormat('en-US').format(value || 0);
   const compact = value => new Intl.NumberFormat('en-US', {notation:'compact', maximumFractionDigits:1}).format(value || 0);
   const percent = value => value == null ? '—' : `${value}%`;
@@ -51,6 +51,48 @@
     $('production-chart').setAttribute('aria-label', `${series === 'greetings' ? 'Greetings' : 'All content'} saved over ${metrics.period_days} days. ${number(total)} total. Daily values are available below.`);
     $('chart-table').innerHTML = `<table><thead><tr><th>Date</th><th>All content</th><th>Greetings</th></tr></thead><tbody>${labels.map((day,index)=>`<tr><td>${escape(day)}</td><td>${number(metrics.daily_counts[index])}</td><td>${number(metrics.daily_greeting_counts[index])}</td></tr>`).join('')}</tbody></table>`;
     $('chart-tooltip').hidden = true;
+  }
+
+  function renderDailyTokens() {
+    const labels = metrics.daily_labels;
+    const streams = metrics.usage.daily_by_type;
+    const kinds = ['greeting', 'standard'];
+    const measurement = {tokens:'Input + output tokens', input:'Input tokens', output:'Output tokens'}[tokenMeasure];
+    text('token-measure-label', measurement);
+    kinds.forEach(kind => text(`daily-${kind}-total`, number(streams[kind].reduce((sum, day) => sum + day[tokenMeasure], 0))));
+    document.querySelectorAll('[data-token-measure]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tokenMeasure === tokenMeasure)));
+    const chartWidth = Math.max(260, $('daily-token-container').clientWidth);
+    const left = 44, right = chartWidth-14, top = 24, bottom = 205, step = (right-left)/labels.length;
+    const highest = Math.max(1, ...kinds.flatMap(kind => streams[kind].map(day => day[tokenMeasure])));
+    const power = Math.pow(10, Math.floor(Math.log10(highest)));
+    const maximum = Math.ceil(highest/power/2)*power*2;
+    let svg = '';
+    for(let tick=0; tick<=4; tick++) {
+      const y = bottom-tick/4*(bottom-top);
+      svg += `<line class="chart-grid" x1="${left}" y1="${y}" x2="${right}" y2="${y}"/><text class="chart-axis" x="${left-9}" y="${y+3}" text-anchor="end">${escape(compact(maximum*tick/4))}</text>`;
+    }
+    labels.forEach((day, index) => {
+      const center = left+(index+.5)*step, width = Math.min(27,step*.32), gap = Math.min(5,step*.08);
+      const detail = kinds.map(kind => `${names[kind]}: ${streams[kind][index].requests ? number(streams[kind][index][tokenMeasure]) : 'no recorded requests'}`).join(' · ');
+      const label = `${shortDate(day)} · ${measurement} · ${detail}`;
+      svg += `<g class="token-day" tabindex="0" role="img" data-token-day="${index}" aria-label="${escape(label)}"><title>${escape(label)}</title>`;
+      kinds.forEach((kind, side) => {
+        const entry = streams[kind][index], x = center+(side ? gap/2 : -width-gap/2);
+        const height = entry[tokenMeasure]/maximum*(bottom-top);
+        if(entry.requests) svg += `<rect class="token-bar ${kind}" x="${x}" y="${bottom-height}" width="${width}" height="${height}" rx="${Math.min(3,width/3)}"/>`;
+      });
+      if(!kinds.some(kind => streams[kind][index].requests)) svg += `<line class="token-missing" x1="${center-2}" x2="${center+2}" y1="${bottom}" y2="${bottom}"/>`;
+      svg += `<rect class="token-day-hit" x="${left+index*step}" y="${top}" width="${step}" height="${bottom-top+6}"/></g>`;
+      if(labels.length<=7 || index%5===0 || index===labels.length-1) svg += `<text class="chart-axis" x="${center}" y="230" text-anchor="middle">${escape(shortDate(day))}</text>`;
+    });
+    $('daily-token-chart').setAttribute('viewBox', `0 0 ${chartWidth} 240`);
+    $('daily-token-chart').setAttribute('aria-label', `${measurement} by day for greetings and standard content over ${metrics.period_days} days. Focus or select a day for exact values; the daily table includes input and output.`);
+    $('daily-token-chart').innerHTML = svg;
+    $('daily-token-tooltip').hidden = true;
+    const hasRecords = kinds.some(kind => streams[kind].some(day => day.requests));
+    text('daily-token-note', `${hasRecords ? 'Recorded requests only, including skipped attempts.' : 'No recorded greeting or standard-content requests in this period.'} Days without records are marked with a dash. Email replies and other requests are excluded. Dates use ${metrics.reporting_timezone}.`);
+    const cell = (entry, field) => entry.requests ? number(entry[field]) : '—';
+    $('daily-token-table').innerHTML = `<table><caption>Recorded tokens · input includes cached tokens · — means no recorded requests</caption><thead><tr><th rowspan="2" scope="col">Date</th><th colspan="3" scope="colgroup">Greetings</th><th colspan="3" scope="colgroup">Standard content</th></tr><tr><th scope="col">Input</th><th scope="col">Output</th><th scope="col">Total</th><th scope="col">Input</th><th scope="col">Output</th><th scope="col">Total</th></tr></thead><tbody>${labels.map((day,index)=>`<tr><th scope="row">${escape(day)}</th>${kinds.map(kind=>['input','output','tokens'].map(field=>`<td>${cell(streams[kind][index],field)}</td>`).join('')).join('')}</tr>`).join('')}</tbody></table>`;
   }
 
   function renderSample() {
@@ -116,7 +158,7 @@
     $('alerts').innerHTML = alerts.length ? alerts.join('') : `<div class="alerts-clear">${icon('check')}<span>No failed jobs or deliveries in this period.</span></div>`;
     text('model-name',m.model_name);
     text('updated-time',`Snapshot ${date(m.updated_at,{hour:'2-digit',minute:'2-digit',hour12:false})} ${m.reporting_timezone} · Refreshes every minute`);
-    renderChart(); renderSample();
+    renderChart(); renderDailyTokens(); renderSample();
   }
 
   async function refresh(days = metrics.period_days) {
@@ -147,6 +189,7 @@
   $('refresh').addEventListener('click',()=>refresh());
   document.querySelectorAll('[data-days]').forEach(button=>button.addEventListener('click',()=>refresh(Number(button.dataset.days))));
   document.querySelectorAll('[data-series]').forEach(button=>button.addEventListener('click',()=>{series=button.dataset.series;renderChart();}));
+  document.querySelectorAll('[data-token-measure]').forEach(button=>button.addEventListener('click',()=>{tokenMeasure=button.dataset.tokenMeasure;renderDailyTokens();}));
   $('next-sample').addEventListener('click',()=>{sampleIndex++;renderSample();});
   $('copy-sample').addEventListener('click',async()=>{
     try {await navigator.clipboard.writeText(metrics.greeting_samples[sampleIndex].generated_content);text('copy-status','Greeting copied.');$('copy-sample').innerHTML=icon('check');setTimeout(()=>$('copy-sample').innerHTML=icon('copy'),1600);}
@@ -160,6 +203,15 @@
   $('production-chart').addEventListener('focusin',event=>showTip(event.target));
   $('production-chart').addEventListener('pointerleave',()=>$('chart-tooltip').hidden=true);
   $('production-chart').addEventListener('focusout',()=>$('chart-tooltip').hidden=true);
+  const showTokenTip = target => {
+    const day = target.closest('[data-token-day]'); if(!day) return;
+    $('daily-token-chart').querySelectorAll('.selected').forEach(item=>item.classList.remove('selected'));
+    day.classList.add('selected'); text('daily-token-tooltip',day.getAttribute('aria-label')); $('daily-token-tooltip').hidden=false;
+  };
+  ['pointerover','focusin','click'].forEach(event=>$('daily-token-chart').addEventListener(event,e=>showTokenTip(e.target)));
+  const hideTokenTip = () => { $('daily-token-tooltip').hidden=true; $('daily-token-chart').querySelectorAll('.selected').forEach(item=>item.classList.remove('selected')); };
+  ['pointerleave','focusout'].forEach(event=>$('daily-token-chart').addEventListener(event,hideTokenTip));
+  document.addEventListener('keydown',event=>{if(event.key==='Escape') hideTokenTip();});
   $('theme-select').value=document.documentElement.dataset.theme || 'auto';
   $('theme-select').addEventListener('change',event=>{document.documentElement.dataset.theme=event.target.value;try{localStorage.setItem('theme',event.target.value);}catch(error){/* Theme still applies for this page. */}});
   new MutationObserver(()=>$('theme-select').value=document.documentElement.dataset.theme || 'auto').observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
@@ -174,5 +226,7 @@
   document.addEventListener('visibilitychange',()=>{if(!document.hidden && Date.now()-new Date(metrics.updated_at).getTime()>60000) refresh();});
   let chartWidth = 0;
   new ResizeObserver(entries=>{const width = entries[0].contentRect.width;if(width !== chartWidth){chartWidth=width;renderChart();}}).observe($('chart-container'));
+  let tokenChartWidth = 0;
+  new ResizeObserver(entries=>{const width=entries[0].contentRect.width;if(width!==tokenChartWidth){tokenChartWidth=width;renderDailyTokens();}}).observe($('daily-token-container'));
   render();
 })();
