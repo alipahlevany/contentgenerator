@@ -2,6 +2,7 @@ from django.contrib import admin, messages
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.utils import timezone
 from django.db.models import Subquery
 
 from contents.models import GenerationJob, GenerationJobLog
@@ -36,6 +37,8 @@ class GenerationJobLogInline(admin.TabularInline):
 
 
 class GenerationJobAdmin(admin.ModelAdmin):
+    change_list_template = "admin/contents/generationjob/change_list.html"
+
     delete_confirmation_template = (
         "admin/contents/generationjob/delete_confirmation.html"
     )
@@ -45,13 +48,13 @@ class GenerationJobAdmin(admin.ModelAdmin):
         "id",
         "generation_type_badge",
         "status_badge",
-        "count",
+        "target_count",
         "generated_badge",
         "skipped_badge",
         "remaining_badge",
         "progress_bar",
-        "delay_seconds",
-        "created_at",
+        "delay_display",
+        "created_display",
         "job_actions",
     )
 
@@ -141,127 +144,84 @@ class GenerationJobAdmin(admin.ModelAdmin):
         return actions
 
     def job_type_help(self, obj=None):
-        if obj and obj.generation_type == "email_reply":
-            text = "This job generates natural email reply content."
-            background = "#f3e8ff"
-            color = "#6f42c1"
-        else:
-            text = "This job generates standard content from the weighted pool."
-            background = "#e7f1ff"
-            color = "#084298"
-
-        return format_html(
-            """
-            <div style="
-                padding:10px 13px;
-                border-radius:9px;
-                background:{};
-                color:{};
-                font-weight:700;
-                line-height:1.6;
-            ">{}</div>
-            """,
-            background,
-            color,
-            text,
+        descriptions = {
+            "greeting": "Short, natural greetings selected from your active languages.",
+            "email_reply": "Natural email replies selected from your active languages.",
+        }
+        text = descriptions.get(
+            getattr(obj, "generation_type", ""),
+            "Standard content generated from your global weighted pool.",
         )
+        return format_html('<div class="cg-job-note">{}</div>', text)
 
     job_type_help.short_description = "Job Type Description"
 
     def pool_mode_display(self, obj=None):
+        if obj and obj.generation_type in ("greeting", "email_reply"):
+            title = "Active language pool"
+            detail = "This generation type uses your active languages."
+        else:
+            title = "Global weighted pool"
+            detail = (
+                "Active languages, topics, audiences, goals, prompt templates, "
+                "and content rules are selected using their configured weights."
+            )
         return format_html(
-            """
-            <div style="
-                padding:12px 14px;
-                border:1px solid #dee2e6;
-                border-radius:10px;
-                background:#f8f9fa;
-                line-height:1.65;
-            ">
-                <strong>Global weighted pool</strong><br>
-                All active Languages, Topics, Audiences, Goals,
-                Prompt Templates, and Content Rules are selected using
-                their configured weights.
-            </div>
-            """
+            '<div class="cg-job-note"><strong>{}</strong><br>{}</div>',
+            title, detail,
         )
 
     pool_mode_display.short_description = "Selection Mode"
 
     def generation_type_badge(self, obj):
-        if obj.generation_type == "email_reply":
-            background = "#f3e8ff"
-            color = "#6f42c1"
-        else:
-            background = "#dbeafe"
-            color = "#1d4ed8"
-
         return format_html(
-            """
-            <span style="
-                display:inline-block;
-                padding:5px 10px;
-                border-radius:999px;
-                background:{};
-                color:{};
-                font-weight:800;
-                font-size:11px;
-                white-space:nowrap;
-            ">{}</span>
-            """,
-            background,
-            color,
-            obj.get_generation_type_display(),
+            '<span class="cg-job-type cg-job-type--{}">{}</span>',
+            obj.generation_type, obj.get_generation_type_display(),
         )
 
     generation_type_badge.short_description = "Type"
     generation_type_badge.admin_order_field = "generation_type"
 
     def status_badge(self, obj):
-        colors = {
-            "pending": "#6c757d",
-            "running": "#0d6efd",
-            "completed": "#198754",
-            "failed": "#dc3545",
-            "stopped": "#fd7e14",
-        }
-
         return format_html(
-            """
-            <span style="
-                display:inline-block;
-                padding:6px 12px;
-                border-radius:999px;
-                background:{};
-                color:white;
-                font-weight:800;
-                font-size:12px;
-                min-width:90px;
-                text-align:center;
-                text-transform:capitalize;
-            ">{}</span>
-            """,
-            colors.get(obj.status, "#6c757d"),
-            obj.status,
+            '<span class="cg-job-status cg-job-status--{}">'
+            '<i aria-hidden="true"></i>{}</span>',
+            obj.status, obj.get_status_display(),
         )
 
     status_badge.short_description = "Status"
     status_badge.admin_order_field = "status"
 
+    @admin.display(description="Target", ordering="count")
+    def target_count(self, obj):
+        return f"{obj.count:,}"
+
+    @admin.display(description="Delay", ordering="delay_seconds")
+    def delay_display(self, obj):
+        return f"{obj.delay_seconds:g} s"
+
+    @admin.display(description="Created", ordering="created_at")
+    def created_display(self, obj):
+        created = timezone.localtime(obj.created_at)
+        return format_html(
+            '<span class="cg-job-date">{}<small>{}</small></span>',
+            created.strftime("%b %d, %Y"), created.strftime("%H:%M %Z"),
+        )
+
     def generated_badge(self, obj):
-        return self.number_badge(obj.generated_count, "#e8f5e9", "#198754")
+        return self.number_badge(obj.generated_count, "saved")
 
     generated_badge.short_description = "Generated"
     generated_badge.admin_order_field = "generated_count"
 
     def skipped_badge(self, obj):
-        return self.number_badge(obj.skipped_count, "#fff3cd", "#946200")
+        return self.number_badge(obj.skipped_count, "warning" if obj.skipped_count else "muted")
 
     skipped_badge.short_description = "Skipped"
     skipped_badge.admin_order_field = "skipped_count"
 
     def remaining_badge(self, obj):
-        return self.number_badge(self._remaining(obj), "#e7f1ff", "#0d6efd")
+        return self.number_badge(self._remaining(obj), "muted")
 
     remaining_badge.short_description = "Remaining"
 
@@ -275,72 +235,25 @@ class GenerationJobAdmin(admin.ModelAdmin):
         return max(obj.count - obj.generated_count, 0)
 
     @staticmethod
-    def number_badge(value, background, color):
+    def number_badge(value, tone):
         return format_html(
-            """
-            <span style="
-                display:inline-block;
-                padding:5px 10px;
-                border-radius:8px;
-                background:{};
-                color:{};
-                font-weight:800;
-                min-width:34px;
-                text-align:center;
-            ">{}</span>
-            """,
-            background,
-            color,
-            value,
+            '<span class="cg-job-number cg-job-number--{}">{}</span>',
+            tone, f"{value:,}",
         )
 
     def progress_bar(self, obj):
         percent = 0 if not obj.count else int((obj.generated_count / obj.count) * 100)
         percent = max(0, min(percent, 100))
-
-        bar_color = {
-            "completed": "#198754",
-            "running": "#0d6efd",
-            "failed": "#dc3545",
-            "stopped": "#fd7e14",
-        }.get(obj.status, "#6c757d")
-
         return format_html(
-            """
-            <div style="min-width:220px;max-width:420px;">
-                <div style="
-                    width:100%;
-                    height:12px;
-                    background:#e9ecef;
-                    border-radius:999px;
-                    overflow:hidden;
-                    margin-bottom:6px;
-                ">
-                    <div style="
-                        width:{}%;
-                        height:100%;
-                        background:{};
-                        border-radius:999px;
-                    "></div>
-                </div>
-                <div style="
-                    display:flex;
-                    justify-content:space-between;
-                    gap:10px;
-                    font-size:12px;
-                    color:#555;
-                    font-weight:700;
-                ">
-                    <span>{}%</span>
-                    <span>{}/{}</span>
-                </div>
-            </div>
-            """,
-            percent,
-            bar_color,
-            percent,
-            obj.generated_count,
-            obj.count,
+            '<div class="cg-job-progress cg-job-progress--{}">'
+            '<div class="cg-job-progress__meta"><strong>{}%</strong>'
+            '<span>{} / {}</span></div>'
+            '<div class="cg-job-progress__track" role="progressbar" '
+            'aria-label="Generation progress" aria-valuemin="0" '
+            'aria-valuemax="100" aria-valuenow="{}">'
+            '<span style="width:{}%"></span></div></div>',
+            obj.status, percent, f"{obj.generated_count:,}", f"{obj.count:,}",
+            percent, percent,
         )
 
     progress_bar.short_description = "Progress"
@@ -366,55 +279,14 @@ class GenerationJobAdmin(admin.ModelAdmin):
         stop_url = reverse("admin:contents_generationjob_stop", args=[obj.id])
 
         if obj.status == "running":
-            return format_html(
-                """
-                <a href="{}" style="
-                    display:inline-block;
-                    background:#dc3545;
-                    color:white;
-                    padding:7px 12px;
-                    border-radius:7px;
-                    text-decoration:none;
-                    font-weight:800;
-                    white-space:nowrap;
-                ">■ Stop</a>
-                """,
-                stop_url,
-            )
+            return format_html('<a class="cg-job-action cg-job-action--stop" href="{}">Stop</a>', stop_url)
 
         if obj.generated_count >= obj.count or obj.status == "completed":
-            return format_html(
-                """
-                <span style="
-                    display:inline-block;
-                    padding:7px 10px;
-                    border-radius:7px;
-                    background:#d1e7dd;
-                    color:#0f5132;
-                    font-weight:800;
-                    white-space:nowrap;
-                ">✓ Complete</span>
-                """
-            )
+            detail_url = reverse("admin:contents_generationjob_change", args=[obj.id])
+            return format_html('<a class="cg-job-action cg-job-action--view" href="{}">View run</a>', detail_url)
 
-        label = "▶ Resume" if obj.status in ("stopped", "failed") or obj.generated_count else "▶ Start"
-
-        return format_html(
-            """
-            <a href="{}" style="
-                display:inline-block;
-                background:#198754;
-                color:white;
-                padding:7px 12px;
-                border-radius:7px;
-                text-decoration:none;
-                font-weight:800;
-                white-space:nowrap;
-            ">{}</a>
-            """,
-            start_url,
-            label,
-        )
+        label = "Resume" if obj.status in ("stopped", "failed") or obj.generated_count else "Start"
+        return format_html('<a class="cg-job-action" href="{}">{}</a>', start_url, label)
 
     job_actions.short_description = "Action"
 

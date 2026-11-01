@@ -18,12 +18,18 @@
 {% block responsive %}
 {{ block.super }}
 {# Loaded after Django responsive.css so the custom mobile shell wins. #}
-<link rel="stylesheet" href="{% static 'admin/admin_shell.css' %}">
+<link rel="stylesheet" href="{% static 'admin/admin_shell.css' %}?v=20261101-nav-scope">
 <link rel="stylesheet" href="{% static 'ui/theme.css' %}">
+{% if opts.model_name == 'generationjob' %}
+<link rel="stylesheet" href="{% static 'admin/generation_jobs.css' %}?v=20261101-refined">
+{% endif %}
 {% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
 <script src="{% static 'ui/theme.js' %}"></script>
 <script defer src="{% static 'admin/admin_shell.js' %}"></script>
+{% if opts.model_name == 'generationjob' %}
+<script defer src="{% static 'admin/generation_jobs.js' %}?v=20261101-refined"></script>
+{% endif %}
 {% endblock %}
