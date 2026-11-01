@@ -148,3 +148,4 @@ body.model-generationjob.change-list #changelist-filter.cg-job-filters #changeli
 body.model-generationjob.change-list #changelist-filter.cg-job-filters details > ul { max-width:calc(100vw - 32px); }
 body.model-generationjob.change-list #content #changelist,
 body.model-generationjob.change-list #changelist #changelist-filter.cg-job-filters { background:transparent; }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters details:not([open]) > ul { display:none; }

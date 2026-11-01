@@ -7,10 +7,10 @@
     const placeMenu = group => {
         const menu = group.querySelector('ul');
         if (!group.open || !menu) return;
-        menu.style.transform = '';
+        menu.style.left = '0px';
         const box = menu.getBoundingClientRect();
         const offset = Math.max(16 - box.left, Math.min(0, document.documentElement.clientWidth - 16 - box.right));
-        menu.style.transform = `translateX(${offset}px)`;
+        menu.style.left = `${offset}px`;
     };
     groups.forEach(group => {
         const summary = group.querySelector('summary');
