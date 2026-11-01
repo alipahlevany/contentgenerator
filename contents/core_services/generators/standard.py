@@ -104,6 +104,8 @@ class StandardGenerator(BaseGenerator):
         self,
         generated_text,
         fallback_title,
+        *,
+        language=None,
     ):
         return extract_title_and_content(
             generated_text,

@@ -121,6 +121,8 @@ Variation: {variation_key} (never include this identifier in the reply).
         self,
         generated_text,
         fallback_title,
+        *,
+        language=None,
     ):
         body = generated_text.strip()
 

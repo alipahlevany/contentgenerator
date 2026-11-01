@@ -354,3 +354,34 @@ class GreetingGenerationTests(TestCase):
         self.assertTrue(
             self.job.logs.filter(message="Greeting output is too long.").exists()
         )
+
+    def test_compact_languages_keep_complete_short_greetings(self):
+        from contents.core_services.generators.base import GeneratorOutputError
+        generator = get_generator("greeting")
+        compact = "Merhaba, size içten selamlarımı iletiyor, işlerinizin yolunda gitmesini ve keyifli anlar yaşamanızı diliyorum."
+        self.assertEqual(len(compact.split()), 13)
+        turkish = Language(code="tr-TR", name="Turkish")
+        _, body = generator.extract_output(compact, "Greeting", language=turkish)
+        self.assertEqual(body, compact)
+        with self.assertRaises(GeneratorOutputError):
+            generator.extract_output(compact, "Greeting", language=self.language)
+        with self.assertRaises(GeneratorOutputError):
+            generator.extract_output("Merhaba, iyi dileklerimle.", "Greeting", language=turkish)
+        with self.assertRaises(GeneratorOutputError):
+            generator.extract_output("word " * 31, "Greeting", language=turkish)
+
+    @patch("contents.core_services.generation.job_service.generate_content")
+    def test_job_passes_selected_language_to_length_validation(self, generate):
+        from contents.services import run_generation_job
+        self.language.is_active = False
+        self.language.save(update_fields=["is_active"])
+        turkish = Language.objects.create(code="tr", name="Turkish", is_active=True)
+        generate.return_value = "Merhaba, size içten selamlarımı iletiyor, işlerinizin yolunda gitmesini ve keyifli anlar yaşamanızı diliyorum."
+        run_generation_job(self.job.pk)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "completed")
+        self.assertEqual(self.job.generated_count, 1)
+        self.assertEqual(self.job.skipped_count, 0)
+        content = Content.objects.get(generation_job=self.job)
+        self.assertEqual(content.language, turkish)
+        self.assertEqual(content.generated_content, generate.return_value)

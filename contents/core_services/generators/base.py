@@ -43,6 +43,8 @@ class BaseGenerator(ABC):
         self,
         generated_text,
         fallback_title,
+        *,
+        language=None,
     ):
         """
         Extract final title and body from generated output.

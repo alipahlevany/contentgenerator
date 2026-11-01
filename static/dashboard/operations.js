@@ -1,363 +1,178 @@
 (() => {
-    "use strict";
+  'use strict';
+  const $ = id => document.getElementById(id);
+  let metrics = JSON.parse($('dashboard-data').textContent);
+  let series = 'all', sampleIndex = 0, refreshing = false;
+  const number = value => new Intl.NumberFormat('en-US').format(value || 0);
+  const compact = value => new Intl.NumberFormat('en-US', {notation:'compact', maximumFractionDigits:1}).format(value || 0);
+  const percent = value => value == null ? '—' : `${value}%`;
+  const names = {standard:'Standard content', greeting:'Greetings', email_reply:'Email replies', other:'Other requests'};
+  const icons = {standard:'file', greeting:'spark', email_reply:'mail'};
+  const text = (id, value) => { $(id).textContent = value; };
+  const escape = value => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));
+  const icon = name => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
+  const date = (value, options) => new Intl.DateTimeFormat('en-US', {timeZone:metrics.reporting_timezone || 'UTC', ...options}).format(new Date(value));
+  const shortDate = value => date(`${value}T12:00:00Z`, {month:'short',day:'numeric',timeZone:'UTC'});
+  const status = value => ['completed','running','pending','failed','stopped','paused'].includes(value) ? value : 'unknown';
+  const ratio = (value, total) => total ? Math.max(0, Math.min(100, value * 100 / total)) : 0;
+  const jobURL = id => `/admin/contents/generationjob/${Number(id)}/change/`;
+  const contentURL = id => `/admin/contents/greeting/${Number(id)}/change/`;
 
-    const palette = ["#4d85bd", "#72afd8", "#16a978", "#e9a23b", "#58a7b2", "#7c91a6"];
-    const themeColor = (token) => getComputedStyle(document.documentElement).getPropertyValue(token).trim();
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const readJson = (id) => {
-        const element = document.getElementById(id);
-        return element ? JSON.parse(element.textContent || "[]") : [];
-    };
-    const types = readJson("dashboard-content-types");
-    const jobs = readJson("dashboard-job-statuses");
-    const deliveries = readJson("dashboard-delivery-statuses");
-    const labels = readJson("dashboard-daily-labels");
-    const daily = readJson("dashboard-daily-counts");
-    const dailyGreetings = readJson("dashboard-daily-greeting-counts");
-
-    const heroLottie = document.getElementById("hero-lottie");
-    if (heroLottie && window.lottie) {
-        const animation = window.lottie.loadAnimation({
-            container: heroLottie,
-            renderer: "svg",
-            loop: !reduceMotion,
-            autoplay: !reduceMotion,
-            path: heroLottie.dataset.animationPath,
-            rendererSettings: {
-                preserveAspectRatio: "xMidYMid meet",
-                progressiveLoad: true,
-                title: "AI content creator illustration",
-                description: "A gently animated content creator working with AI tools.",
-            },
-        });
-
-        animation.addEventListener("DOMLoaded", () => {
-            heroLottie.closest(".hero-art")?.classList.add("is-loaded");
-            if (reduceMotion) animation.goToAndStop(60, true);
-        });
+  function renderChart() {
+    const counts = series === 'greetings' ? metrics.daily_greeting_counts : metrics.daily_counts;
+    const labels = metrics.daily_labels;
+    const total = counts.reduce((sum, count) => sum + count, 0);
+    text('production-total', number(total));
+    text('daily-average', number(Math.round(total / labels.length)));
+    text('chart-series-label', series === 'greetings' ? 'Greetings' : 'All content');
+    text('period-range', `· ${shortDate(labels[0])} – ${shortDate(labels[labels.length-1])}`);
+    document.querySelectorAll('[data-series]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.series === series)));
+    const maxValue = Math.max(1, ...counts);
+    const power = Math.pow(10, Math.floor(Math.log10(maxValue)));
+    const max = Math.ceil(maxValue / power / 2) * power * 2;
+    const chartWidth = Math.max(280, $('chart-container').clientWidth);
+    $('production-chart').setAttribute('viewBox', `0 0 ${chartWidth} 220`);
+    const left = 38, right = chartWidth-14, top = 12, bottom = 188, step = (right-left)/labels.length;
+    let svg = '';
+    for (let tick = 0; tick <= 4; tick++) {
+      const y = bottom - tick / 4 * (bottom-top);
+      svg += `<line class="chart-grid" x1="${left}" y1="${y}" x2="${right}" y2="${y}"/><text class="chart-axis" x="${left-10}" y="${y+3}" text-anchor="end">${escape(compact(max*tick/4))}</text>`;
     }
-
-    const sidebar = document.getElementById("sidebar");
-    const overlay = document.getElementById("sidebar-overlay");
-    const menuButton = document.getElementById("menu-toggle");
-
-    const setSidebar = (open) => {
-        sidebar?.classList.toggle("is-open", open);
-        overlay?.classList.toggle("is-visible", open);
-        menuButton?.setAttribute("aria-expanded", String(open));
-        document.body.style.overflow = open ? "hidden" : "";
-    };
-
-    menuButton?.addEventListener("click", () => setSidebar(!sidebar.classList.contains("is-open")));
-    overlay?.addEventListener("click", () => setSidebar(false));
-    document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") setSidebar(false);
+    counts.forEach((count,index) => {
+      const width = Math.min(48,step*.62), x = left + index*step + (step-width)/2;
+      const height = count/max*(bottom-top);
+      const label = `${shortDate(labels[index])}: ${number(count)} ${series === 'greetings' ? 'greetings' : 'outputs'}`;
+      svg += `<rect class="chart-bar-secondary" x="${x}" y="${bottom-2}" width="${width}" height="2" rx="1"/><rect class="chart-bar" data-index="${index}" x="${x}" y="${bottom-Math.max(height,2)}" width="${width}" height="${Math.max(height,2)}" rx="3" tabindex="0" role="img" aria-label="${escape(label)}"><title>${escape(label)}</title></rect>`;
+      if(labels.length <= 7 || index % 5 === 0 || index === labels.length-1) {
+        svg += `<text class="chart-axis" x="${x+width/2}" y="210" text-anchor="middle">${escape(shortDate(labels[index]))}</text>`;
+      }
     });
+    $('production-chart').innerHTML = svg;
+    $('production-chart').setAttribute('aria-label', `${series === 'greetings' ? 'Greetings' : 'All content'} saved over ${metrics.period_days} days. ${number(total)} total. Daily values are available below.`);
+    $('chart-table').innerHTML = `<table><thead><tr><th>Date</th><th>All content</th><th>Greetings</th></tr></thead><tbody>${labels.map((day,index)=>`<tr><td>${escape(day)}</td><td>${number(metrics.daily_counts[index])}</td><td>${number(metrics.daily_greeting_counts[index])}</td></tr>`).join('')}</tbody></table>`;
+    $('chart-tooltip').hidden = true;
+  }
 
-    const currentPath = window.location.pathname.replace(/\/$/, "") || "/";
-    document.querySelectorAll(".nav-link[href]").forEach((link) => {
-        const linkPath = new URL(link.href, window.location.origin).pathname.replace(/\/$/, "") || "/";
-        const matches = link.dataset.match === "exact"
-            ? currentPath === linkPath
-            : currentPath === linkPath || currentPath.startsWith(`${linkPath}/`);
-        link.classList.toggle("is-active", matches);
-        if (matches) link.setAttribute("aria-current", "page");
-    });
-
-    const renderBars = (id, items) => {
-        const root = document.getElementById(id);
-        if (!root) return;
-        if (!items.length) {
-            root.innerHTML = '<div class="empty-state">No operational data yet.</div>';
-            return;
-        }
-        const total = items.reduce((sum, item) => sum + item.count, 0) || 1;
-        root.replaceChildren(...items.map((item, index) => {
-            const row = document.createElement("div");
-            row.className = "health-row";
-            const label = document.createElement("strong");
-            label.textContent = item.status || item.content_type || "Unknown";
-            const track = document.createElement("div");
-            track.className = "bar-track";
-            const fill = document.createElement("div");
-            fill.className = "bar-fill";
-            fill.style.setProperty("--bar", palette[index % palette.length]);
-            fill.style.setProperty("--bar-width", `${Math.max(3, Math.round((item.count / total) * 100))}%`);
-            fill.style.width = reduceMotion ? "var(--bar-width)" : "0";
-            track.append(fill);
-            const value = document.createElement("b");
-            value.textContent = item.count;
-            row.append(label, track, value);
-            return row;
-        }));
-    };
-
-    renderBars("job-health", jobs);
-    renderBars("delivery-health", deliveries);
-
-    if (!reduceMotion) {
-        window.requestAnimationFrame(() => {
-            window.requestAnimationFrame(() => {
-                document.querySelectorAll(".bar-fill").forEach((bar) => {
-                    bar.style.width = "var(--bar-width)";
-                });
-            });
-        });
+  function renderSample() {
+    const samples = metrics.greeting_samples;
+    if(!samples.length) {
+      text('sample-text','Your saved greetings will appear here.'); text('sample-language','No samples yet'); text('sample-position','');
+      $('sample-link').removeAttribute('href'); text('sample-link','Saved greeting');
+      $('next-sample').disabled = true; $('copy-sample').disabled = true; return;
     }
+    sampleIndex %= samples.length;
+    const sample = samples[sampleIndex];
+    text('sample-text',sample.generated_content);
+    $('sample-text').lang = sample.language__code || '';
+    text('sample-language',sample.language__name || 'Greeting');
+    text('sample-position', `${sampleIndex+1} / ${samples.length}`);
+    text('sample-link', `Greeting #${sample.id} · ${date(sample.created_at,{month:'short',day:'numeric'})}`);
+    $('sample-link').href = contentURL(sample.id);
+    $('next-sample').disabled = samples.length < 2; $('copy-sample').disabled = false;
+  }
 
-    const setupCanvas = (canvas) => {
-        const ratio = Math.min(window.devicePixelRatio || 1, 2);
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = Math.max(1, Math.floor(rect.width * ratio));
-        canvas.height = Math.max(1, Math.floor(rect.height * ratio));
-        const context = canvas.getContext("2d");
-        context.setTransform(ratio, 0, 0, ratio, 0, 0);
-        context.clearRect(0, 0, rect.width, rect.height);
-        return { context, width: rect.width, height: rect.height };
-    };
+  function render() {
+    const m = metrics, u = m.usage;
+    document.querySelectorAll('[data-days]').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.days) === m.period_days)));
+    document.querySelectorAll('.period-caption').forEach(item=>item.textContent = `over ${m.period_days} days`);
+    text('timezone',m.reporting_timezone);
+    text('greeting-today',number(m.greeting_today));
+    text('daily-goal-caption', m.greeting_target ? `of ${number(m.greeting_target)} daily target` : 'No daily target set');
+    $('goal-mini').style.width = `${m.greeting_target_progress}%`;
+    text('acceptance',percent(m.greeting_success_rate));
+    $('acceptance').title = 'Saved greetings / (saved + skipped) for runs created in the selected period.';
+    text('skip-count',`${number(m.greeting_skipped)} skipped`);
+    text('duplicate-count',number(m.greeting_duplicates)); text('invalid-count',number(m.greeting_invalid));
+    $('skip-count').title = `${number(m.greeting_duplicates)} duplicates · ${number(m.greeting_invalid)} failed attempts. Details are in the generation logs.`;
+    text('token-total',compact(u.tokens)); $('token-total').title = `${number(u.tokens)} tokens`;
+    text('request-count',`${number(u.requests)} requests`);
+    text('estimated-cost', u.estimated_cost == null ? '—' : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:4}).format(u.estimated_cost));
+    $('estimated-cost').title = u.unpriced_requests ? 'Estimate unavailable: some recorded models have no configured price.' : 'Estimated from recorded input, cached input and output tokens at Standard pricing. Excludes unrecorded usage and account adjustments.';
+    text('library-total',number(m.content_total));
+    text('goal-percent',m.greeting_target ? `${m.greeting_target_progress}%` : '—');
+    $('goal-progress').style.width = `${m.greeting_target_progress}%`;
+    text('goal-numbers',m.greeting_target ? `${number(m.greeting_today)} / ${number(m.greeting_target)} greetings` : `${number(m.greeting_today)} greetings today`);
+    text('schedule-badge',m.greeting_schedule_enabled ? 'Daily schedule on' : 'Schedule off');
+    const latest = m.latest_greeting;
+    $('latest-link').hidden = !latest;
+    $('latest-status').className = `status-pill ${status(latest?.status)}`;
+    text('latest-status',latest ? latest.status : 'No runs');
+    text('latest-result',latest ? `${number(latest.generated_count)} saved · ${number(latest.skipped_count)} skipped · ${percent(latest.acceptance)} accepted` : 'Create a job to start your first run.');
+    if(latest) $('latest-link').href = jobURL(latest.id);
+    text('active-jobs',`${m.running_jobs} active`);
+    text('queue-status',`${number(m.pending_jobs)} pending · ${number(m.total_jobs)} runs all time`);
+    $('jobs-body').innerHTML = m.recent_jobs.length ? m.recent_jobs.map(job=>`<tr><td><a class="run-cell" href="${jobURL(job.id)}"><span class="run-icon">${icon(icons[job.generation_type] || 'jobs')}</span><span><strong>${escape(names[job.generation_type] || job.generation_type)}</strong><small>RUN #${Number(job.id)}</small></span></a></td><td><span class="status-pill ${status(job.status)}">${escape(job.status)}</span></td><td>${number(job.generated_count)} <span style="color:var(--muted)">/ ${number(job.count)}</span><div class="mini-progress"><span style="width:${ratio(job.generated_count,job.count)}%"></span></div></td><td class="${job.skipped_count ? 'skip-warning' : ''}">${number(job.skipped_count)}</td><td>${escape(date(job.created_at,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}))}</td></tr>`).join('') : '<tr><td colspan="5" class="empty-state">No generation runs yet. Create a job to get started.</td></tr>';
+    text('usage-total',compact(u.tokens)); text('input-tokens',compact(u.input)); text('output-tokens',compact(u.output));
+    $('token-split').innerHTML = `<span style="width:${ratio(u.input,u.tokens)}%"></span><span style="width:${ratio(u.output,u.tokens)}%"></span>`;
+    $('usage-types').innerHTML = u.by_type.length ? [...u.by_type].sort((a,b)=>b.tokens-a.tokens).map(item=>`<div class="usage-type"><div><span>${escape(names[item.type] || item.type)} <small>${number(item.requests)} calls</small></span><b>${compact(item.tokens)}</b></div><div class="usage-type-track"><span style="width:${ratio(item.tokens,u.tokens)}%"></span></div></div>`).join('') : '<div class="empty-state">No recorded usage in this period.</div>';
+    let usageNote = u.first_seen ? `Records shown from ${date(u.first_seen,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} (${m.reporting_timezone}). ` : 'Usage appears after generation. ';
+    usageNote += u.unpriced_requests ? 'Cost unavailable for some models. ' : 'Estimate uses Standard pricing. ';
+    usageNote += 'Not your account invoice.';
+    if(u.cached) usageNote += ` ${number(u.cached)} cached input tokens included.`;
+    text('usage-note',usageNote);
+    text('attention-count',`${m.attention_total} issues`);
+    text('delivery-success',percent(m.delivery_success_rate)); text('delivery-pending',number(m.delivery_pending)); text('greeting-clients',number(m.recipient_counts.greeting));
+    const alerts = [...m.recent_failed_jobs.map(job=>`<div class="alert-item"><span>Failed ${escape(names[job.generation_type] || 'generation')} #${Number(job.id)}</span><a href="${jobURL(job.id)}">Review ↗</a></div>`), ...m.recent_failed_deliveries.map(item=>`<div class="alert-item"><span>Delivery #${Number(item.id)} · ${escape(item.client__name)}</span><a href="/admin/contents/contentdelivery/${Number(item.id)}/change/">Review ↗</a></div>`)];
+    $('alerts').innerHTML = alerts.length ? alerts.join('') : `<div class="alerts-clear">${icon('check')}<span>No failed jobs or deliveries in this period.</span></div>`;
+    text('model-name',m.model_name);
+    text('updated-time',`Snapshot ${date(m.updated_at,{hour:'2-digit',minute:'2-digit',hour12:false})} ${m.reporting_timezone} · Refreshes every minute`);
+    renderChart(); renderSample();
+  }
 
-    const roundedRect = (context, x, y, width, height, radius) => {
-        context.beginPath();
-        context.roundRect(x, y, width, height, radius);
-    };
-
-    const drawTrend = () => {
-        const canvas = document.getElementById("production-trend");
-        if (!canvas) return;
-        const { context, width, height } = setupCanvas(canvas);
-        const pad = { top: 21, right: 15, bottom: 30, left: 28 };
-        const plotWidth = width - pad.left - pad.right;
-        const plotHeight = height - pad.top - pad.bottom;
-        const max = Math.max(...daily, ...dailyGreetings, 1);
-        const ceiling = Math.max(4, Math.ceil(max / 4) * 4);
-        const step = plotWidth / Math.max(daily.length - 1, 1);
-
-        context.font = "9px ui-sans-serif, system-ui";
-        context.textBaseline = "middle";
-        for (let index = 0; index <= 4; index += 1) {
-            const y = pad.top + (plotHeight * index) / 4;
-            const value = Math.round(ceiling - (ceiling * index) / 4);
-            context.strokeStyle = themeColor("--chart-grid");
-            context.lineWidth = 1;
-            context.beginPath();
-            context.moveTo(pad.left, y);
-            context.lineTo(width - pad.right, y);
-            context.stroke();
-            context.fillStyle = themeColor("--chart-muted");
-            context.textAlign = "right";
-            context.fillText(String(value), pad.left - 8, y);
-        }
-
-        const points = daily.map((value, index) => ({
-            x: pad.left + index * step,
-            y: pad.top + plotHeight - (value / ceiling) * plotHeight,
-            value,
-        }));
-        const greetingPoints = dailyGreetings.map((value, index) => ({
-            x: pad.left + index * step,
-            y: pad.top + plotHeight - (value / ceiling) * plotHeight,
-            value,
-        }));
-        const tracePath = (series) => {
-            context.beginPath();
-            series.forEach((point, index) => {
-                if (!index) context.moveTo(point.x, point.y);
-                else {
-                    const previous = series[index - 1];
-                    const midpoint = (previous.x + point.x) / 2;
-                    context.bezierCurveTo(
-                        midpoint,
-                        previous.y,
-                        midpoint,
-                        point.y,
-                        point.x,
-                        point.y,
-                    );
-                }
-            });
-        };
-        const gradient = context.createLinearGradient(0, pad.top, 0, height - pad.bottom);
-        gradient.addColorStop(0, "rgba(77, 133, 189, .24)");
-        gradient.addColorStop(1, "rgba(77, 133, 189, 0)");
-
-        tracePath(points);
-        context.lineTo(points.at(-1)?.x || pad.left, height - pad.bottom);
-        context.lineTo(points[0]?.x || pad.left, height - pad.bottom);
-        context.closePath();
-        context.fillStyle = gradient;
-        context.fill();
-
-        tracePath(points);
-        context.strokeStyle = themeColor("--chart-blue");
-        context.lineWidth = 2.5;
-        context.lineCap = "round";
-        context.lineJoin = "round";
-        context.stroke();
-
-        points.forEach((point, index) => {
-            context.fillStyle = themeColor("--chart-surface");
-            context.beginPath();
-            context.arc(point.x, point.y, 4, 0, Math.PI * 2);
-            context.fill();
-            context.strokeStyle = themeColor("--chart-blue");
-            context.lineWidth = 2;
-            context.stroke();
-            context.fillStyle = themeColor("--chart-muted");
-            context.font = "9px ui-sans-serif, system-ui";
-            context.textAlign = "center";
-            context.textBaseline = "alphabetic";
-            const rawLabel = labels[index] || "";
-            context.fillText(rawLabel.slice(5), point.x, height - 8);
-        });
-
-        if (greetingPoints.length) {
-            tracePath(greetingPoints);
-            context.strokeStyle = themeColor("--chart-green");
-            context.lineWidth = 2.5;
-            context.lineCap = "round";
-            context.lineJoin = "round";
-            context.stroke();
-
-            greetingPoints.forEach((point) => {
-                context.fillStyle = themeColor("--chart-surface");
-                context.beginPath();
-                context.arc(point.x, point.y, 3.5, 0, Math.PI * 2);
-                context.fill();
-                context.strokeStyle = themeColor("--chart-green");
-                context.lineWidth = 2;
-                context.stroke();
-            });
-        }
-    };
-
-    const drawMix = () => {
-        const canvas = document.getElementById("content-mix");
-        if (!canvas) return;
-        const { context, width, height } = setupCanvas(canvas);
-        const total = types.reduce((sum, item) => sum + item.count, 0);
-        const centerX = Math.min(width * .42, 135);
-        const centerY = height * .47;
-        const radius = Math.min(width, height) * .27;
-        const lineWidth = Math.max(18, radius * .28);
-        let start = -Math.PI / 2;
-
-        if (!total) {
-            context.strokeStyle = themeColor("--chart-grid");
-            context.lineWidth = lineWidth;
-            context.beginPath();
-            context.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            context.stroke();
-        }
-
-        types.forEach((item, index) => {
-            const angle = total ? (item.count / total) * Math.PI * 2 : 0;
-            context.beginPath();
-            context.strokeStyle = palette[index % palette.length];
-            context.lineWidth = lineWidth;
-            context.lineCap = "round";
-            context.arc(centerX, centerY, radius, start + .025, start + angle - .025);
-            context.stroke();
-            start += angle;
-        });
-
-        context.fillStyle = themeColor("--chart-ink");
-        context.textAlign = "center";
-        context.font = "800 24px ui-sans-serif, system-ui";
-        context.fillText(String(total), centerX, centerY + 5);
-        context.fillStyle = themeColor("--chart-muted");
-        context.font = "9px ui-sans-serif, system-ui";
-        context.fillText("TOTAL ITEMS", centerX, centerY + 22);
-
-        const legendX = Math.min(width * .66, centerX + radius + 40);
-        types.slice(0, 5).forEach((item, index) => {
-            const y = 40 + index * 31;
-            context.fillStyle = palette[index % palette.length];
-            roundedRect(context, legendX, y - 7, 9, 9, 3);
-            context.fill();
-            context.textAlign = "left";
-            context.fillStyle = themeColor("--chart-muted");
-            context.font = "700 9px ui-sans-serif, system-ui";
-            context.fillText(String(item.content_type || "Unknown").toUpperCase(), legendX + 16, y);
-            context.fillStyle = themeColor("--chart-ink");
-            context.font = "800 10px ui-sans-serif, system-ui";
-            context.fillText(String(item.count), legendX + 16, y + 13);
-        });
-    };
-
-    let resizeFrame;
-    const renderCharts = () => {
-        window.cancelAnimationFrame(resizeFrame);
-        resizeFrame = window.requestAnimationFrame(() => {
-            drawTrend();
-            drawMix();
-        });
-    };
-
-    renderCharts();
-    window.addEventListener("resize", renderCharts, { passive: true });
-    new MutationObserver(renderCharts).observe(document.documentElement, {
-        attributes: true, attributeFilter: ["data-cg-theme"],
-    });
-
-    const animateNumber = (element) => {
-        const raw = element.textContent.trim();
-        const match = raw.match(/^([\d,]+(?:\.\d+)?)(.*)$/);
-        if (!match) return;
-        const target = Number(match[1].replaceAll(",", ""));
-        if (!Number.isFinite(target)) return;
-        const suffix = match[2];
-        const decimals = (match[1].split(".")[1] || "").length;
-        const duration = Math.min(1200, 550 + target * 4);
-        const started = performance.now();
-        const tick = (now) => {
-            const progress = Math.min(1, (now - started) / duration);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            const value = target * eased;
-            element.textContent = `${value.toLocaleString(undefined, {
-                minimumFractionDigits: decimals,
-                maximumFractionDigits: decimals,
-            })}${suffix}`;
-            if (progress < 1) window.requestAnimationFrame(tick);
-        };
-        window.requestAnimationFrame(tick);
-    };
-
-    const revealTargets = document.querySelectorAll(".hero, .kpi-card, .panel, .page-footer");
-    if (reduceMotion) {
-        revealTargets.forEach((element) => element.classList.add("is-visible"));
-    } else {
-        document.documentElement.classList.add("motion-ready");
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (!entry.isIntersecting) return;
-                const index = Number(entry.target.dataset.revealIndex || 0);
-                window.setTimeout(() => entry.target.classList.add("is-visible"), Math.min(index * 55, 260));
-                observer.unobserve(entry.target);
-            });
-        }, { threshold: .08 });
-        revealTargets.forEach((element, index) => {
-            element.dataset.revealIndex = String(index);
-            observer.observe(element);
-        });
-
-        document.querySelectorAll(".kpi-value, .hero-stat b, .recipient-card b").forEach(animateNumber);
-
-        document.querySelectorAll(".kpi-card, .recipient-card").forEach((card) => {
-            card.classList.add("motion-card");
-            card.addEventListener("pointermove", (event) => {
-                if (event.pointerType === "touch") return;
-                const rect = card.getBoundingClientRect();
-                const x = (event.clientX - rect.left) / rect.width - .5;
-                const y = (event.clientY - rect.top) / rect.height - .5;
-                card.style.setProperty("--tilt-x", `${(-y * 2.3).toFixed(2)}deg`);
-                card.style.setProperty("--tilt-y", `${(x * 2.3).toFixed(2)}deg`);
-                card.style.setProperty("--glow-x", `${((x + .5) * 100).toFixed(0)}%`);
-                card.style.setProperty("--glow-y", `${((y + .5) * 100).toFixed(0)}%`);
-            });
-            card.addEventListener("pointerleave", () => {
-                card.style.removeProperty("--tilt-x");
-                card.style.removeProperty("--tilt-y");
-            });
-        });
+  async function refresh(days = metrics.period_days) {
+    if(refreshing) return;
+    refreshing = true;
+    $('refresh').disabled = true;
+    document.querySelectorAll('[data-days]').forEach(button=>button.disabled = true);
+    text('sync-text','Refreshing…');
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(),10000);
+    try {
+      const response = await fetch(`${document.body.dataset.metricsUrl}?days=${days}`,{credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+      if(!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new Error('Session or network unavailable');
+      const fresh = await response.json();
+      if(!Array.isArray(fresh.daily_counts) || !fresh.usage) throw new Error('Invalid metrics');
+      metrics = fresh; render();
+      $('refresh-error').hidden = true; $('sync-status').classList.remove('stale'); text('sync-text','Snapshot updated');
+      const url = new URL(window.location.href); url.searchParams.set('days',String(metrics.period_days)); history.replaceState(null,'',url);
+    } catch(error) {
+      text('sync-text','Update unavailable'); $('sync-status').classList.add('stale');
+      text('refresh-error','Could not refresh. The last successful snapshot is still shown. Check your connection or sign in again, then refresh.'); $('refresh-error').hidden = false;
+    } finally {
+      clearTimeout(timer); refreshing = false; $('refresh').disabled = false;
+      document.querySelectorAll('[data-days]').forEach(button=>button.disabled = false);
     }
+  }
+
+  $('refresh').addEventListener('click',()=>refresh());
+  document.querySelectorAll('[data-days]').forEach(button=>button.addEventListener('click',()=>refresh(Number(button.dataset.days))));
+  document.querySelectorAll('[data-series]').forEach(button=>button.addEventListener('click',()=>{series=button.dataset.series;renderChart();}));
+  $('next-sample').addEventListener('click',()=>{sampleIndex++;renderSample();});
+  $('copy-sample').addEventListener('click',async()=>{
+    try {await navigator.clipboard.writeText(metrics.greeting_samples[sampleIndex].generated_content);text('copy-status','Greeting copied.');$('copy-sample').innerHTML=icon('check');setTimeout(()=>$('copy-sample').innerHTML=icon('copy'),1600);}
+    catch(error){text('copy-status','Copy unavailable. Select the greeting text to copy it manually.');text('sample-position','Select text to copy');}
+  });
+  const showTip = target => {
+    const bar = target.closest('[data-index]'); if(!bar) return;
+    text('chart-tooltip',bar.getAttribute('aria-label')); $('chart-tooltip').hidden=false;
+  };
+  $('production-chart').addEventListener('pointerover',event=>showTip(event.target));
+  $('production-chart').addEventListener('focusin',event=>showTip(event.target));
+  $('production-chart').addEventListener('pointerleave',()=>$('chart-tooltip').hidden=true);
+  $('production-chart').addEventListener('focusout',()=>$('chart-tooltip').hidden=true);
+  $('theme-select').value=document.documentElement.dataset.theme || 'auto';
+  $('theme-select').addEventListener('change',event=>{document.documentElement.dataset.theme=event.target.value;try{localStorage.setItem('theme',event.target.value);}catch(error){/* Theme still applies for this page. */}});
+  new MutationObserver(()=>$('theme-select').value=document.documentElement.dataset.theme || 'auto').observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  const mobile = window.matchMedia('(max-width:820px)');
+  function syncMenu(){ $('sidebar').inert = mobile.matches && !$('sidebar').classList.contains('open'); }
+  function closeMenu(){ $('sidebar').classList.remove('open');$('nav-overlay').hidden=true;$('menu-toggle').setAttribute('aria-expanded','false');syncMenu(); }
+  mobile.addEventListener('change',closeMenu);syncMenu();
+  $('menu-toggle').addEventListener('click',()=>{const open=$('sidebar').classList.toggle('open');$('nav-overlay').hidden=!open;$('menu-toggle').setAttribute('aria-expanded',String(open));syncMenu();});
+  $('nav-overlay').addEventListener('click',closeMenu);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeMenu();$('chart-tooltip').hidden=true;}});
+  setInterval(()=>{if(!document.hidden) refresh();},60000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden && Date.now()-new Date(metrics.updated_at).getTime()>60000) refresh();});
+  let chartWidth = 0;
+  new ResizeObserver(entries=>{const width = entries[0].contentRect.width;if(width !== chartWidth){chartWidth=width;renderChart();}}).observe($('chart-container'));
+  render();
 })();

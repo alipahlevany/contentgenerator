@@ -2,152 +2,86 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light dark">
-    <script src="{% static 'ui/theme.js' %}"></script>
-    <title>Operations Overview · AI Content</title>
-    <link rel="stylesheet" href="{% static 'dashboard/operations.css' %}">
-    <link rel="stylesheet" href="{% static 'ui/theme.css' %}">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark"><title>Overview · Content Studio</title>
+  <script src="{% static 'ui/theme.js' %}"></script>
+  <link rel="stylesheet" href="{% static 'dashboard/operations.css' %}?v=20261101-studio">
 </head>
-<body>
-    <svg aria-hidden="true" width="0" height="0" style="position:absolute">
-        <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z" fill="none" stroke="currentColor" stroke-linejoin="round"/><path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z" fill="currentColor" stroke="none"/></symbol>
-        <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
-        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-        <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></symbol>
-        <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></symbol>
-        <symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/></symbol>
-        <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8-8-2Z"/><path d="m11 13 5-5"/></symbol>
-        <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
-        <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
-        <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V21h-4v-.08A1.7 1.7 0 0 0 8.94 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.57 15 1.7 1.7 0 0 0 3 14H3v-4h.08A1.7 1.7 0 0 0 4.6 8.94a1.7 1.7 0 0 0-.34-1.88L4.2 7l2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.57 1.7 1.7 0 0 0 10 3V3h4v.08A1.7 1.7 0 0 0 15.06 4.6a1.7 1.7 0 0 0 1.88-.34L17 4.2 19.83 7l-.06.06A1.7 1.7 0 0 0 19.43 9 1.7 1.7 0 0 0 21 10h.08v4H21a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
-        <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/></symbol>
-        <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7M10 14 21 3M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/></symbol>
-        <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
-        <symbol id="i-content" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M8 8h8M8 12h8M8 16h5"/></symbol>
-        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
-        <symbol id="i-skip" viewBox="0 0 24 24"><path d="m6 5 9 7-9 7V5ZM18 5v14"/></symbol>
-        <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
-        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol>
-    </svg>
-
-    {{ dashboard_metrics.content_by_type|json_script:"dashboard-content-types" }}
-    {{ dashboard_metrics.jobs_by_status|json_script:"dashboard-job-statuses" }}
-    {{ dashboard_metrics.deliveries_by_status|json_script:"dashboard-delivery-statuses" }}
-    {{ dashboard_metrics.daily_labels|json_script:"dashboard-daily-labels" }}
-    {{ dashboard_metrics.daily_counts|json_script:"dashboard-daily-counts" }}
-    {{ dashboard_metrics.daily_greeting_counts|json_script:"dashboard-daily-greeting-counts" }}
-
-    <div class="app-shell">
-        <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
-            <div class="brand">
-                <span class="brand-mark"><svg><use href="#i-spark"></use></svg></span>
-                <span class="brand-copy"><strong>AI Content</strong><small>Operations center</small></span>
-            </div>
-            <div class="sidebar-scroll">
-                <div class="nav-caption">Workspace</div>
-                <nav class="nav-list">
-                    <a class="nav-link" data-match="exact" href="{% url 'admin:index' %}"><span class="nav-icon"><svg><use href="#i-grid"></use></svg></span>Overview</a>
-                    <a class="nav-link nav-link--primary" href="{% url 'admin:contents_generationjob_add' %}"><span class="nav-icon"><svg><use href="#i-plus"></use></svg></span>New generation</a>
-                </nav>
-                <div class="nav-caption">Content studio</div>
-                <nav class="nav-list">
-                    <a class="nav-link" href="{% url 'admin:contents_content_changelist' %}"><span class="nav-icon"><svg><use href="#i-file"></use></svg></span>Standard content</a>
-                    <a class="nav-link" href="{% url 'admin:contents_emailreply_changelist' %}"><span class="nav-icon"><svg><use href="#i-mail"></use></svg></span>Email replies</a>
-                    <a class="nav-link" href="{% url 'admin:contents_greeting_changelist' %}"><span class="nav-icon"><svg><use href="#i-spark"></use></svg></span>Greetings</a>
-                </nav>
-                <div class="nav-caption">Operations</div>
-                <nav class="nav-list">
-                    <a class="nav-link" href="{% url 'admin:contents_generationjob_changelist' %}"><span class="nav-icon"><svg><use href="#i-play"></use></svg></span>Generation jobs</a>
-                    <a class="nav-link" href="{% url 'admin:contents_contentdelivery_changelist' %}"><span class="nav-icon"><svg><use href="#i-send"></use></svg></span>Deliveries</a>
-                    <a class="nav-link" href="{% url 'admin:contents_externalclient_changelist' %}"><span class="nav-icon"><svg><use href="#i-users"></use></svg></span>External clients</a>
-                    <a class="nav-link" href="{% url 'admin:contents_generationjoblog_changelist' %}"><span class="nav-icon"><svg><use href="#i-list"></use></svg></span>Generation logs</a>
-                </nav>
-                <div class="nav-caption">System</div>
-                <nav class="nav-list">
-                    <a class="nav-link" href="{% url 'admin:contents_sharedgenerationsettings_changelist' %}"><span class="nav-icon"><svg><use href="#i-settings"></use></svg></span>Settings</a>
-                    <a class="nav-link" href="/api/docs/" target="_blank" rel="noreferrer"><span class="nav-icon"><svg><use href="#i-code"></use></svg></span>API documentation</a>
-                </nav>
-            </div>
-            <div class="sidebar-footer">
-                <div class="system-card"><i class="status-dot"></i><span><strong>Production system</strong><small>Live data connection</small></span></div>
-                <div class="sidebar-user"><span class="user-avatar">{{ request.user.get_username|first|upper }}</span><span><strong>{{ request.user.get_username }}</strong><small>Administrator</small></span><a href="{% url 'admin:logout' %}" aria-label="Sign out">Sign out</a></div>
-            </div>
-        </aside>
-
-        <button class="sidebar-overlay" id="sidebar-overlay" type="button" aria-label="Close navigation"></button>
-
-        <main class="page">
-            <header class="topbar">
-                <div class="title-row">
-                    <button class="button menu-toggle" id="menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false"><svg><use href="#i-menu"></use></svg></button>
-                    <div class="page-title"><h1>Operations overview</h1><p>Content production, quality, and delivery health</p></div>
-                </div>
-                <div class="top-actions">
-                    <span class="live-badge"><i></i>Live</span>
-                    <a class="button button--primary" href="{% url 'admin:contents_generationjob_add' %}"><svg><use href="#i-plus"></use></svg>Create job</a>
-                </div>
-            </header>
-
-            <div class="dashboard">
-                <section class="hero">
-                    <div class="hero-copy"><span class="eyebrow"><i></i>Live operations</span><h2>Your content engine,<br>clear at a glance.</h2><p>Monitor generation quality, job throughput, and delivery performance from one focused workspace.</p></div>
-                    <div class="hero-art" aria-label="Animated AI content creator illustration" style="--hero-poster:url('{% static 'dashboard/animations/content-generator-hero.png' %}')"><div id="hero-lottie" data-animation-path="{% static 'dashboard/animations/content-generator-hero.json' %}"></div></div>
-                    <div class="hero-insight">
-                        <div class="hero-stat"><span>This week</span><b>{{ dashboard_metrics.content_this_week }}</b></div>
-                        <div class="hero-stat"><span>Daily average</span><b>{{ dashboard_metrics.daily_average }}</b></div>
-                        <div class="hero-stat"><span>Total jobs</span><b>{{ dashboard_metrics.total_jobs }}</b></div>
-                        <div class="hero-stat"><span>Recipients</span><b>{{ dashboard_metrics.recipient_total }}</b></div>
-                    </div>
-                </section>
-
-                <section class="kpi-grid" aria-label="Key performance indicators">
-                    <article class="kpi-card" style="--tone:#5792ba"><div class="kpi-head"><span class="kpi-label">Total content</span><span class="kpi-icon"><svg><use href="#i-content"></use></svg></span></div><b class="kpi-value">{{ dashboard_metrics.content_total }}</b><div class="kpi-foot"><span>Saved outputs</span><span class="trend-chip">+{{ dashboard_metrics.content_today }} today</span></div></article>
-                    <article class="kpi-card" style="--tone:#13a976"><div class="kpi-head"><span class="kpi-label">Generation success</span><span class="kpi-icon"><svg><use href="#i-check"></use></svg></span></div><b class="kpi-value">{{ dashboard_metrics.success_rate }}%</b><div class="kpi-foot"><span>{{ dashboard_metrics.generated_total }} generated</span><span class="trend-chip">Healthy</span></div></article>
-                    <article class="kpi-card" style="--tone:#e99a19"><div class="kpi-head"><span class="kpi-label">Skip rate</span><span class="kpi-icon"><svg><use href="#i-skip"></use></svg></span></div><b class="kpi-value">{{ dashboard_metrics.skip_rate }}%</b><div class="kpi-foot"><span>{{ dashboard_metrics.skipped_total }} skipped</span><span class="trend-chip trend-chip--warn">Monitor</span></div></article>
-                    <article class="kpi-card" style="--tone:#e05263"><div class="kpi-head"><span class="kpi-label">Needs attention</span><span class="kpi-icon"><svg><use href="#i-alert"></use></svg></span></div><b class="kpi-value">{{ dashboard_metrics.attention_total }}</b><div class="kpi-foot"><span>{{ dashboard_metrics.running_jobs }} running now</span>{% if dashboard_metrics.attention_total %}<span class="trend-chip trend-chip--danger">Review</span>{% else %}<span class="trend-chip">Clear</span>{% endif %}</div></article>
-                </section>
-
-                <section class="layout-primary">
-                    <article class="panel"><div class="panel-head"><div class="panel-title"><h3>Production trend</h3><p>All generated content compared with greetings</p></div><div class="series-legend"><span><i class="series-dot series-dot--total"></i>{{ dashboard_metrics.content_this_week }} total</span><span><i class="series-dot series-dot--greeting"></i>{{ dashboard_metrics.greetings_this_week }} greetings</span></div></div><canvas class="chart" id="production-trend" aria-label="Seven-day production and greeting trend"></canvas></article>
-                    <article class="panel"><div class="panel-head"><div class="panel-title"><h3>Content distribution</h3><p>Output mix by generation type</p></div><a class="panel-link" href="{% url 'admin:contents_content_changelist' %}">View content</a></div><canvas class="chart chart--compact" id="content-mix" aria-label="Content type distribution"></canvas></article>
-                </section>
-
-                <section class="layout-secondary">
-                    <article class="panel"><div class="panel-head"><div class="panel-title"><h3>Job health</h3><p>Current state across generation jobs</p></div><a class="panel-link" href="{% url 'admin:contents_generationjob_changelist' %}">All jobs</a></div><div class="health-list" id="job-health"></div></article>
-                    <article class="panel"><div class="panel-head"><div class="panel-title"><h3>Delivery health</h3><p>{{ dashboard_metrics.delivery_success_rate }}% successful across {{ dashboard_metrics.delivery_total }} deliveries</p></div><a class="panel-link" href="{% url 'admin:contents_contentdelivery_changelist' %}">All deliveries</a></div><div class="health-list" id="delivery-health"></div></article>
-                </section>
-
-                <section class="layout-secondary">
-                    <article class="panel">
-                        <div class="panel-head"><div class="panel-title"><h3>Active recipients</h3><p>Clients enabled for each delivery stream</p></div><a class="panel-link" href="{% url 'admin:contents_externalclient_changelist' %}">Manage clients</a></div>
-                        <div class="recipient-grid">
-                            <div class="recipient-card"><div class="recipient-top">Standard<span class="recipient-icon"><svg><use href="#i-file"></use></svg></span></div><b>{{ dashboard_metrics.recipient_counts.standard }}</b><small>standard content recipients</small></div>
-                            <div class="recipient-card"><div class="recipient-top">Replies<span class="recipient-icon"><svg><use href="#i-mail"></use></svg></span></div><b>{{ dashboard_metrics.recipient_counts.reply }}</b><small>email reply recipients</small></div>
-                            <div class="recipient-card"><div class="recipient-top">Greetings<span class="recipient-icon"><svg><use href="#i-spark"></use></svg></span></div><b>{{ dashboard_metrics.recipient_counts.greeting }}</b><small>greeting recipients</small></div>
-                        </div>
-                    </article>
-                    <article class="panel">
-                        <div class="panel-head"><div class="panel-title"><h3>Operational alerts</h3><p>Recent failures requiring review</p></div>{% if dashboard_metrics.attention_total %}<span class="trend-chip trend-chip--danger">{{ dashboard_metrics.attention_total }} open</span>{% endif %}</div>
-                        {% if dashboard_metrics.attention_total %}<div class="alert-list">
-                            {% for job in dashboard_metrics.recent_failed_jobs %}<div class="alert-item"><span class="alert-icon">!</span><div class="alert-copy"><strong>Job #{{ job.id }} · {{ job.generation_type }}</strong><small>{{ job.error_message|default:"Generation failed" }}</small></div><a href="{% url 'admin:contents_generationjob_change' job.id %}">Review</a></div>{% endfor %}
-                            {% for delivery in dashboard_metrics.recent_failed_deliveries %}<div class="alert-item"><span class="alert-icon">!</span><div class="alert-copy"><strong>{{ delivery.client__name }} · {{ delivery.content__content_type }}</strong><small>{{ delivery.last_error|default:"Delivery failed" }}</small></div><a href="{% url 'admin:contents_contentdelivery_change' delivery.id %}">Review</a></div>{% endfor %}
-                        </div>{% else %}<div class="healthy-state"><i>✓</i><span><strong>Everything looks healthy</strong><small>No failed jobs or deliveries need attention.</small></span></div>{% endif %}
-                    </article>
-                </section>
-
-                <section class="panel panel--flush">
-                    <div class="panel-head"><div class="panel-title"><h3>Recent generation jobs</h3><p>Latest production activity and output progress</p></div><a class="panel-link" href="{% url 'admin:contents_generationjob_changelist' %}">View all <svg style="width:11px;height:11px;vertical-align:middle"><use href="#i-arrow"></use></svg></a></div>
-                    {% if dashboard_metrics.recent_jobs %}<div class="table-wrap"><table class="data-table"><thead><tr><th>Job</th><th>Type</th><th>Status</th><th>Progress</th><th>Skipped</th><th>Created</th></tr></thead><tbody>
-                        {% for job in dashboard_metrics.recent_jobs %}<tr><td><a class="job-link" href="{% url 'admin:contents_generationjob_change' job.id %}">#{{ job.id }}</a></td><td class="type-cell">{{ job.generation_type }}</td><td><span class="status-pill {{ job.status }}">{{ job.status }}</span></td><td class="job-progress"><div class="progress-meta"><span>{{ job.generated_count }} of {{ job.count }}</span><span>{% widthratio job.generated_count job.count 100 %}%</span></div><div class="progress-bar"><i style="width:{% widthratio job.generated_count job.count 100 %}%"></i></div></td><td><span class="skip-value">{{ job.skipped_count }}</span></td><td>{{ job.created_at|date:"M j, H:i" }}</td></tr>{% endfor %}
-                    </tbody></table></div>{% else %}<div class="empty-state">No generation jobs have been created yet.</div>{% endif %}
-                </section>
-                <footer class="page-footer"><span>Live production metrics</span><span>AI Content Operations · {{ request.user.get_username }}</span></footer>
-            </div>
-        </main>
-    </div>
-    <script src="{% static 'vendor/lottie-web/lottie_light.min.js' %}"></script>
-    <script src="{% static 'dashboard/operations.js' %}?v=20261027-dark"></script>
-</body>
-</html>
+<body data-metrics-url="{% url 'dashboard-metrics' %}">
+<a class="skip-link" href="#main">Skip to overview</a>
+<svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8l-5-5ZM14 3v5h5M8 12h8M8 16h6"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3 7 9 6 9-6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m21 3-7 18-4-7-7-4L21 3ZM10 14 21 3"/></symbol>
+  <symbol id="i-jobs" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7m7-7 4 3-4 3v-6Z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6m2 3a6 6 0 0 1 3 5v2"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 3v17h17M8 15v-4m5 4V6m5 9v-6"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="16" cy="17" r="3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M5 7a8 8 0 0 1 14-1l1 3M4 15l1 3a8 8 0 0 0 14-1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V3H3v13h5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+</defs></svg>
+{{ dashboard_metrics|json_script:"dashboard-data" }}
+<aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+  <a class="brand" href="{% url 'admin:index' %}"><span class="brand-mark"><svg><use href="#i-spark"/></svg></span><span>Content<span class="brand-light">Studio</span><small>YOUR GENERATION WORKSPACE</small></span></a>
+  <div class="workspace"><span class="workspace-monogram">C</span><span><strong>Content generator</strong><small>Production workspace</small></span><span class="workspace-dot" aria-hidden="true"></span></div>
+  <div class="nav-scroll">
+    <span class="nav-label">WORKSPACE</span>
+    <nav>
+      <a class="nav-link active" href="{% url 'admin:index' %}" aria-current="page"><svg><use href="#i-grid"/></svg>Overview<span class="nav-active-dot"></span></a>
+      <a class="nav-link" href="{% url 'admin:contents_greeting_changelist' %}"><svg><use href="#i-spark"/></svg>Greetings<span class="nav-tag">FOCUS</span></a>
+      <a class="nav-link" href="{% url 'admin:contents_content_changelist' %}"><svg><use href="#i-file"/></svg>Standard content</a>
+      <a class="nav-link" href="{% url 'admin:contents_emailreply_changelist' %}"><svg><use href="#i-mail"/></svg>Email replies</a>
+    </nav>
+    <span class="nav-label">OPERATIONS</span>
+    <nav>
+      <a class="nav-link" href="{% url 'admin:contents_generationjob_changelist' %}"><svg><use href="#i-jobs"/></svg>Generation jobs</a>
+      <a class="nav-link" href="{% url 'admin:contents_contentdelivery_changelist' %}"><svg><use href="#i-send"/></svg>Deliveries</a>
+      <a class="nav-link" href="{% url 'admin:contents_externalclient_changelist' %}"><svg><use href="#i-users"/></svg>Clients</a>
+      <a class="nav-link" href="{% url 'admin:contents_aiusagelog_changelist' %}"><svg><use href="#i-chart"/></svg>Token usage</a>
+      <a class="nav-link" href="{% url 'admin:contents_generationjoblog_changelist' %}"><svg><use href="#i-clock"/></svg>Activity logs</a>
+    </nav>
+  </div>
+  <div class="sidebar-bottom">
+    <a class="nav-link" href="{% url 'admin:contents_sharedgenerationsettings_changelist' %}"><svg><use href="#i-settings"/></svg>Settings</a>
+    <div class="user"><span class="avatar">{{ request.user.get_username|first|upper }}</span><div><strong>{{ request.user.get_username }}</strong><small>Administrator</small></div><form action="{% url 'admin:logout' %}" method="post">{% csrf_token %}<button class="logout" aria-label="Sign out" title="Sign out">↗</button></form></div>
+  </div>
+</aside>
+<button class="nav-overlay" id="nav-overlay" aria-label="Close navigation" hidden></button>
+<div class="app-main">
+  <header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><svg><use href="#i-menu"/></svg></button><span>Workspace</span><span class="slash">/</span><strong>Overview</strong></div><div class="topbar-right"><span class="sync-status" id="sync-status" role="status"><i></i><span id="sync-text">Snapshot loaded</span></span><div class="theme-control"><svg><use href="#i-moon"/></svg><label class="sr-only" for="theme-select">Color theme</label><select id="theme-select"><option value="auto">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></header>
+  <main id="main" class="dashboard" tabindex="-1">
+    <section class="page-heading"><div><span class="eyebrow">YOUR WORKSPACE, AT A GLANCE</span><h1>Make every greeting count<span>.</span></h1><p>A clear view of your content, quality, and consumption.</p></div><a class="button primary" href="{% url 'admin:contents_generationjob_add' %}?generation_type=greeting"><svg><use href="#i-plus"/></svg>Create greetings</a></section>
+    <div class="toolbar"><div class="section-caption"><i class="accent-dot"></i>Production overview<span class="timezone" id="timezone"></span></div><div class="toolbar-actions"><div class="segmented period-select" role="group" aria-label="Reporting period"><button data-days="7" aria-pressed="true">7 days</button><button data-days="30" aria-pressed="false">30 days</button></div><button class="icon-button" id="refresh" aria-label="Refresh metrics" title="Refresh metrics"><svg><use href="#i-refresh"/></svg></button></div></div>
+    <div class="refresh-error" id="refresh-error" role="alert" hidden></div>
+    <section class="metrics-grid" aria-label="Key metrics">
+      <article class="metric"><div class="metric-label">Greetings today<svg><use href="#i-spark"/></svg></div><div class="metric-number" id="greeting-today">{{ dashboard_metrics.greeting_today }}</div><div class="metric-bottom"><span class="small-dot"></span><span id="daily-goal-caption">Daily production</span></div><div class="metric-meter"><span id="goal-mini"></span></div></article>
+      <article class="metric"><div class="metric-label">Greeting acceptance<svg><use href="#i-check"/></svg></div><div class="metric-number" id="acceptance">—</div><div class="metric-bottom"><span class="badge subtle" id="skip-count">—</span><span class="period-caption">over 7 days</span></div></article>
+      <article class="metric"><div class="metric-label">Recorded token usage<svg><use href="#i-chart"/></svg></div><div class="metric-number" id="token-total">—</div><div class="metric-bottom"><span id="request-count">—</span><span class="metric-separator">·</span><span class="period-caption">over 7 days</span></div></article>
+      <article class="metric"><div class="metric-label">Estimated API cost<svg><use href="#i-file"/></svg></div><div class="metric-number" id="estimated-cost">—</div><div class="metric-bottom"><span class="badge neutral">USD</span><span>Recorded requests only</span></div></article>
+    </section>
+    <section class="primary-grid">
+      <article class="panel production-panel"><div class="panel-heading"><div><h2>Production activity</h2><p>Saved content across your workspace</p></div><div class="segmented chart-select" role="group" aria-label="Chart content type"><button data-series="all" aria-pressed="true">All content</button><button data-series="greetings" aria-pressed="false">Greetings</button></div></div><div class="chart-summary"><strong id="production-total">—</strong><span>outputs <span id="period-range"></span></span><div class="chart-legend"><i></i><span id="chart-series-label">All content</span></div></div><div class="chart-container" id="chart-container"><svg id="production-chart" viewBox="0 0 720 220" role="img" aria-label="Daily saved content"></svg><div class="chart-tooltip" id="chart-tooltip" hidden></div></div><div class="chart-footer"><span><b id="daily-average">—</b> average / day</span><span><b id="library-total">—</b> in your library</span></div><details class="chart-data"><summary>View daily numbers</summary><div id="chart-table" class="table-scroll"></div></details></article>
+      <article class="greeting-panel"><div class="greeting-heading"><span class="greeting-symbol"><svg><use href="#i-spark"/></svg></span><span class="eyebrow">GREETING STUDIO</span><a href="{% url 'admin:contents_greetinggenerationsettings_changelist' %}" class="icon-button" aria-label="Greeting settings"><svg><use href="#i-settings"/></svg></a></div><h2>Small words.<br>A better beginning.</h2><p class="greeting-description">Warm, natural openings.<br>Ready for the conversation ahead.</p><div class="goal-heading"><span>Today's progress</span><strong id="goal-percent">—</strong></div><div class="goal-track"><span id="goal-progress"></span></div><div class="goal-caption"><span id="goal-numbers">—</span><span id="schedule-badge">—</span></div><div class="last-run"><div><span class="run-dot"></span><strong>Latest greeting run</strong><span class="badge" id="latest-status">—</span></div><p id="latest-result">No greeting runs yet</p><a id="latest-link" hidden>View run <span>↗</span></a></div><a class="greeting-library-link" href="{% url 'admin:contents_greeting_changelist' %}">Explore greeting library<svg><use href="#i-arrow"/></svg></a></article>
+    </section>
+    <section class="secondary-grid">
+      <article class="panel jobs-panel"><div class="panel-heading"><div><h2>Recent runs <span class="badge neutral" id="active-jobs">—</span></h2><p>Progress, results, and anything worth a closer look</p></div><a class="text-link" href="{% url 'admin:contents_generationjob_changelist' %}">All jobs <span>↗</span></a></div><div class="table-scroll"><table class="jobs-table"><thead><tr><th>Run / type</th><th>Status</th><th>Saved / target</th><th>Skipped</th><th>Created</th></tr></thead><tbody id="jobs-body"></tbody></table></div><div class="jobs-footer"><span id="queue-status">—</span><a class="text-link" href="{% url 'admin:contents_generationjob_add' %}">New generation <span>+</span></a></div></article>
+      <article class="panel usage-panel"><div class="panel-heading"><div><h2>Where your tokens go</h2><p>Input and output, in one place</p></div><a class="icon-button" href="{% url 'admin:contents_aiusagelog_changelist' %}" aria-label="View token usage logs"><svg><use href="#i-arrow"/></svg></a></div><div class="usage-total"><strong id="usage-total">—</strong><span>total tokens</span></div><div class="token-split" id="token-split" aria-hidden="true"></div><div class="token-legend"><span><i class="input-dot"></i>Input <b id="input-tokens">—</b></span><span><i class="output-dot"></i>Output <b id="output-tokens">—</b></span></div><div class="usage-types" id="usage-types"></div><div class="skip-breakdown"><div><strong>Greeting skips</strong><span class="period-caption">over 7 days</span></div><p><span>Duplicates</span><b id="duplicate-count">—</b></p><p><span>Failed attempts</span><b id="invalid-count">—</b></p><a class="text-link" href="{% url 'admin:contents_generationjoblog_changelist' %}">Inspect generation logs ↗</a></div><div class="usage-note"><svg><use href="#i-chart"/></svg><p id="usage-note">Usage appears after generation. Estimates use Standard pricing and are not your account invoice.</p></div></article>
+    </section>
+    <section class="bottom-grid">
+      <article class="panel sample-panel"><div class="panel-heading"><div><span class="eyebrow">FROM YOUR LIBRARY</span><h2>A little inspiration</h2></div><span class="badge neutral" id="sample-language">—</span></div><blockquote id="sample-text" dir="auto">Your saved greetings will appear here.</blockquote><div class="sample-footer"><a class="sample-id" id="sample-link">Saved greeting</a><div><span id="sample-position"></span><button class="icon-button" id="copy-sample" aria-label="Copy greeting" title="Copy greeting"><svg><use href="#i-copy"/></svg></button><button class="icon-button" id="next-sample" aria-label="Next saved greeting" title="Next saved greeting"><svg><use href="#i-arrow"/></svg></button></div></div><span class="sr-only" id="copy-status" role="status"></span></article>
+      <article class="panel health-panel"><div class="panel-heading"><div><h2>Operational pulse</h2><p>Delivery and issues in the selected period</p></div><span class="badge neutral" id="attention-count">—</span></div><div class="health-row"><span><i class="small-dot"></i>Delivery success <small>all time</small></span><b id="delivery-success">—</b></div><div class="health-row"><span>Waiting for delivery</span><b id="delivery-pending">—</b></div><div class="health-row"><span>Greeting recipients</span><a href="{% url 'admin:contents_externalclient_changelist' %}" id="greeting-clients">—</a></div><div id="alerts" class="alerts"></div><a class="text-link health-link" href="{% url 'admin:contents_contentdelivery_changelist' %}">Open deliveries <span>↗</span></a></article>
+    </section>
+    <footer class="page-footer"><span>Content Studio <i>·</i> <span id="model-name"></span></span><span id="updated-time">Updates every minute while this page is visible</span></footer>
+    <noscript><p class="refresh-error">Enable JavaScript for interactive metrics, or use the navigation to manage your content.</p></noscript>
+  </main>
+</div>
+<script src="{% static 'dashboard/operations.js' %}?v=20261101-studio" defer></script>
+</body></html>

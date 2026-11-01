@@ -162,6 +162,7 @@ def _prepare_generated_output(
     generator,
     generated_text,
     fallback_title,
+    language=None,
 ):
     generated_validation = validate_generated_text(
         generated_text
@@ -225,6 +226,7 @@ def _prepare_generated_output(
         title, content_body = generator.extract_output(
             generated_text,
             fallback_title,
+            language=language,
         )
     except GeneratorOutputError as exc:
         # A format/length violation belongs to this attempt. Let the
@@ -557,6 +559,7 @@ def _run_generation_job(job_id):
                 generator=generator,
                 generated_text=generated_text,
                 fallback_title=fallback_title,
+                language=language,
             )
 
             if not prepared.ok:

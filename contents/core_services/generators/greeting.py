@@ -44,8 +44,12 @@ class GreetingGenerator(BaseGenerator):
 
     DEFAULT_WORD_LIMITS = (15, 30)
     LANGUAGE_WORD_LIMITS = {
-        "en": (15, 30), "fa": (15, 30), "de": (15, 30),
+        "en": (15, 30), "fa": (15, 30),
         "fr": (15, 30), "es": (15, 30),
+        # These languages often express a complete greeting in fewer words.
+        "tr": (12, 30), "hu": (12, 30), "pl": (12, 30),
+        "cs": (12, 30), "sk": (12, 30), "uk": (12, 30),
+        "de": (12, 30), "nl": (12, 30), "bg": (12, 30),
     }
     FALLBACK_TITLE = "Warm Email Greeting"
 
@@ -88,32 +92,32 @@ class GreetingGenerator(BaseGenerator):
     # Decode the random key into independent, concrete writing constraints.
     # A random number alone is not a useful instruction for linguistic variety.
     THEMES = (
-        "a courteous welcome into a conversation",
-        "space for the recipient's perspective",
-        "a simple, considerate exchange of thoughts",
-        "goodwill without asking for anything",
-        "a respectful connection through a few words",
-        "an approachable start to the message",
-        "a friendly pause before the main point",
-        "openness to different ideas",
-        "the value of clear, unhurried communication",
-        "a modest note of encouragement",
-        "curiosity and a receptive attitude",
-        "ease and simplicity in correspondence",
-        "a small expression of kindness",
-        "mutual consideration in conversation",
-        "a warm but matter-of-fact introduction",
-        "a positive spirit without a promise or prediction",
+        "simple, sincere goodwill",
+        "a friendly yet restrained welcome",
+        "a considerate wish for a pleasant moment",
+        "quiet optimism without a prediction",
+        "courteous warmth toward the recipient",
+        "a light, positive opening",
+        "warmth through plain, everyday wording",
+        "respectful friendliness without flattery",
+        "gentle encouragement without advice",
+        "calm, understated good wishes",
+        "a welcoming tone without a request",
+        "cordiality in a direct, conversational voice",
+        "modest kindness without grand sentiment",
+        "a relaxed, professional manner",
+        "an unhurried, friendly hello",
+        "a balanced, warm and practical tone",
     )
     STRUCTURES = (
-        "One sentence; begin with a welcoming clause, then a gentle transition.",
-        "Two sentences; a brief salutation, then a complete warm thought.",
-        "One sentence; put the warm thought first and the personal voice last.",
-        "Two sentences; a warm observation, then a short invitation to read on.",
-        "One flowing sentence without a salutation, wish, or question.",
-        "Two sentences of similar length with different grammatical openings.",
-        "One sentence starting with a courteous first-person statement.",
-        "Two sentences; a longer opening followed by a very short transition.",
+        "One sentence: a warm thought with a natural continuation.",
+        "Two sentences: a brief salutation, then a complete warm thought.",
+        "One sentence with a courteous first-person opening.",
+        "Two sentences: a simple good wish followed by a cordial statement.",
+        "One flowing sentence without a question.",
+        "Two sentences with different grammatical openings.",
+        "One sentence without starting with Hello or I hope.",
+        "Two sentences: a short first sentence and a fuller second one.",
     )
 
     LABEL_PATTERN = re.compile(
@@ -193,7 +197,7 @@ class GreetingGenerator(BaseGenerator):
         )
 
         min_words, max_words = self.word_limits(language)
-        target_min, target_max = self.TARGET_WORD_LIMITS
+        target_min, target_max = (17, 23) if min_words == 12 else self.TARGET_WORD_LIMITS
         style_name, style_instruction = self.style_direction(
             variation_key
         )
@@ -201,29 +205,27 @@ class GreetingGenerator(BaseGenerator):
         theme, structure = self.writing_direction(variation_key)
 
         system_prompt = f"""
-Write a ready-to-use, warm, natural email greeting in {language_name}.
-Use native phrasing and a professional, conversational tone, not sales language.
-Express one warm thought. Invent no facts about the recipient, relationship,
-occasion, time of day, or reason for writing. Do not promise outcomes.
-This opens a new email: do not refer to an earlier message or meeting.
-Avoid tired formulas: "I hope this email finds you well", "I hope you're doing
-well", "Greetings of the day", and their translations. Vary the opening words.
-Aim for {target_min} to {target_max} words separated by spaces; the valid range
-is {min_words} to {max_words}. Use 1-2 complete sentences, at most one
-exclamation mark, and no emojis.
-Return only the greeting: no title, label, quotes, signature, name, placeholder,
-date, link, explanation, or rest of the email.
+Write a warm, professional email greeting in native {language_name}.
+Start directly with a salutation or a sincere good wish to the recipient.
+Sound like a considerate person: plain, modest, cordial, never poetic or salesy.
+Write the greeting itself, without commenting on emails, words, writing,
+conversations, reading, replies, or what comes next. No advice or requests.
+Invent no prior contact, recipient details, or occasion. Use time-neutral
+salutations: no morning, evening, or start-of-week greetings.
+Avoid tired formulas such as "I hope this email finds you well", flattery,
+abstract maxims, names, placeholders, signatures, links, and emojis.
+Aim for {target_min} to {target_max} words in 1-2 complete sentences.
+Return only the greeting; hard limit {min_words}-{max_words} space-separated words.
         """.strip()
 
         user_prompt = f"""
 Language: {language_name}
 Tone: {style_name}. {style_instruction}
-Warm thought: {theme}.
-Sentence structure: {structure}
-Create fresh phrasing for this combination, not a translation of these directions.
-Length: {target_min}-{target_max} space-separated words. Count before returning;
-if shorter than {min_words}, expand the thought naturally. Never exceed {max_words}.
-Variation: {variation_key} (never include this identifier in the greeting).
+Focus: {theme}.
+Structure: {structure}
+Use fresh native phrasing, not translations of these directions.
+Count words: target {target_min}-{target_max}; valid {min_words}-{max_words}.
+Variation {variation_key} (omit this identifier).
 {retry_feedback}
         """.strip()
 
@@ -237,6 +239,8 @@ Variation: {variation_key} (never include this identifier in the greeting).
         self,
         generated_text,
         fallback_title,
+        *,
+        language=None,
     ):
         text = generated_text.strip()
 
@@ -264,7 +268,7 @@ Variation: {variation_key} (never include this identifier in the greeting).
         # an otherwise useful output into a skipped attempt.
         body = " ".join(body.split())
 
-        minimum_words, maximum_words = self.DEFAULT_WORD_LIMITS
+        minimum_words, maximum_words = self.word_limits(language)
         word_count = len(body.split())
 
         if word_count < minimum_words:
