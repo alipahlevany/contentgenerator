@@ -205,6 +205,7 @@ Write a ready-to-use, warm, natural email greeting in {language_name}.
 Use native phrasing and a professional, conversational tone, not sales language.
 Express one warm thought. Invent no facts about the recipient, relationship,
 occasion, time of day, or reason for writing. Do not promise outcomes.
+This opens a new email: do not refer to an earlier message or meeting.
 Avoid tired formulas: "I hope this email finds you well", "I hope you're doing
 well", "Greetings of the day", and their translations. Vary the opening words.
 Aim for {target_min} to {target_max} words separated by spaces; the valid range
@@ -220,7 +221,8 @@ Tone: {style_name}. {style_instruction}
 Warm thought: {theme}.
 Sentence structure: {structure}
 Create fresh phrasing for this combination, not a translation of these directions.
-Before returning, check the {min_words}-{max_words} space-separated word limit.
+Length: {target_min}-{target_max} space-separated words. Count before returning;
+if shorter than {min_words}, expand the thought naturally. Never exceed {max_words}.
 Variation: {variation_key} (never include this identifier in the greeting).
 {retry_feedback}
         """.strip()
