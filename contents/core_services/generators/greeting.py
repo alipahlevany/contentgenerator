@@ -52,7 +52,7 @@ class GreetingGenerator(BaseGenerator):
     # A narrower prompt target leaves enough room around the hard
     # validation limits. This reduces length-related retries while keeping
     # the final greeting concise.
-    TARGET_WORD_LIMITS = (18, 24)
+    TARGET_WORD_LIMITS = (20, 26)
 
     STYLE_DIRECTIONS = (
         (
@@ -85,11 +85,35 @@ class GreetingGenerator(BaseGenerator):
         ),
     )
 
-    OVERUSED_PATTERNS = (
-        "i hope this email finds you well",
-        "i hope this message finds you well",
-        "trust this email finds you well",
-        "greetings of the day",
+    # Decode the random key into independent, concrete writing constraints.
+    # A random number alone is not a useful instruction for linguistic variety.
+    THEMES = (
+        "a courteous welcome into a conversation",
+        "space for the recipient's perspective",
+        "a simple, considerate exchange of thoughts",
+        "goodwill without asking for anything",
+        "a respectful connection through a few words",
+        "an approachable start to the message",
+        "a friendly pause before the main point",
+        "openness to different ideas",
+        "the value of clear, unhurried communication",
+        "a modest note of encouragement",
+        "curiosity and a receptive attitude",
+        "ease and simplicity in correspondence",
+        "a small expression of kindness",
+        "mutual consideration in conversation",
+        "a warm but matter-of-fact introduction",
+        "a positive spirit without a promise or prediction",
+    )
+    STRUCTURES = (
+        "One sentence; begin with a welcoming clause, then a gentle transition.",
+        "Two sentences; a brief salutation, then a complete warm thought.",
+        "One sentence; put the warm thought first and the personal voice last.",
+        "Two sentences; a warm observation, then a short invitation to read on.",
+        "One flowing sentence without a salutation, wish, or question.",
+        "Two sentences of similar length with different grammatical openings.",
+        "One sentence starting with a courteous first-person statement.",
+        "Two sentences; a longer opening followed by a very short transition.",
     )
 
     LABEL_PATTERN = re.compile(
@@ -108,6 +132,17 @@ class GreetingGenerator(BaseGenerator):
             index = 0
 
         return self.STYLE_DIRECTIONS[index]
+
+    def writing_direction(self, variation_key):
+        try:
+            key = int(variation_key or 0)
+        except (TypeError, ValueError):
+            key = 0
+        key //= len(self.STYLE_DIRECTIONS)
+        theme = self.THEMES[key % len(self.THEMES)]
+        key //= len(self.THEMES)
+        structure = self.STRUCTURES[key % len(self.STRUCTURES)]
+        return theme, structure
 
     def get_pool_log_message(
         self,
@@ -163,53 +198,30 @@ class GreetingGenerator(BaseGenerator):
             variation_key
         )
 
+        theme, structure = self.writing_direction(variation_key)
+
         system_prompt = f"""
-You write exceptional, ready-to-use email openings in {language_name}.
-
-The greeting must sound like a thoughtful person beginning a genuine
-one-to-one email. It should be warm, polished, memorable, and effortless,
-never robotic, ceremonial, salesy, or overly enthusiastic.
-
-Quality rules:
-- Write naturally in {language_name}; use phrasing and punctuation that feel
-  native to that language instead of translating an English formula.
-- Express one clear warm thought. Do not stack several wishes or compliments.
-- Create a smooth bridge into the email that could naturally be followed by
-  the sender's main message.
-- Prefer fresh, specific-feeling language without inventing any personal fact,
-  relationship, event, season, time of day, or reason for writing.
-- Avoid tired formulas such as "I hope this email finds you well",
-  "I hope you're doing well", "I hope you're having a wonderful day",
-  "Greetings of the day", and close translations of those phrases.
-- Do not begin every output with the equivalent of "Hello" or "I hope".
-- Use at most one exclamation mark and avoid emojis.
-- Use 1 or 2 complete, conversational sentences.
-- Aim for {target_min} to {target_max} words. The absolute valid range is
-  {min_words} to {max_words} words.
-
-Return only the greeting text. Do not include a title, label, markdown,
-quotation marks, signature, name, placeholder, date, link, explanation,
-subject line, or the rest of an email.
+Write a ready-to-use, warm, natural email greeting in {language_name}.
+Use native phrasing and a professional, conversational tone, not sales language.
+Express one warm thought. Invent no facts about the recipient, relationship,
+occasion, time of day, or reason for writing. Do not promise outcomes.
+Avoid tired formulas: "I hope this email finds you well", "I hope you're doing
+well", "Greetings of the day", and their translations. Vary the opening words.
+Aim for {target_min} to {target_max} words separated by spaces; the valid range
+is {min_words} to {max_words}. Use 1-2 complete sentences, at most one
+exclamation mark, and no emojis.
+Return only the greeting: no title, label, quotes, signature, name, placeholder,
+date, link, explanation, or rest of the email.
         """.strip()
 
         user_prompt = f"""
-Write one distinctive email greeting in {language_name}.
-
-Variation seed: {variation_key}
-Use this seed only to vary wording, sentence structure, opening cadence,
-and tone. Never mention or expose it.
-
-Creative direction: {style_name}
-{style_instruction}
-
-Make the result feel personal without using a name and without pretending to
-know anything about the recipient. It must be immediately usable at the start
-of a real email and should flow naturally into the next paragraph.
-
-Target {target_min} to {target_max} words and stay inside the hard limit of
-{min_words} to {max_words} words.
-
-Return only the greeting itself, with no wrapper or extra text.
+Language: {language_name}
+Tone: {style_name}. {style_instruction}
+Warm thought: {theme}.
+Sentence structure: {structure}
+Create fresh phrasing for this combination, not a translation of these directions.
+Before returning, check the {min_words}-{max_words} space-separated word limit.
+Variation: {variation_key} (never include this identifier in the greeting).
 {retry_feedback}
         """.strip()
 

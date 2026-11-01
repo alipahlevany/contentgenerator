@@ -18,7 +18,7 @@ def build_blocked_keyword_pattern(keyword):
     if not keyword:
         return None
 
-    return rf"(?<!\\w){re.escape(keyword)}(?!\\w)"
+    return rf"(?<!\w){re.escape(keyword)}(?!\w)"
 
 
 def contains_blocked_keyword(text):
@@ -66,35 +66,35 @@ def remove_blocked_keywords(text):
             flags=re.IGNORECASE,
         )
 
-    cleaned_text = re.sub(r"[ \\t]{2,}", " ", cleaned_text)
+    cleaned_text = re.sub(r"[ \t]{2,}", " ", cleaned_text)
 
     cleaned_text = re.sub(
-        r"[ \\t]+([.,!?;:])",
-        r"\\1",
+        r"[ \t]+([.,!?;:])",
+        r"\1",
         cleaned_text,
     )
 
     cleaned_text = re.sub(
-        r"([\\(\\[\\{])[ \\t]+",
-        r"\\1",
+        r"([(\[{])[ \t]+",
+        r"\1",
         cleaned_text,
     )
 
     cleaned_text = re.sub(
-        r"[ \\t]+([\\)\\]\\}])",
-        r"\\1",
+        r"[ \t]+([)\]}])",
+        r"\1",
         cleaned_text,
     )
 
     cleaned_text = re.sub(
-        r"\\n[ \\t]+\\n",
-        "\\n\\n",
+        r"\n[ \t]+\n",
+        "\n\n",
         cleaned_text,
     )
 
     cleaned_text = re.sub(
-        r"\\n{3,}",
-        "\\n\\n",
+        r"\n{3,}",
+        "\n\n",
         cleaned_text,
     )
 

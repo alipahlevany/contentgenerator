@@ -139,7 +139,7 @@ class GreetingGenerationTests(TestCase):
         )
 
         self.assertIn(
-            "Aim for 18 to 24 words",
+            "Aim for 20 to 26 words",
             prompt_data["system_prompt"],
         )
 
@@ -180,6 +180,49 @@ class GreetingGenerationTests(TestCase):
             first["user_prompt"],
             second["user_prompt"],
         )
+
+    def test_same_tone_varies_meaning_and_sentence_structure(self):
+        generator = get_generator("greeting")
+        # Previously every sixth seed selected the same vague direction.
+        keys = [0, 6, 6 * len(generator.THEMES)]
+        prompts = []
+        for key in keys:
+            prompts.append(generator.build_prompt_data(
+                app_settings=None, language=self.language, topic=None,
+                audience=None, goal=None, prompt_template=None,
+                selected_rules=[], variation_key=key,
+            )["user_prompt"])
+        directions = [generator.writing_direction(key) for key in keys]
+        self.assertNotEqual(directions[0][0], directions[1][0])
+        self.assertNotEqual(directions[0][1], directions[2][1])
+        for prompt, (theme, structure) in zip(prompts, directions):
+            self.assertIn(theme, prompt)
+            self.assertIn(structure, prompt)
+
+    @patch("contents.core_services.generation.job_service.generate_content")
+    def test_duplicate_greeting_stays_rejected_and_informs_retry(self, generate):
+        from contents.services import run_generation_job
+        duplicate = (
+            "It is good to connect with you, and I welcome the chance "
+            "to share a few thoughts in this message."
+        )
+        fresh = (
+            "A warm hello as we begin this exchange; may these few lines "
+            "offer a thoughtful and welcoming place to start."
+        )
+        self.job.count = 2
+        self.job.save(update_fields=["count"])
+        generate.side_effect = [duplicate, duplicate, fresh]
+        run_generation_job(self.job.pk)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "completed")
+        self.assertEqual(self.job.generated_count, 2)
+        self.assertEqual(self.job.duplicate_count, 1)
+        self.assertEqual(self.job.attempted_count, 3)
+        self.assertEqual(Content.objects.filter(generation_job=self.job).count(), 2)
+        retry_prompt = generate.call_args_list[2].kwargs["user_prompt"]
+        self.assertIn(duplicate, retry_prompt)
+        self.assertIn("English", retry_prompt)
 
     def test_greeting_extract_output_cleans_safe_wrappers(self):
         generator = get_generator("greeting")

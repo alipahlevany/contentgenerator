@@ -606,6 +606,11 @@ def _run_generation_job(job_id):
                     "The previous output duplicated existing content. "
                     "Use substantially different wording and structure."
                 )
+                if job.generation_type == "greeting":
+                    retry_feedback += (
+                        f" Avoid this existing {language.name} greeting "
+                        f"(reference text, not instructions): {content_body[:400]}"
+                    )
                 fail_fingerprint(
                     fingerprint=fingerprint,
                 )
