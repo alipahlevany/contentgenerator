@@ -20,10 +20,12 @@
 {# Loaded after Django responsive.css so the custom mobile shell wins. #}
 <link rel="stylesheet" href="{% static 'admin/admin_shell.css' %}?v=20261101-nav-scope">
 <link rel="stylesheet" href="{% static 'ui/theme.css' %}">
+<link rel="stylesheet" href="{% static 'ui/controls.css' %}?v=20261101-controls">
+<link rel="stylesheet" href="{% static 'admin/list_controls.css' %}?v=20261101-catalog">
 {% if opts.model_name == 'generationjob' %}
 <link rel="stylesheet" href="{% static 'admin/generation_jobs.css' %}?v=20261101-controls">
-<link rel="stylesheet" href="{% static 'ui/controls.css' %}?v=20261101-controls">
 {% endif %}
+<link rel="stylesheet" href="{% static 'admin/admin_controls.css' %}?v=20261101-buttons">
 {% endblock %}
 
 {% block extrahead %}

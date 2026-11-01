@@ -118,25 +118,8 @@
             user-select: all;
         }
 
-        .copy-button {
-            min-width: 100px;
-            padding: 0 20px;
-            border: 0;
-            border-radius: 10px;
-            color: #ffffff;
-            background: #0f766e;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .copy-button:hover {
-            background: #115e59;
-        }
-
-        .copy-button.copied {
-            background: #16a34a;
-        }
+        .copy-button { min-width: 100px; }
+        .copy-button.copied { background: var(--control-selected); color: var(--control-text); }
 
         .warning-box {
             margin-top: 20px;
@@ -162,26 +145,6 @@
             margin-top: 28px;
             padding-top: 24px;
             border-top: 1px solid #e5e7eb;
-        }
-
-        .api-key-actions a {
-            padding: 11px 18px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        .secondary-button {
-            border: 1px solid #cbd5e1;
-            color: #334155 !important;
-            background: #ffffff;
-        }
-
-        .primary-button {
-            border: 1px solid #0f766e;
-            color: #ffffff !important;
-            background: #0f766e;
         }
 
         @media (max-width: 700px) {
@@ -253,7 +216,7 @@
 
                     <button
                         id="copy-api-key"
-                        class="copy-button"
+                        class="copy-button cg-button"
                         type="button"
                     >
                         Copy key
@@ -270,14 +233,14 @@
 
                 <div class="api-key-actions">
                     <a
-                        class="secondary-button"
+                        class="cg-button"
                         href="{{ client_list_url }}"
                     >
                         Back to clients
                     </a>
 
                     <a
-                        class="primary-button"
+                        class="cg-button cg-button--primary"
                         href="{{ client_change_url }}"
                     >
                         View client

@@ -1,0 +1,126 @@
+/* Native admin controls share the same hierarchy as the operations dashboard.
+   Keep Django's names, links and submit behavior; only presentation changes. */
+:root {
+    --control-danger:#a93543;
+    --control-danger-bg:#fff3f4;
+    --control-danger-border:#ebc7cc;
+    --control-danger-hover:#ffe5e8;
+}
+:root[data-cg-theme=dark] {
+    --control-danger:#ffc1c8;
+    --control-danger-bg:#3b252e;
+    --control-danger-border:#74434e;
+    --control-danger-hover:#51303a;
+}
+#container #content :is(input[type=submit],input[type=button],button[type=submit],a.button,.submit-row a,.cancel-link) {
+    box-sizing:border-box;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:42px;
+    height:auto;
+    margin:0;
+    padding:10px 16px;
+    border:1px solid var(--control-border);
+    border-radius:8px;
+    background:var(--control-surface);
+    color:var(--control-text);
+    font-family:inherit;
+    font-size:12px;
+    font-weight:600;
+    line-height:20px;
+    letter-spacing:0;
+    text-transform:none;
+    text-decoration:none;
+    white-space:normal;
+    text-align:center;
+    cursor:pointer;
+    box-shadow:none;
+    transition:background-color .16s,border-color .16s,color .16s;
+}
+#container #content :is(input.default,button.cg-button--primary,a.button.default) {
+    color:var(--control-on-primary);
+    background:var(--control-primary);
+    border-color:var(--control-primary);
+}
+#container #content .submit-row {
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    flex-wrap:wrap;
+    gap:10px;
+    box-sizing:border-box;
+    padding:14px;
+    border:1px solid var(--control-border);
+    border-radius:10px;
+    background:var(--control-surface);
+    box-shadow:0 4px 16px #0000000a;
+}
+#content .submit-row > * { float:none; margin:0; }
+/* Preserve the template's visual and keyboard order. */
+#content .submit-row input.default { float:none; }
+#container #content .submit-row :is(.deletelink-box,a.deletelink) { margin-inline-start:auto; }
+#container #content .submit-row a.deletelink,
+body.delete-confirmation #container #content form input[type=submit] {
+    color:var(--control-danger);
+    background:var(--control-danger-bg);
+    border-color:var(--control-danger-border);
+}
+body.delete-confirmation #content form > div:last-child { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-top:24px; }
+#content .submit-row > .cancel-link { margin-inline-start:0; }
+
+/* Bulk actions and pagination fit inside their table instead of overflowing it. */
+#content #changelist .actions { box-sizing:border-box; width:100%; display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+#content #changelist .actions label { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:0; }
+#content #changelist .actions select { box-sizing:border-box; min-height:42px; max-width:100%; margin:0; padding:8px 30px 8px 10px; border-radius:8px; }
+#content #changelist .actions .action-counter { padding:0; font-size:11px; }
+#content .paginator { line-height:2; }
+#container #content .paginator :is(a,.this-page) { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:36px; min-height:36px; margin:3px 2px; padding:6px 10px; border:1px solid var(--control-border); border-radius:7px; color:var(--control-text); background:var(--control-surface); font-size:12px; line-height:20px; text-decoration:none; }
+#container #content .paginator .this-page { background:var(--control-selected); border-color:var(--control-focus); font-weight:600; }
+#container #content .paginator input { margin-inline-start:12px; }
+
+/* Small icon controls keep their compact shape and accessible target size. */
+#content .related-widget-wrapper-link { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:32px; min-height:36px; margin:2px; padding:7px; border:1px solid var(--control-border); border-radius:6px; background:var(--control-surface); vertical-align:middle; }
+#content .related-widget-wrapper-link img { width:14px; height:14px; }
+#content .related-widget-wrapper-link[aria-disabled=true] { opacity:.4; }
+#container #content .login-submit { width:100%; min-height:48px; margin-top:8px; box-shadow:none; transform:none; }
+#content input[type=file] { max-width:100%; }
+#content input[type=file]::file-selector-button { min-height:42px; margin-inline-end:10px; padding:10px 14px; border:1px solid var(--control-border); border-radius:8px; color:var(--control-text); background:var(--control-surface); font-family:inherit; font-size:12px; font-weight:600; line-height:20px; cursor:pointer; }
+#content input[type=file]::file-selector-button:hover { background:var(--control-hover); border-color:var(--control-focus); }
+#content .password-toggle { width:38px; height:38px; border-radius:7px; color:var(--control-text); }
+#content .password-toggle:hover { background:var(--control-hover); }
+#header #user-tools { flex-wrap:wrap; }
+#header #user-tools :is(a,button) { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-height:36px; padding:7px 9px; border:1px solid transparent; border-radius:7px; line-height:20px; text-decoration:none; }
+#header #user-tools .theme-toggle { width:36px; padding:8px; }
+#header #user-tools :is(a,button):hover { background:#ffffff12; }
+#nav-sidebar .cg-nav-quick a { border-radius:8px; box-shadow:none; font-weight:600; transform:none; }
+html[data-cg-theme] #nav-sidebar.cg-nav .cg-nav-quick a.cg-nav-create { color:var(--control-on-primary)!important; border-color:var(--control-primary); background:var(--control-primary); }
+html[data-cg-theme] #nav-sidebar.cg-nav .cg-nav-quick a.cg-nav-create:hover { background:var(--control-primary-hover); border-color:var(--control-primary-hover); }
+
+#container #content :is(input[type=submit],input[type=button],button,a.button,.submit-row a,.cancel-link,.paginator a,.related-widget-wrapper-link):focus-visible,
+#header #user-tools :is(a,button):focus-visible { outline:2px solid var(--control-focus); outline-offset:3px; }
+#container #content :is(input[type=submit],input[type=button],button):disabled { opacity:.45; cursor:not-allowed; box-shadow:none; transform:none; }
+@media(hover:hover) {
+    #container #content :is(input[type=submit],input[type=button],button[type=submit],a.button,.submit-row a,.cancel-link,.paginator a,.related-widget-wrapper-link):hover:where(:not(:disabled)):where(:not([aria-disabled=true])) { background:var(--control-hover); color:var(--control-text); border-color:var(--control-focus); }
+    #container #content :is(input.default,button.cg-button--primary,a.button.default):hover:not(:disabled) { background:var(--control-primary-hover); color:var(--control-on-primary); border-color:var(--control-primary-hover); }
+    #container #content .submit-row a.deletelink:hover,
+    body.delete-confirmation #container #content form input[type=submit]:hover:not(:disabled) { background:var(--control-danger-hover); color:var(--control-danger); border-color:var(--control-danger); }
+}
+@media(max-width:767px) {
+    #container #content :is(input[type=submit],input[type=button],button[type=submit],a.button,.submit-row a,.cancel-link) { min-height:44px; }
+    #container #content .submit-row { position:static; gap:8px; padding:12px; }
+    #container #content .submit-row > :is(input,a,.deletelink-box) { flex:1 1 100%; width:100%; margin:0; }
+    #container #content .submit-row .deletelink-box a { width:100%; }
+    #content #changelist .actions label { width:100%; }
+    #content #changelist .actions select { min-width:0; flex:1; min-height:44px; }
+    #content input[type=file]::file-selector-button { min-height:44px; }
+    #container #content .paginator :is(a,.this-page) { min-width:40px; min-height:40px; }
+    #container #content .paginator input { float:none; margin:8px 0; }
+    #header #user-tools :is(a,button) { min-height:40px; }
+    #header #user-tools .theme-toggle { width:40px; }
+    #content .cg-settings-hero > .cg-button { width:100%; white-space:normal; }
+}
+@media(prefers-reduced-motion:reduce) {
+    #container #content :is(input[type=submit],input[type=button],button,a.button,.submit-row a,.cancel-link,.paginator a) { transition:none; }
+}

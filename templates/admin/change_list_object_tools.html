@@ -1,0 +1,12 @@
+{% load i18n admin_urls %}
+{% block object-tools-items %}
+{% if has_add_permission %}
+<li>
+    {% url cl.opts|admin_urlname:'add' as add_url %}
+    <a href="{% add_preserved_filters add_url is_popup to_field %}" class="cg-button cg-button--primary">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        {% blocktranslate with name=cl.opts.verbose_name|capfirst %}Add {{ name }}{% endblocktranslate %}
+    </a>
+</li>
+{% endif %}
+{% endblock %}

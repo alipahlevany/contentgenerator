@@ -34,10 +34,10 @@
 
         {% if cg_run_url %}
         <a
-            class="cg-run-button"
+            class="cg-button cg-button--primary"
             href="{{ cg_run_url }}"
         >
-            ▶ {{ cg_run_label }}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>{{ cg_run_label }}
         </a>
         {% endif %}
     </section>
