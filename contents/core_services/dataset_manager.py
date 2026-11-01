@@ -64,6 +64,7 @@ def generate_seed_items(model_name, count):
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         max_retries=3,
+        purpose="dataset_generation",
     )
 
     return parse_seed_lines(text)
@@ -73,22 +74,17 @@ def should_run_dataset_refill(job, app_settings):
     if not getattr(app_settings, "auto_refill_enabled", False):
         return False
 
-    threshold = getattr(app_settings, "auto_refill_skip_threshold", 50)
+    threshold = max(1, getattr(app_settings, "auto_refill_skip_threshold", 50))
+    duplicate_count = job.duplicate_count
 
-    if job.skipped_count <= 0:
+    if duplicate_count <= 0:
         return False
 
-    if job.skipped_count % threshold != 0:
+    if duplicate_count % threshold != 0:
         return False
 
-    lock_key = f"dataset_refill_lock_job_{job.id}_{job.skipped_count}"
-
-    if cache.get(lock_key):
-        return False
-
-    cache.set(lock_key, True, REFILL_LOCK_TIMEOUT)
-
-    return True
+    lock_key = f"dataset_refill_duplicates_job_{job.id}_{duplicate_count}"
+    return cache.add(lock_key, True, REFILL_LOCK_TIMEOUT)
 
 
 def run_dataset_refill(job, app_settings):
@@ -100,7 +96,7 @@ def run_dataset_refill(job, app_settings):
     log_job(
         job,
         "warning",
-        f"Dataset manager triggered at skipped count {job.skipped_count}.",
+        f"Dataset manager triggered at duplicate count {job.duplicate_count}.",
     )
 
     topic_names = generate_seed_items("topic", item_count)

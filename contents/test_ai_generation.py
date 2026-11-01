@@ -142,3 +142,44 @@ class GenerationModelSettingsTests(TestCase):
         self.assertEqual(legacy.model_name, "gpt-6-luna")
         self.assertEqual(default.model_name, "gpt-6-luna")
         self.assertEqual(custom.model_name, "gpt-4.1")
+
+
+class AIUsageMeteringTests(TestCase):
+    def setUp(self):
+        self.settings = SimpleNamespace(model_name='gpt-6-luna', max_output_tokens=1200, temperature=1.05)
+        self.response = SimpleNamespace(
+            status='completed', output_text='A complete response.', model='gpt-6-luna',
+            usage=SimpleNamespace(input_tokens=300, output_tokens=40,
+                                  input_tokens_details=SimpleNamespace(cached_tokens=100)),
+        )
+
+    def generate(self):
+        with patch('contents.core_services.ai.get_app_settings', return_value=self.settings), patch(
+            'contents.core_services.ai.client.responses.create', return_value=self.response,
+        ):
+            return generate_content('System', 'User', generation_type='greeting')
+
+    def test_actual_usage_is_recorded_without_copying_content(self):
+        from contents.models import AIUsageLog
+        self.assertEqual(self.generate(), 'A complete response.')
+        usage = AIUsageLog.objects.get()
+        self.assertEqual((usage.input_tokens, usage.cached_input_tokens, usage.output_tokens), (300, 100, 40))
+        self.assertEqual(usage.generation_type, 'greeting')
+        self.assertIsNone(usage.estimated_cost)
+
+    def test_rejected_paid_response_is_still_metered(self):
+        from contents.models import AIUsageLog
+        self.response.status = 'incomplete'
+        with self.assertRaises(RuntimeError):
+            self.generate()
+        self.assertEqual(AIUsageLog.objects.get().output_tokens, 40)
+
+    def test_metering_failure_does_not_retry_or_discard_paid_output(self):
+        from django.db import DatabaseError
+        with patch('contents.core_services.ai.AIUsageLog.objects.create', side_effect=DatabaseError('Meter unavailable')), patch(
+            'contents.core_services.ai.logger.exception',
+        ) as logger:
+            self.assertEqual(self.generate(), 'A complete response.')
+        logger.assert_called_once()
+        # The failed savepoint must not leave the caller's transaction broken.
+        self.assertEqual(AppSettings.objects.count(), 0)

@@ -501,6 +501,7 @@ def _run_generation_job(job_id):
                 generated_text = generate_content(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
+                    generation_type=job.generation_type,
                 )
             except PermanentGenerationError:
                 # Stop before penalizing datasets or triggering paid refills.

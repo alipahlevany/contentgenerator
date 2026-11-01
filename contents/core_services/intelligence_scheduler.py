@@ -8,13 +8,17 @@ CACHE_KEY = "content_intelligence_event_counter"
 
 
 def maybe_run_intelligence_optimization():
-    current_count = cache.get(CACHE_KEY, 0) + 1
-    cache.set(CACHE_KEY, current_count, timeout=None)
-
-    if current_count < OPTIMIZATION_EVENT_INTERVAL:
+    # Redis increment is atomic across workers; get + set could lose events.
+    cache.add(CACHE_KEY, 0, timeout=None)
+    try:
+        current_count = cache.incr(CACHE_KEY)
+    except ValueError:
+        # A cache clear between add and incr should not fail a saved output.
+        cache.add(CACHE_KEY, 1, timeout=None)
         return False
 
-    cache.set(CACHE_KEY, 0, timeout=None)
-    optimize_dataset_weights(limit=100)
+    if current_count % OPTIMIZATION_EVENT_INTERVAL:
+        return False
 
+    optimize_dataset_weights(limit=100)
     return True

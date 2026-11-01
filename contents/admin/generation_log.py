@@ -9,6 +9,7 @@ from contents.models import (
 
 
 class GenerationJobLogAdmin(admin.ModelAdmin):
+    list_select_related = ("job",)
     list_display = ("id", "job", "level", "message", "created_at")
     list_display_links = ("id", "job")
     list_filter = ("level", "created_at")
@@ -24,6 +25,7 @@ class GenerationJobLogAdmin(admin.ModelAdmin):
 
 
 class DatasetEventAdmin(admin.ModelAdmin):
+    list_select_related = ("job", "content")
     list_display = (
         "id",
         "item_type",
@@ -98,6 +100,7 @@ class DatasetPerformanceAdmin(admin.ModelAdmin):
 
 
 class GenerationPatternAdmin(admin.ModelAdmin):
+    list_select_related = ("language", "topic", "audience", "goal", "prompt_template")
     list_display = (
         "id",
         "language",
@@ -152,3 +155,21 @@ class GenerationPatternAdmin(admin.ModelAdmin):
         "last_used_at",
         "updated_at",
     )
+
+class AIUsageLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at", "model_name", "generation_type", "purpose",
+        "input_tokens", "cached_input_tokens", "output_tokens",
+    )
+    list_filter = ("created_at", "generation_type", "purpose", "model_name")
+    ordering = ("-created_at",)
+    readonly_fields = list_display
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

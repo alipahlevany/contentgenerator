@@ -2,7 +2,7 @@ from contents.core_services.dataset_manager import run_dataset_refill
 from contents.core_services.intelligence import record_generation_event
 from contents.core_services.logger import log_job
 from contents.core_services.runner import increment_skipped
-from contents.core_services.weight_optimizer import optimize_dataset_weights
+from contents.core_services.intelligence_scheduler import maybe_run_intelligence_optimization
 
 
 def is_email_reply_job(job):
@@ -111,12 +111,14 @@ def handle_generation_failure(
         message=message,
     )
 
-    run_dataset_refill(
-        job=job,
-        app_settings=app_settings,
-    )
+    # New topics cannot repair malformed output or an API failure.
+    if failure_kind == "duplicate":
+        run_dataset_refill(
+            job=job,
+            app_settings=app_settings,
+        )
 
-    optimize_dataset_weights()
+    maybe_run_intelligence_optimization()
 
 
 def handle_generation_success(
@@ -180,4 +182,4 @@ def handle_generation_success(
         ),
     )
 
-    optimize_dataset_weights()
+    maybe_run_intelligence_optimization()

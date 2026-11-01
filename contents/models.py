@@ -1211,12 +1211,18 @@ class AIUsageLog(models.Model):
 
     input_tokens = models.PositiveIntegerField(default=0)
 
+    cached_input_tokens = models.PositiveIntegerField(default=0)
+
+    generation_type = models.CharField(max_length=30, blank=True, default="")
+
     output_tokens = models.PositiveIntegerField(default=0)
 
     estimated_cost = models.DecimalField(
         max_digits=10,
         decimal_places=6,
-        default=0,
+        null=True,
+        blank=True,
+        default=None,
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1231,7 +1237,7 @@ class AIUsageLog(models.Model):
     def __str__(self):
         return (
             f"{self.provider} | {self.purpose} | "
-            f"${self.estimated_cost}"
+            f"{self.input_tokens} input / {self.output_tokens} output tokens"
         )
 
 

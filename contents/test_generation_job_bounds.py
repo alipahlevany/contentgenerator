@@ -214,7 +214,7 @@ class GenerationJobBoundsTests(TestCase):
             stack.enter_context(
                 patch(
                     "contents.core_services.generation_outcome."
-                    "optimize_dataset_weights"
+                    "maybe_run_intelligence_optimization"
                 )
             )
 
@@ -522,7 +522,7 @@ class GenerationJobBoundsTests(TestCase):
         ), patch(
             "contents.core_services.generation_outcome.run_dataset_refill"
         ), patch(
-            "contents.core_services.generation_outcome.optimize_dataset_weights"
+            "contents.core_services.generation_outcome.maybe_run_intelligence_optimization"
         ), patch(
             "contents.core_services.generation.job_service.log_job"
         ), patch(

@@ -34,14 +34,17 @@ def get_dataset_performance(item):
 
 
 def calculate_item_score(item):
-    base_weight = get_weight(item)
     performance = get_dataset_performance(item)
+    return item_score_from_quality(
+        item, performance.quality_score if performance else None,
+    )
 
-    if not performance:
+
+def item_score_from_quality(item, quality_score):
+    base_weight = get_weight(item)
+    if quality_score is None:
         return base_weight
-
-    quality_multiplier = max(performance.quality_score, 1) / 100
-
+    quality_multiplier = max(quality_score, 1) / 100
     return max(base_weight * quality_multiplier, 0.1)
 
 
@@ -57,10 +60,11 @@ def calculate_pattern_score(language, topic, audience, goal, prompt_template):
     if not pattern:
         return 1
 
-    quality = max(pattern.quality_score, 1) / 100
-    confidence = max(pattern.confidence, 1) / 100
+    return pattern_score_from_quality(pattern.quality_score, pattern.confidence)
 
-    return max(quality * confidence, 0.1)
+
+def pattern_score_from_quality(quality_score, confidence):
+    return max(max(quality_score, 1) / 100 * max(confidence, 1) / 100, 0.1)
 
 
 def calculate_generation_score(

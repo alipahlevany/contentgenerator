@@ -81,7 +81,9 @@ class ClientLimitTests(ClientLimitFixtureMixin, TestCase):
 
         self.assertEqual(response.status_code, 201)
 
-    def test_rate_limits_are_separate_and_include_retry_after(self):
+    @patch("contents.throttles.time.time", return_value=1_800_000_010)
+    def test_rate_limits_are_separate_and_include_retry_after(self, _clock):
+        # Keep all three requests in one window, even at a real minute boundary.
         ExternalClient.objects.filter(pk__in=[self.client_a.pk, self.client_b.pk]).update(
             limits_enabled=True,
             requests_per_minute=1,

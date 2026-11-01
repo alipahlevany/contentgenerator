@@ -1,4 +1,7 @@
+import logging
+
 from django.conf import settings
+from django.db import transaction
 
 import httpx
 from openai import OpenAI
@@ -6,6 +9,10 @@ from openai import OpenAI
 from contents.core_services.cache import get_app_settings
 from contents.core_services.cleaner import clean_generated_content
 from contents.core_services.retry import RETRYABLE_ERRORS, sleep_before_retry
+from contents.models import AIUsageLog
+
+
+logger = logging.getLogger(__name__)
 
 
 # Keep retries in one place; SDK retries would multiply our attempt budget.
@@ -54,7 +61,30 @@ def extract_response_text(response):
     return "\n".join(parts).strip()
 
 
-def generate_content(system_prompt, user_prompt=None, max_retries=3):
+def record_response_usage(response, model_name, purpose, generation_type):
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    try:
+        details = getattr(usage, "input_tokens_details", None)
+        # An incomplete or later-rejected response still consumed tokens.
+        # Keep the log compact: no prompts or copies of generated content.
+        with transaction.atomic():
+            AIUsageLog.objects.create(
+                model_name=getattr(response, "model", None) or model_name,
+                purpose=purpose,
+                generation_type=generation_type,
+                input_tokens=usage.input_tokens,
+                cached_input_tokens=getattr(details, "cached_tokens", 0) or 0,
+                output_tokens=usage.output_tokens,
+            )
+    except Exception:
+        # A metering failure must not discard an already paid-for response.
+        logger.exception("Unable to record AI response token usage")
+
+
+def generate_content(system_prompt, user_prompt=None, max_retries=3, *,
+                     purpose="content_generation", generation_type=""):
     app_settings = get_app_settings()
     last_error = None
 
@@ -73,6 +103,8 @@ def generate_content(system_prompt, user_prompt=None, max_retries=3):
                     service_tier="default",
                 )
             response = client.responses.create(**request)
+
+            record_response_usage(response, app_settings.model_name, purpose, generation_type)
 
             if getattr(response, "status", None) in {"incomplete", "failed"}:
                 raise ValueError("OpenAI returned an incomplete or failed response.")

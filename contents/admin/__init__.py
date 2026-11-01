@@ -4,6 +4,7 @@ from .intelligence_dashboard import custom_admin_index
 
 
 from contents.models import (
+    AIUsageLog,
     Audience,
     BlockedKeyword,
     Content,
@@ -41,6 +42,7 @@ from .content import (
 )
 from .generation_job import GenerationJobAdmin
 from .generation_log import (
+    AIUsageLogAdmin,
     DatasetEventAdmin,
     DatasetPerformanceAdmin,
     GenerationJobLogAdmin,
@@ -54,6 +56,7 @@ from . import delivery  # noqa: F401
 from . import external_client  # noqa: F401
 
 
+admin.site.register(AIUsageLog, AIUsageLogAdmin)
 admin.site.register(Topic, TopicAdmin)
 admin.site.register(Audience, AudienceAdmin)
 admin.site.register(Goal, GoalAdmin)

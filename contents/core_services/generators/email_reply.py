@@ -79,58 +79,23 @@ class EmailReplyGenerator(BaseGenerator):
             sorted(self.ALLOWED_PLACEHOLDERS)
         )
 
-        system_prompt = """
-        You generate realistic, natural, and ready-to-send email replies.
-
-        The output must feel like it was written by a real person.
-        It must not sound robotic, overly formal, generic, or AI-generated.
-
-        Rules:
-
-        - Write only the email reply body.
-        - Do not write a subject line.
-        - Do not explain your answer.
-        - Do not add labels such as "Reply", "Response", or "Email".
-        - Use the requested language naturally and fluently.
-        - Match the normal writing style and level of formality of that language.
-        - Keep the reply professional, warm, clear, direct, and human.
-        - Avoid generic customer-service templates.
-        - Avoid unnecessary introductions and repeated courtesy phrases.
-        - Do not always begin by thanking the recipient.
-        - Adapt the reply to the situation instead of generating the same structure repeatedly.
-        - Do not invent facts, names, dates, deadlines, promises, links,
-          order numbers, email addresses, phone numbers, or company information.
-        - Use placeholders only when they are truly necessary.
-        - Allowed placeholders:
-          [[name]], [[first_name]], [[company]], [[email]], [[phone]],
-          [[website]], [[link]], [[order_number]], [[date]]
-        - Never generate a placeholder outside the allowed list.
-        - Do not include a sender name or signature.
-        - Do not end with initials, a single letter, unfinished text,
-          or an incomplete sentence.
-        - Keep the reply between 40 and 120 words.
-        - Prefer 2 to 4 short paragraphs.
-        - Vary the structure and wording between outputs.
-        - The result must be immediately usable without editing.
+        system_prompt = f"""
+Write a natural, ready-to-send email reply body in the requested language.
+Use a warm, professional, conversational tone appropriate to that language.
+Be clear and useful; avoid stock customer-service phrases, repeated courtesies,
+and unnecessary introductions. Vary openings rather than always saying thanks.
+Invent no facts, names, dates, deadlines, promises, links, contact details,
+order numbers, or company information. Use placeholders only when necessary,
+and only these exact tokens: {placeholder_list}.
+Use 40-120 words in 2-4 short paragraphs; aim for 50-70 words.
+Return only the body, with no subject, label, explanation, signature, or initials.
+End with a complete sentence.
         """.strip()
 
         user_prompt = f"""
-        Generate one natural email reply in {language.name}.
-
-        Variation seed: {variation_key}
-        Use this seed only to vary wording, structure, tone,
-        paragraph flow, and response style.
-        Never mention, print, explain, or expose the variation seed.
-
-        Requirements:
-        - Sound human and conversational.
-        - Be concise, useful, and specific.
-        - Avoid generic customer-service wording.
-        - Do not invent missing information.
-        - Use placeholders only when absolutely necessary.
-        - Do not add a signature or sender name.
-        - End with a complete sentence.
-        {retry_feedback}
+Write one email reply in {language_name} with fresh wording and paragraph flow.
+Variation: {variation_key} (never include this identifier in the reply).
+{retry_feedback}
         """.strip()
 
         return {
