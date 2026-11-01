@@ -3,6 +3,10 @@
     const filters = document.getElementById('changelist-filter');
     if (!filters || !document.body.classList.contains('model-generationjob')) return;
     const groups = Array.from(filters.querySelectorAll('details'));
+    const slot = document.getElementById('cg-job-filter-slot');
+    if (slot) slot.append(filters);
+    const search = document.getElementById('searchbar');
+    if (search) search.placeholder = 'Search runs…';
     const labels = {'generation type':'Type', status:'Status', 'created at':'Date'};
     const placeMenu = group => {
         const menu = group.querySelector('ul');

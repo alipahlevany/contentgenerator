@@ -1,8 +1,25 @@
 {% extends "admin/change_list.html" %}
+{% load admin_urls admin_list %}
 {% block content_title %}
 <div class="cg-jobs-heading">
+    <div>
     <span>CONTENT STUDIO / OPERATIONS</span>
     <h1>Generation runs</h1>
     <p>Follow every run, from the first output to the final result.</p>
+    </div>
+    <div class="cg-jobs-actions">
+        <a class="cg-button" href="{% url 'admin:index' %}">Overview</a>
+        {% if has_add_permission %}
+        {% url cl.opts|admin_urlname:'add' as add_url %}
+        <a class="cg-button cg-button--primary" href="{% add_preserved_filters add_url is_popup to_field %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New generation</a>
+        {% endif %}
+    </div>
 </div>
+{% endblock %}
+{% block object-tools %}{% endblock %}
+{% block search %}
+<section class="cg-jobs-controls" aria-label="Search and filter runs">
+    {% search_form cl %}
+    <div id="cg-job-filter-slot"></div>
+</section>
 {% endblock %}

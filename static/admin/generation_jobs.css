@@ -39,8 +39,9 @@ html[data-cg-theme="dark"] body.model-generationjob {
     --job-red:#f1acb5;
     --job-red-soft:#412c33;
 }
-.cg-jobs-heading { margin:2px 0 23px; }
-.cg-jobs-heading > span { color:var(--job-muted); font-size:9px; font-weight:600; letter-spacing:1.5px; }
+.cg-jobs-heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:20px; margin:2px 0 26px; }
+.cg-jobs-heading > div > span { color:var(--job-muted); font-size:9px; font-weight:600; letter-spacing:1.5px; }
+.cg-jobs-actions { display:flex; align-items:center; gap:10px; }
 .model-generationjob #content .cg-jobs-heading h1 { color:var(--job-text); font-size:28px; font-weight:600; letter-spacing:-.8px; margin:8px 0; }
 .cg-jobs-heading p { color:var(--job-muted); font-size:12px; margin:0; }
 body.model-generationjob.change-list #content { min-width:0; max-width:none; }
@@ -149,3 +150,56 @@ body.model-generationjob.change-list #changelist-filter.cg-job-filters details >
 body.model-generationjob.change-list #content #changelist,
 body.model-generationjob.change-list #changelist #changelist-filter.cg-job-filters { background:transparent; }
 body.model-generationjob.change-list #changelist-filter.cg-job-filters details:not([open]) > ul { display:none; }
+
+/* Search and filters form one toolbar, separate from creation and row actions. */
+.cg-jobs-controls { display:flex; align-items:center; flex-wrap:wrap; gap:14px; padding:14px; margin-bottom:16px; border:1px solid var(--job-line); border-radius:10px; background:var(--job-surface); }
+body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar { flex:1 1 270px; min-width:0; padding:0; margin:0; border:0; border-radius:0; background:transparent; }
+body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar form > div { display:flex; align-items:center; flex-wrap:wrap; position:relative; gap:8px; }
+body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar label { position:absolute; top:13px; left:12px; margin:0; line-height:16px; }
+body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar label img { width:16px; height:16px; opacity:.7; }
+body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar input[type=text] { box-sizing:border-box; flex:1; width:100%; min-width:120px; margin:0; min-height:42px; padding:10px 12px 10px 36px; border-color:var(--control-border); background:var(--job-canvas); font-size:12px; }
+body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar input[type=submit] { box-sizing:border-box; min-height:42px; padding:10px 15px; margin:0; background:var(--control-surface); color:var(--control-text); border:1px solid var(--control-border); border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; transition:background-color .16s,border-color .16s; }
+body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar .quiet { flex-basis:100%; margin:0; font-size:11px; }
+#cg-job-filter-slot { flex:0 1 auto; }
+body.model-generationjob.change-list #cg-job-filter-slot #changelist-filter { margin:0; gap:8px; }
+body.model-generationjob.change-list #cg-job-filter-slot #changelist-filter > h2 { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters summary { display:flex; align-items:center; gap:5px; min-height:42px; box-sizing:border-box; padding:10px 12px; border-radius:8px; border-color:var(--control-border); font-size:12px; line-height:20px; transition:background-color .16s,border-color .16s; }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters summary::after { content:''; width:5px; height:5px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg); margin:-3px 1px 0 9px; }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters summary strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters details[open] summary::after { transform:rotate(225deg); margin-top:3px; }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters details[open] summary,
+body.model-generationjob.change-list #changelist-filter.cg-job-filters .is-filtered summary { background:var(--job-accent-soft); }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters li a { display:flex; align-items:center; justify-content:space-between; min-height:38px; box-sizing:border-box; font-size:12px; padding:8px 10px; transition:background-color .16s,color .16s; }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters li.selected a::after { content:''; width:5px; height:5px; border-radius:50%; background:var(--job-accent); }
+body.model-generationjob.change-list #changelist-filter.cg-job-filters #changelist-filter-clear a { display:flex; align-items:center; min-height:42px; box-sizing:border-box; padding:9px 11px; font-size:11px; }
+body.model-generationjob.change-list #changelist a.cg-job-action { min-height:34px; min-width:75px; box-sizing:border-box; border:1px solid var(--job-line); padding:7px 11px; font-size:11px; border-radius:7px; text-decoration:none; transition:background-color .16s,border-color .16s,color .16s; }
+body.model-generationjob.change-list #changelist a.cg-job-action--view { color:var(--job-muted); }
+body.model-generationjob.change-list #changelist table thead th { padding:7px 12px; }
+body.model-generationjob.change-list #changelist table thead th .text a { display:flex; align-items:center; min-height:36px; }
+body.model-generationjob.change-list #changelist .toplinks a { min-height:32px; box-sizing:border-box; display:inline-flex; align-items:center; padding:6px 10px; border-color:transparent; background:transparent; font-size:11px; }
+body.model-generationjob.change-list :is(input,summary,a.cg-job-action):focus-visible { outline:2px solid var(--control-focus); outline-offset:3px; }
+@media(hover:hover) {
+    body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar input[type=submit]:hover,
+    body.model-generationjob.change-list #changelist-filter.cg-job-filters summary:hover { background:var(--job-hover); border-color:var(--job-accent); }
+    body.model-generationjob.change-list #changelist-filter.cg-job-filters li a:hover { color:var(--job-text); background:var(--job-hover); }
+    body.model-generationjob.change-list #changelist a.cg-job-action:hover { color:var(--job-accent); border-color:var(--job-accent); background:var(--job-accent-soft); text-decoration:none; }
+    body.model-generationjob.change-list #changelist a.cg-job-action--stop:hover { color:var(--job-red); border-color:var(--job-red); background:var(--job-red-soft); }
+}
+@media(max-width:767px) {
+    .cg-jobs-heading { align-items:flex-start; gap:16px; }
+    .cg-jobs-actions { width:100%; }
+    .cg-jobs-actions a { flex:1; }
+    .cg-jobs-controls { padding:12px; gap:12px; }
+    #cg-job-filter-slot { width:100%; }
+    body.model-generationjob.change-list #cg-job-filter-slot #changelist-filter { display:grid; grid-template-columns:1fr 1fr; }
+    body.model-generationjob.change-list #cg-job-filter-slot details { min-width:0; }
+    body.model-generationjob.change-list #changelist-filter.cg-job-filters summary { min-height:44px; justify-content:space-between; gap:4px; padding:10px; font-size:11px; }
+    body.model-generationjob.change-list #changelist-filter.cg-job-filters summary::after { margin-left:3px; flex-shrink:0; }
+    body.model-generationjob.change-list #changelist-filter.cg-job-filters details > ul { width:210px; }
+    body.model-generationjob.change-list #changelist-filter.cg-job-filters li a { min-height:42px; }
+    body.model-generationjob.change-list #changelist .cg-jobs-controls #toolbar input { min-height:44px; }
+    body.model-generationjob.change-list #changelist a.cg-job-action { min-height:40px; }
+}
+@media(prefers-reduced-motion:reduce) {
+    body.model-generationjob.change-list :is(a,input,summary) { transition:none!important; }
+}

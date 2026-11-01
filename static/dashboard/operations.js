@@ -225,6 +225,7 @@
     // Independent request: a provider outage cannot delay local production metrics.
     refreshAccountUsage(days);
     $('refresh').disabled = true;
+    $('refresh').setAttribute('aria-busy','true'); text('refresh-label','Refreshing');
     document.querySelectorAll('[data-days]').forEach(button=>button.disabled = true);
     text('sync-text','Refreshing…');
     const controller = new AbortController();
@@ -243,6 +244,7 @@
       if(days !== metrics.period_days) refreshAccountUsage(metrics.period_days);
     } finally {
       clearTimeout(timer); refreshing = false; $('refresh').disabled = false;
+      $('refresh').setAttribute('aria-busy','false'); text('refresh-label','Refresh');
       document.querySelectorAll('[data-days]').forEach(button=>button.disabled = false);
     }
   }
@@ -253,7 +255,7 @@
   document.querySelectorAll('[data-token-measure]').forEach(button=>button.addEventListener('click',()=>{tokenMeasure=button.dataset.tokenMeasure;renderDailyTokens();}));
   $('next-sample').addEventListener('click',()=>{sampleIndex++;renderSample();});
   $('copy-sample').addEventListener('click',async()=>{
-    try {await navigator.clipboard.writeText(metrics.greeting_samples[sampleIndex].generated_content);text('copy-status','Greeting copied.');$('copy-sample').innerHTML=icon('check');setTimeout(()=>$('copy-sample').innerHTML=icon('copy'),1600);}
+    try {await navigator.clipboard.writeText(metrics.greeting_samples[sampleIndex].generated_content);text('copy-status','Greeting copied.');$('copy-sample').innerHTML=icon('check')+'<span>Copied</span>';setTimeout(()=>$('copy-sample').innerHTML=icon('copy')+'<span>Copy</span>',1600);}
     catch(error){text('copy-status','Copy unavailable. Select the greeting text to copy it manually.');text('sample-position','Select text to copy');}
   });
   const showTip = target => {
