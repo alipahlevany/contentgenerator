@@ -796,3 +796,23 @@ def send_model_data_to_api(
         "success": False,
         "message": "Legacy automatic delivery is disabled.",
     }
+
+
+@shared_task(queue="delivery")
+def send_melal_template(pk):
+    from contents.core_services.melal_templates import send_template
+    return send_template(pk)
+
+
+@shared_task(queue="maintenance")
+def dispatch_melal_templates():
+    from django.conf import settings
+    from contents.models import MelalTemplateDelivery
+    from contents.core_services.melal_templates import dispatch
+    if not settings.MELAL_TEMPLATE_ENABLED:
+        return
+    ids = MelalTemplateDelivery.objects.filter(
+        status="pending", next_attempt_at__lte=timezone.now(),
+    ).order_by("next_attempt_at").values_list("pk", flat=True)[:50]
+    for pk in ids:
+        dispatch(pk)

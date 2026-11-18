@@ -4,6 +4,7 @@ import secrets
 from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 
 class Topic(models.Model):
@@ -1582,3 +1583,15 @@ class WarmupButtonRotation(models.Model):
 
     bank_version = models.CharField(max_length=32, primary_key=True)
     next_position = models.PositiveBigIntegerField(default=0)
+
+
+class MelalTemplateDelivery(models.Model):
+    content = models.OneToOneField(Content, on_delete=models.CASCADE)
+    external_id = models.CharField(max_length=160, unique=True)
+    endpoint = models.URLField(max_length=500)
+    html = models.TextField()
+    status = models.CharField(max_length=16, default="pending", db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    remote_id = models.PositiveBigIntegerField(null=True, blank=True)
+    last_error = models.CharField(max_length=200, blank=True)

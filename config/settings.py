@@ -527,3 +527,16 @@ WARMUP_TEMPLATE_LINK_URL = os.getenv(
     "WARMUP_TEMPLATE_LINK_URL",
     "https://medium.com/ai-advances/algorithms-dont-discriminate-people-do-b779ee074644",
 ).strip()
+
+# Dedicated template connector. Enable after configuring the Melal import API.
+MELAL_TEMPLATE_ENABLED = os.getenv("MELAL_TEMPLATE_ENABLED", "false").lower() == "true"
+MELAL_TEMPLATE_ENDPOINT = os.getenv("MELAL_TEMPLATE_ENDPOINT", "")
+MELAL_TEMPLATE_API_KEY = os.getenv("MELAL_TEMPLATE_API_KEY", "")
+MELAL_TEMPLATE_SOURCE = os.getenv("MELAL_TEMPLATE_SOURCE", "content-generator")
+MELAL_TEMPLATE_ALLOW_LOCAL_HTTP = False
+
+CELERY_BEAT_SCHEDULE["dispatch-melal-template-outbox"] = {
+    "task": "contents.tasks.dispatch_melal_templates",
+    "schedule": 60.0,
+    "options": {"queue": "maintenance"},
+}

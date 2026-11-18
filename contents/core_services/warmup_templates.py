@@ -280,6 +280,8 @@ def generate_warmup_template(run_date, sequence, batch_key=None):
                 content_hash=hashlib.sha256(markup.encode("utf-8")).hexdigest(),
                 status="generated",
             )
+            from contents.core_services.melal_templates import queue_template
+            queue_template(content)
             rotation.next_position += 1
             rotation.save(update_fields=["next_position"])
         logger.info(
