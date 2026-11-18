@@ -57,12 +57,14 @@ def start_generation_job(
         job.status = "running"
         job.should_stop = False
         job.error_message = ""
+        job.recovery_count = 0
 
         job.save(
             update_fields=[
                 "status",
                 "should_stop",
                 "error_message",
+                "recovery_count",
                 "updated_at",
             ]
         )

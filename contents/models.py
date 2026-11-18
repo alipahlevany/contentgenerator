@@ -258,6 +258,7 @@ class Content(models.Model):
         ("standard", "Standard Content"),
         ("email_reply", "Email Reply"),
         ("greeting", "Greeting"),
+        ("warmup_template", "HTML Warmup Template"),
     ]
 
     title = models.CharField(max_length=255)
@@ -687,6 +688,8 @@ class GenerationJob(models.Model):
 
     max_retries = models.PositiveIntegerField(default=3)
 
+    recovery_count = models.PositiveIntegerField(default=0, editable=False)
+
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -709,6 +712,14 @@ class Greeting(Content):
         proxy = True
         verbose_name = "Greeting"
         verbose_name_plural = "Greetings"
+
+
+
+class WarmupTemplate(Content):
+    class Meta:
+        proxy = True
+        verbose_name = "Warmup Template"
+        verbose_name_plural = "Warmup Templates"
 
 
 
@@ -859,6 +870,36 @@ class AppSettings(models.Model):
         blank=True,
     )
 
+    auto_daily_warmup_template_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable automatic daily HTML warmup-template generation.",
+    )
+
+    daily_warmup_template_count = models.PositiveIntegerField(
+        default=10,
+        validators=[MinValueValidator(1), MaxValueValidator(50)],
+        help_text="Templates per day (1 to 50).",
+    )
+
+    daily_warmup_template_delay_seconds = models.FloatField(
+        default=3.0,
+        validators=[MinValueValidator(0)],
+    )
+
+    daily_warmup_template_hour = models.PositiveSmallIntegerField(
+        default=5,
+        validators=[MinValueValidator(0), MaxValueValidator(23)],
+    )
+
+    daily_warmup_template_minute = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(59)],
+    )
+
+    last_daily_warmup_template_date = models.DateField(null=True, blank=True)
+    last_warmup_template_error = models.TextField(blank=True, default="")
+    last_warmup_template_error_at = models.DateTimeField(null=True, blank=True)
+
     is_active = models.BooleanField(default=True)
 
 
@@ -886,6 +927,14 @@ class GreetingGenerationSettings(AppSettings):
         proxy = True
         verbose_name = "Greeting Settings"
         verbose_name_plural = "Greeting Settings"
+
+
+
+class WarmupTemplateGenerationSettings(AppSettings):
+    class Meta:
+        proxy = True
+        verbose_name = "Warmup Template Settings"
+        verbose_name_plural = "Warmup Template Settings"
 
 
 class SharedGenerationSettings(AppSettings):
@@ -1190,6 +1239,7 @@ class AIUsageLog(models.Model):
         ("dataset_generation", "Dataset Generation"),
         ("intelligence", "Intelligence"),
         ("title_generation", "Title Generation"),
+        ("template_generation", "HTML Template Generation"),
         ("other", "Other"),
     ]
 
@@ -1525,3 +1575,10 @@ class GenerationFingerprint(models.Model):
             f"{self.fingerprint[:12]}:"
             f"{self.status}"
         )
+
+
+class WarmupButtonRotation(models.Model):
+    """Durable cursor, locked together with saving each email template."""
+
+    bank_version = models.CharField(max_length=32, primary_key=True)
+    next_position = models.PositiveBigIntegerField(default=0)

@@ -28,7 +28,6 @@ class BaseContentAdmin(admin.ModelAdmin):
         "generated_content",
         "content_hash",
     )
-
     list_filter = (
         "status",
         "language",

@@ -5,6 +5,7 @@ from contents.models import (
     ReplyGenerationSettings,
     SharedGenerationSettings,
     StandardGenerationSettings,
+    WarmupTemplateGenerationSettings,
 )
 
 
@@ -185,3 +186,31 @@ class SharedGenerationSettingsForm(forms.ModelForm):
             "auto_refill_item_count",
             "is_active",
         )
+
+class WarmupTemplateGenerationSettingsForm(BaseTimeSettingsForm):
+    daily_warmup_template_time = forms.TimeField(
+        label="Daily warmup template time",
+        required=True,
+        input_formats=["%H:%M"],
+        widget=forms.TimeInput(
+            format="%H:%M",
+            attrs={"type": "time", "class": "cg-time-input"},
+        ),
+        help_text="Uses the configured TIME_ZONE. Example: 05:00",
+    )
+
+    time_field_name = "daily_warmup_template_time"
+    hour_field_name = "daily_warmup_template_hour"
+    minute_field_name = "daily_warmup_template_minute"
+
+    class Meta:
+        model = WarmupTemplateGenerationSettings
+        fields = (
+            "auto_daily_warmup_template_enabled",
+            "daily_warmup_template_count",
+            "daily_warmup_template_delay_seconds",
+        )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._set_initial_time()

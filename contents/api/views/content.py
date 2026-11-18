@@ -98,7 +98,7 @@ class ContentListAPIView(ListAPIView):
                 "goal",
                 "prompt_template",
             )
-            .all()
+            .exclude(content_type="warmup_template")
             .order_by("-created_at", "-id")
         )
 
@@ -227,7 +227,7 @@ class ContentDetailAPIView(RetrieveAPIView):
         .prefetch_related(
             "rules"
         )
-        .all()
+        .exclude(content_type="warmup_template")
     )
 
     def retrieve(self, request, *args, **kwargs):

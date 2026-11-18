@@ -314,6 +314,24 @@ class GenerationJobBoundsTests(TestCase):
         self.assertEqual(job.generated_count, 2)
         self.assertEqual(job.retry_count, 0)
 
+    @patch("contents.tasks.queue_generation_job")
+    def test_recovered_interruption_finishes_remaining_items_only(self, queue):
+        from datetime import timedelta
+        from django.utils import timezone
+        from contents.core_services.job_health import recover_stuck_jobs
+
+        job = GenerationJob.objects.create(count=3, generated_count=1, status="running")
+        saved = Content.objects.create(title="Already saved", generated_content="Existing body",
+                                       generation_job=job, content_type="standard")
+        GenerationJob.objects.filter(pk=job.pk).update(updated_at=timezone.now()-timedelta(minutes=10))
+        self.assertEqual(recover_stuck_jobs(), 1)
+        queue.assert_called_once_with(job.pk, "standard", auto_resume=True)
+        self.run_with_generation(job, ["Remaining first", "Remaining second"])
+        job.refresh_from_db()
+        self.assertEqual((job.status, job.generated_count, job.recovery_count), ("completed", 3, 1))
+        self.assertEqual(Content.objects.filter(generation_job=job).count(), 3)
+        self.assertTrue(Content.objects.filter(pk=saved.pk).exists())
+
     def test_queued_task_does_not_restart_a_stopped_job(self):
         job = GenerationJob.objects.create(count=1, status="stopped", should_stop=True)
         self.run_with_generation(job, [AssertionError("Must not call the API")])

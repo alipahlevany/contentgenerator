@@ -2,7 +2,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 
-from rest_framework import status
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.views import APIView
 
 from contents.api.responses import (
@@ -21,6 +22,30 @@ from contents.tasks import deliver_content_callback
 class ContentDeliveryAPIView(APIView):
     permission_classes = [HasValidAPIKey]
 
+    @extend_schema(
+        operation_id="queue_content_delivery",
+        request=None,
+        parameters=[
+            OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER),
+        ],
+        responses={
+            202: inline_serializer(
+                name="QueuedContentDelivery",
+                fields={
+                    "success": serializers.BooleanField(),
+                    "message": serializers.CharField(),
+                    "data": inline_serializer(
+                        name="QueuedContentDeliveryData",
+                        fields={"delivery": ContentDeliverySerializer()},
+                    ),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid callback URL."),
+            403: OpenApiResponse(description="API key rejected."),
+            404: OpenApiResponse(description="Content unavailable for delivery."),
+            409: OpenApiResponse(description="Idempotency conflict."),
+        },
+    )
     def post(self, request, pk):
         return execute_idempotent(
             request,
@@ -29,7 +54,9 @@ class ContentDeliveryAPIView(APIView):
         )
 
     def _create_delivery(self, request, pk):
-        content = get_object_or_404(Content, pk=pk)
+        content = get_object_or_404(
+            Content.objects.exclude(content_type="warmup_template"), pk=pk
+        )
         callback_url = request.client.callback_url
 
         try:

@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 import requests
 from celery import shared_task
@@ -7,11 +8,26 @@ from django.utils import timezone
 
 from contents.core_services.job_health import recover_stuck_jobs
 from contents.core_services.delivery import RetryableDeliveryError, deliver_content
+from contents.core_services.warmup_template_renderer import WarmupTemplateError
+from contents.core_services.warmup_runs import (
+    get_manual_batch,
+    record_batch_dispatch,
+    record_template_progress,
+)
+from contents.core_services.warmup_templates import (
+    WarmupTemplateInProgress,
+    generate_warmup_template,
+    photo_source_status,
+)
 from contents.models import AppSettings, GenerationJob
 from contents.services import run_generation_job
 
 
 logger = logging.getLogger(__name__)
+WARMUP_RETRYABLE_ERRORS = (
+    requests.RequestException,
+    WarmupTemplateInProgress,
+)
 
 
 GENERATION_QUEUE_BY_TYPE = {
@@ -110,6 +126,147 @@ def queue_generation_job(
         routing_key=queue,
         countdown=countdown,
     )
+
+
+
+
+@shared_task
+def run_daily_warmup_template_task(force=False, batch_key=None):
+    """Schedule the configured number of independent daily template jobs."""
+    lock_key = "daily_warmup_template_task_lock"
+    if not cache.add(lock_key, "locked", timeout=60 * 10):
+        record_batch_dispatch(batch_key, 0, "Another batch is being scheduled. Please try again shortly.")
+        return "Warmup template scheduling is already in progress."
+
+    accepted = 0
+    def reject(message):
+        record_batch_dispatch(batch_key, 0, message)
+        return message
+
+    try:
+        manual = get_manual_batch(batch_key) if batch_key else None
+        if batch_key and (not force or manual is None):
+            return "Manual batch progress has expired. Please submit a new request."
+        app_settings = (
+            AppSettings.objects.filter(is_active=True).order_by("-id").first()
+        )
+        if not app_settings:
+            return reject("No active generation settings found.")
+        if not force and not app_settings.auto_daily_warmup_template_enabled:
+            return "Daily warmup template generation is disabled."
+
+        now = timezone.localtime()
+        today = now.date()
+        if not force:
+            target_minutes = (
+                app_settings.daily_warmup_template_hour * 60
+                + app_settings.daily_warmup_template_minute
+            )
+            if now.hour * 60 + now.minute < target_minutes:
+                return "Daily warmup template generation time has not arrived yet."
+            if app_settings.last_daily_warmup_template_date == today:
+                return "Daily warmup templates already ran today."
+
+        source = photo_source_status()
+        config_error = source["error"]
+        if config_error:
+            if cache.add(f"warmup-template-config-error:{today}", 1, timeout=86400):
+                logger.error("Warmup template generation skipped: %s", config_error)
+            return reject(config_error)
+
+        count = manual["count"] if manual else app_settings.daily_warmup_template_count
+        delay = manual["delay"] if manual else app_settings.daily_warmup_template_delay_seconds
+        if not 1 <= count <= 50 or delay < 0:
+            return reject("Warmup template count or delay is outside its allowed range.")
+        batch_key = batch_key or (
+            f"{today.isoformat()}-manual-{uuid.uuid4().hex[:10]}"
+            if force else today.isoformat()
+        )
+        run_date = manual["run_date"] if manual else today.isoformat()
+        for sequence in range(count):
+            generate_warmup_template_task.apply_async(
+                args=[run_date, sequence, batch_key],
+                countdown=sequence * delay,
+                queue="generation_standard",
+                routing_key="generation_standard",
+            )
+            accepted += 1
+        record_batch_dispatch(batch_key, accepted)
+
+        if not force:
+            app_settings.last_daily_warmup_template_date = today
+            app_settings.save(update_fields=["last_daily_warmup_template_date"])
+        logger.info(
+            "Warmup templates queued | count=%s | batch=%s", count, batch_key
+        )
+        return f"Queued {count} warmup templates in batch {batch_key}."
+    except Exception:
+        record_batch_dispatch(batch_key, accepted, "Some templates could not be queued. Saved results remain available below.")
+        logger.exception("Daily warmup template scheduling failed.")
+        raise
+    finally:
+        cache.delete(lock_key)
+
+
+def _record_warmup_template_failure(run_date, sequence, exc):
+    """Persist the last terminal failure for the settings screen."""
+    try:
+        app_settings = AppSettings.objects.filter(is_active=True).order_by("-id").first()
+        if not app_settings:
+            return
+        detail = (
+            " ".join(str(exc).split())[:400]
+            if isinstance(exc, WarmupTemplateError)
+            else type(exc).__name__
+        )
+        app_settings.last_warmup_template_error = (
+            f"{run_date} #{int(sequence) + 1}: {detail}"
+        )
+        app_settings.last_warmup_template_error_at = timezone.now()
+        app_settings.save(update_fields=[
+            "last_warmup_template_error",
+            "last_warmup_template_error_at",
+        ])
+    except Exception:
+        logger.exception("Unable to record warmup template failure.")
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=WARMUP_RETRYABLE_ERRORS,
+    retry_backoff=True,
+    retry_backoff_max=120,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 3},
+)
+def generate_warmup_template_task(self, run_date, sequence, batch_key=None):
+    from datetime import date
+
+    try:
+        record_template_progress(batch_key, int(sequence), "generating")
+        content = generate_warmup_template(
+            run_date=date.fromisoformat(run_date),
+            sequence=int(sequence),
+            batch_key=batch_key,
+        )
+    except Exception as exc:
+        if not isinstance(exc, WARMUP_RETRYABLE_ERRORS) or self.request.retries >= 3:
+            detail = str(exc)[:400] if isinstance(exc, WarmupTemplateError) else "The template could not be created after retries. Please try again."
+            record_template_progress(batch_key, int(sequence), "failed", detail)
+            _record_warmup_template_failure(run_date, sequence, exc)
+            logger.exception(
+                "Warmup template generation failed | date=%s | sequence=%s",
+                run_date, sequence,
+            )
+        else:
+            record_template_progress(batch_key, int(sequence), "retrying")
+            logger.warning(
+                "Warmup template generation will retry | date=%s | sequence=%s | attempt=%s",
+                run_date, sequence, self.request.retries + 1,
+            )
+        raise
+    record_template_progress(batch_key, int(sequence), "complete")
+    return {"content_id": content.pk, "title": content.title}
 
 
 @shared_task

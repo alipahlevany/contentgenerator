@@ -1,0 +1,27 @@
+{% extends "admin/change_form.html" %}
+
+{% block after_field_sets %}
+{{ block.super }}
+{% if warmup_preview_url %}
+<section id="warmup-preview" class="warmup-preview">
+    <div class="warmup-preview__heading">
+        <div>
+            <span class="warmup-preview__eyebrow">LOCAL TEMPLATE STUDIO</span>
+            <h2>Template preview</h2>
+            <p>The sample message replaces <code>{% templatetag openvariable %}content{% templatetag closevariable %}</code> here. The downloaded HTML keeps both placeholders. Save edits to refresh the preview.</p>
+        </div>
+        <a class="button" href="{{ warmup_download_url }}">Download HTML</a>
+    </div>
+    <div class="warmup-preview__grid">
+        <div class="warmup-preview__device warmup-preview__device--desktop">
+            <div class="warmup-preview__label"><span class="warmup-preview__dot"></span> Desktop <small>600px email layout</small></div>
+            <iframe src="{{ warmup_preview_url }}" title="Desktop email template preview" sandbox="" loading="lazy"></iframe>
+        </div>
+        <div class="warmup-preview__device warmup-preview__device--mobile">
+            <div class="warmup-preview__label"><span class="warmup-preview__dot"></span> Mobile <small>360px screen</small></div>
+            <iframe src="{{ warmup_preview_url }}" title="Mobile email template preview" sandbox="" loading="lazy"></iframe>
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -16,6 +16,7 @@ from contents.models import (
     GenerationJobLog,
     GenerationPattern,
     Greeting,
+    WarmupTemplate,
     StandardGenerationSettings,
     SharedGenerationSettings,
     ReplyGenerationSettings,
@@ -54,6 +55,7 @@ from . import settings_sections  # noqa: F401
 from . import content_export  # noqa: F401
 from . import delivery  # noqa: F401
 from . import external_client  # noqa: F401
+from . import warmup_template  # noqa: F401
 
 
 admin.site.register(AIUsageLog, AIUsageLogAdmin)
@@ -72,6 +74,7 @@ admin.site.register(GenerationPattern, GenerationPatternAdmin)
 admin.site.register(Content, ContentAdmin)
 admin.site.register(EmailReply, EmailReplyAdmin)
 admin.site.register(Greeting, GreetingAdmin)
+# Registered in contents.admin.warmup_template for the separate template section.
 admin.site.register(GenerationJob, GenerationJobAdmin)
 admin.site.register(GenerationJobLog, GenerationJobLogAdmin)
 

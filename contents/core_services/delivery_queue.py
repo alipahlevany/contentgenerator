@@ -12,6 +12,9 @@ def queue_content_deliveries(content):
     The operation is idempotent because ContentDelivery has a unique
     constraint for client, content, content_hash and purpose.
     """
+    if content.content_type == "warmup_template":
+        return []
+
     clients = ExternalClient.objects.all()
 
     preference_field = {

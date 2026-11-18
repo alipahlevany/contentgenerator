@@ -1,19 +1,31 @@
+from django.conf import settings
 from django.contrib import admin, messages
+from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.http import HttpResponseNotAllowed, JsonResponse
+from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
+from contents.core_services.warmup_templates import photo_source_status
+from contents.core_services.warmup_runs import (
+    LATEST_KEY, create_manual_batch, record_batch_dispatch,
+)
 from contents.models import (
     GreetingGenerationSettings,
     ReplyGenerationSettings,
     SharedGenerationSettings,
     StandardGenerationSettings,
+    WarmupTemplate,
+    WarmupTemplateGenerationSettings,
 )
 from contents.tasks import (
     run_daily_generation_task,
     run_daily_greeting_generation_task,
     run_daily_reply_generation_task,
+    run_daily_warmup_template_task,
 )
 
 from .settings_forms import (
@@ -21,7 +33,9 @@ from .settings_forms import (
     ReplyGenerationSettingsForm,
     SharedGenerationSettingsForm,
     StandardGenerationSettingsForm,
+    WarmupTemplateGenerationSettingsForm,
 )
+from .warmup_actions import batch_payload, template_generation_action
 
 
 class BaseSectionSettingsAdmin(admin.ModelAdmin):
@@ -340,6 +354,148 @@ class GreetingGenerationSettingsAdmin(
             },
         ),
     )
+
+
+@admin.register(WarmupTemplateGenerationSettings)
+class WarmupTemplateGenerationSettingsAdmin(BaseSectionSettingsAdmin):
+    form = WarmupTemplateGenerationSettingsForm
+    change_list_template = "admin/contents/warmuptemplategenerationsettings/change_list.html"
+    theme_key = "template"
+    section_icon = "✉️"
+    section_title = "Warmup Template Generator"
+    section_description = (
+        "Generate empty HTML email templates with remotely hosted photos. "
+        "Melal inserts your existing content. No additional OpenAI calls or image storage."
+    )
+    run_task = run_daily_warmup_template_task
+    run_label = "Generate Warmup Templates Now"
+    enabled_field = "auto_daily_warmup_template_enabled"
+
+    class Media:
+        css = {"all": (f"{settings.STATIC_URL}admin/warmup_template.css?v=20261117-progress",)}
+        js = (f"{settings.STATIC_URL}admin/warmup_generation.js?v=20261117-buttons",)
+
+    def get_urls(self):
+        return [path("generation-status/", self.admin_site.admin_view(self.generation_status_view),
+                     name="contents_warmuptemplategenerationsettings_status")] + super().get_urls()
+
+    def get_changelist_instance(self, request):
+        request.GET = request.GET.copy()
+        request.GET.pop("batch", None)
+        return super().get_changelist_instance(request)
+
+    def generation_status_view(self, request):
+        if request.method != "GET":
+            return HttpResponseNotAllowed(["GET"])
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
+        payload = batch_payload(request.GET.get("batch"))
+        if payload is None:
+            return JsonResponse({"message": "Live progress is no longer available. Saved templates are still in Warmup Templates."}, status=404)
+        return JsonResponse(payload)
+
+    def changelist_view(self, request, extra_context=None):
+        context = dict(extra_context or {})
+        context["warmup_action"] = template_generation_action(request, self.admin_site, "settings")
+        return super().changelist_view(request, extra_context=context)
+
+    fieldsets = (
+        (
+            "✉️ Daily HTML Templates",
+            {
+                "fields": (
+                    "auto_daily_warmup_template_enabled",
+                    "daily_warmup_template_count",
+                    "daily_warmup_template_time",
+                    "daily_warmup_template_delay_seconds",
+                    "last_daily_warmup_template_date",
+                ),
+            },
+        ),
+        (
+            "Generation health",
+            {
+                "fields": (
+                    "last_warmup_template_error_at",
+                    "last_warmup_template_error",
+                ),
+            },
+        ),
+    )
+
+    readonly_fields = (
+        "last_daily_warmup_template_date",
+        "last_warmup_template_error_at",
+        "last_warmup_template_error",
+    )
+
+    def run_now_view(self, request):
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        wants_json = "application/json" in request.headers.get("Accept", "")
+
+        def failure(message, status=400):
+            payload = batch_payload(cache.get(LATEST_KEY))
+            if wants_json:
+                return JsonResponse({"message": message, "progress": payload}, status=status)
+            self.message_user(request, message, messages.ERROR)
+            return self._get_changelist_redirect()
+
+        source = photo_source_status()
+        if not source["ready"]:
+            return failure(source["error"])
+        config = WarmupTemplateGenerationSettings.objects.filter(is_active=True).order_by("-id").first()
+        if not config:
+            return failure("Save active template settings first.")
+        try:
+            batch = create_manual_batch(config)
+        except ValueError as exc:
+            return failure(str(exc))
+        if batch is None:
+            return failure("A batch was submitted recently. Its progress and results are shown below.", 409)
+        try:
+            self.run_task.delay(force=True, batch_key=batch["batch_key"])
+        except Exception:
+            message = "The request could not reach the generation queue. Please try again."
+            record_batch_dispatch(batch["batch_key"], 0, message)
+            return failure(message, 503)
+        if wants_json:
+            return JsonResponse(batch_payload(batch["batch_key"]), status=202)
+        return redirect(reverse("admin:contents_warmuptemplate_changelist") + "?batch=" + batch["batch_key"] + "#template-generation")
+
+    def render_change_form(self, request, context, *args, **kwargs):
+        today = timezone.localdate()
+        templates = WarmupTemplate.objects.filter(content_type="warmup_template").order_by("-id")
+        context["warmup_action"] = template_generation_action(request, self.admin_site, "settings")
+        latest = templates.first()
+        active_settings = (
+            WarmupTemplateGenerationSettings.objects.filter(is_active=True)
+            .order_by("-id")
+            .first()
+        )
+        context["cg_template_status"] = {
+            "today_count": templates.filter(created_at__date=today).count(),
+            "photo_source": photo_source_status(),
+            "target_count": (
+                active_settings.daily_warmup_template_count if active_settings else None
+            ),
+            "destination_url": settings.WARMUP_TEMPLATE_LINK_URL,
+            "timezone": timezone.get_current_timezone_name(),
+            "last_error": (
+                active_settings.last_warmup_template_error if active_settings else ""
+            ),
+            "last_error_at": (
+                active_settings.last_warmup_template_error_at if active_settings else None
+            ),
+            "sample_url": reverse("admin:contents_warmuptemplate_sample"),
+            "latest_url": (
+                reverse("admin:contents_warmuptemplate_change", args=(latest.pk,)) + "#warmup-preview"
+                if latest else None
+            ),
+        }
+        return super().render_change_form(request, context, *args, **kwargs)
 
 
 @admin.register(SharedGenerationSettings)

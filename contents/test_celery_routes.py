@@ -10,7 +10,9 @@ class CeleryRouteTests(SimpleTestCase):
             "contents.tasks.run_daily_generation_task": "generation_standard",
             "contents.tasks.run_daily_reply_generation_task": "generation_reply",
             "contents.tasks.run_daily_greeting_generation_task": "generation_greeting",
-            "contents.tasks.recover_stuck_generation_jobs": "generation_standard",
+            "contents.tasks.run_daily_warmup_template_task": "generation_standard",
+            "contents.tasks.generate_warmup_template_task": "generation_standard",
+            "contents.tasks.recover_stuck_generation_jobs": "maintenance",
         }
 
         for task_name, queue in expected_routes.items():

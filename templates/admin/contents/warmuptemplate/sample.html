@@ -1,0 +1,46 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/warmup_template.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="warmup-sample">
+    <div class="warmup-sample__top">
+        <div>
+            <span class="warmup-preview__eyebrow">LOCAL TEMPLATE STUDIO</span>
+            <h1>{{ design_count }} designs. Your content.</h1>
+            <p>Empty HTML templates with rotating photos and palettes. Melal fills the content and unsubscribe placeholders with your existing email content.</p>
+        </div>
+        <a class="button" href="{% url 'admin:contents_warmuptemplate_changelist' %}">Saved templates</a>
+    </div>
+
+    <nav class="warmup-sample__tabs" aria-label="Choose a design">
+        {% for design in designs %}
+        <a href="{{ design.url }}" {% if design.active %}class="is-active" aria-current="page"{% endif %}>{{ design.label }}</a>
+        {% endfor %}
+    </nav>
+
+    <section class="warmup-preview">
+        <div class="warmup-preview__heading">
+            <div>
+                <span class="warmup-preview__eyebrow">DESIGN {{ variation|add:1 }} / {{ design_count }}</span>
+                <h2>{{ design_name }}</h2>
+                <p>Sample body text is shown for preview only. Generated HTML contains placeholders, with no generated headline, introduction or message.</p>
+            </div>
+        </div>
+        <div class="warmup-preview__grid">
+            <div class="warmup-preview__device warmup-preview__device--desktop">
+                <div class="warmup-preview__label"><span class="warmup-preview__dot"></span> Desktop <small>600px email layout</small></div>
+                <iframe src="{{ frame_url }}" title="Desktop design sample" sandbox="" loading="lazy"></iframe>
+            </div>
+            <div class="warmup-preview__device warmup-preview__device--mobile">
+                <div class="warmup-preview__label"><span class="warmup-preview__dot"></span> Mobile <small>360px screen</small></div>
+                <iframe src="{{ frame_url }}" title="Mobile design sample" sandbox="" loading="lazy"></iframe>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

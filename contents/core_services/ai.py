@@ -84,27 +84,38 @@ def record_response_usage(response, model_name, purpose, generation_type):
 
 
 def generate_content(system_prompt, user_prompt=None, max_retries=3, *,
-                     purpose="content_generation", generation_type=""):
+                     purpose="content_generation", generation_type="",
+                     max_output_tokens=None, text_format=None, model_name=None,
+                     temperature=None):
     app_settings = get_app_settings()
+    selected_model = model_name or app_settings.model_name
     last_error = None
 
     for attempt in range(1, max_retries + 1):
         try:
             request = {
-                "model": app_settings.model_name,
+                "model": selected_model,
                 "instructions": system_prompt,
                 "input": user_prompt or "",
-                "max_output_tokens": app_settings.max_output_tokens,
-                "temperature": app_settings.temperature,
+                "max_output_tokens": (
+                    max_output_tokens
+                    if max_output_tokens is not None
+                    else app_settings.max_output_tokens
+                ),
+                "temperature": (
+                    temperature if temperature is not None else app_settings.temperature
+                ),
             }
-            if app_settings.model_name == "gpt-6-luna":
+            if text_format is not None:
+                request["text"] = {"format": text_format}
+            if selected_model == "gpt-6-luna":
                 request.update(
                     reasoning={"effort": "none"},
                     service_tier="default",
                 )
             response = client.responses.create(**request)
 
-            record_response_usage(response, app_settings.model_name, purpose, generation_type)
+            record_response_usage(response, selected_model, purpose, generation_type)
 
             if getattr(response, "status", None) in {"incomplete", "failed"}:
                 raise ValueError("OpenAI returned an incomplete or failed response.")

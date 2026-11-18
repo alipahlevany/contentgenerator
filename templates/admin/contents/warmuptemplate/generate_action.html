@@ -1,0 +1,43 @@
+{% if warmup_action %}
+<div id="template-generation" data-warmup-generator data-cooldown="{{ warmup_action.cooldown_seconds }}" data-blocked="{% if warmup_action.error %}true{% else %}false{% endif %}">
+<section class="warmup-generate" aria-labelledby="warmup-generate-title">
+    <div class="warmup-generate__description">
+        <span class="warmup-preview__eyebrow">TEMPLATE GENERATOR</span>
+        <h2 id="warmup-generate-title">{% if warmup_action.return_to == 'templates' %}Generate HTML templates{% else %}Generate now{% endif %}</h2>
+        <p>{% if warmup_action.count %}Create {{ warmup_action.count }} empty HTML template{{ warmup_action.count|pluralize }} using your saved settings. {% endif %}Melal fills each template with your existing content.</p>
+        <p>Track progress and open your finished templates here automatically.</p>
+        <p class="warmup-generate__schedule">Daily schedule: {% if warmup_action.schedule_enabled %}on{% else %}off{% endif %}. Manual generation works independently of the schedule. Save any settings changes before generating.</p>
+        {% if warmup_action.error %}<p class="warmup-generate__notice" role="status">{{ warmup_action.error }}</p>{% endif %}
+    </div>
+    <div class="warmup-generate__actions">
+        {% if warmup_action.can_generate %}
+        <form method="post" action="{{ warmup_action.url }}" data-generation-form>
+            {% csrf_token %}
+            <input type="hidden" name="return_to" value="{{ warmup_action.return_to }}">
+            <button type="submit" class="warmup-generate__button"{% if warmup_action.disabled %} disabled{% endif %}>
+                Create{% if warmup_action.count %} {{ warmup_action.count }}{% endif %} template{{ warmup_action.count|pluralize }}
+            </button>
+        </form>
+        {% endif %}
+        <span class="warmup-generate__cooldown" data-cooldown-label>{% if warmup_action.cooldown_seconds %}A recent batch is protected from duplicate clicks. The button will unlock automatically.{% endif %}</span>
+        <a href="{{ warmup_action.settings_url }}">Generation settings</a>
+        <a href="{{ warmup_action.templates_url }}">Saved templates →</a>
+    </div>
+</section>
+<p class="warmup-run__connection" role="status" data-connection-message hidden></p>
+<section class="warmup-run" data-run-panel data-state="{{ warmup_action.progress.state|default:'queued' }}" aria-label="Generation results"{% if not warmup_action.progress %} hidden{% endif %}>
+    <div class="warmup-run__heading">
+        <div><span class="warmup-preview__eyebrow">YOUR GENERATION RESULTS</span><h3 data-run-title>Batch progress</h3></div>
+        <span class="warmup-run__count" data-run-count>{{ warmup_action.progress.ready }} / {{ warmup_action.progress.total }} ready</span>
+    </div>
+    <p data-run-message role="status" aria-live="polite">{{ warmup_action.progress.message }}</p>
+    <progress data-run-progress max="{{ warmup_action.progress.total|default:1 }}" value="{{ warmup_action.progress.ready|default:0 }}" aria-label="Templates processed"></progress>
+    <ul class="warmup-run__errors" data-run-errors>{% for error in warmup_action.progress.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    <ul class="warmup-run__results" data-run-results>
+        {% for result in warmup_action.progress.results %}<li><span>Template {{ result.number }} <small>#{{ result.id }}</small></span><a href="{{ result.preview_url }}">Preview template →</a><a href="{{ result.download_url }}">Download HTML</a></li>{% endfor %}
+    </ul>
+    <noscript><p>Refresh this page to update progress. Your saved results stay available in Warmup Templates.</p></noscript>
+</section>
+{{ warmup_action.progress|json_script:"warmup-generation-initial" }}
+</div>
+{% endif %}

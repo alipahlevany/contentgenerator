@@ -5,7 +5,7 @@
 {{ block.super }}
 <link
     rel="stylesheet"
-    href="{% static 'admin/content_generator_admin.css' %}"
+    href="{% static 'admin/content_generator_admin.css' %}?v=20261117-progress"
 >
 {% endblock %}
 
@@ -32,15 +32,40 @@
             </div>
         </div>
 
-        {% if cg_run_url %}
-        <a
-            class="cg-button cg-button--primary"
-            href="{{ cg_run_url }}"
-        >
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>{{ cg_run_label }}
-        </a>
+        {% if cg_run_url and not cg_template_status %}
+        {% if cg_template_status and not cg_template_status.photo_source.ready %}
+        <span class="cg-template-key-note">{{ cg_template_status.photo_source.error }}</span>
+        {% elif cg_template_status and not cg_template_status.target_count %}
+        <span class="cg-template-key-note">Save an active settings record before generating templates.</span>
+        {% else %}
+        <form method="post" action="{{ cg_run_url }}">
+            {% csrf_token %}
+            <button class="cg-button cg-button--primary" type="submit">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>{% if cg_template_status %}Generate {{ cg_template_status.target_count }} templates now{% else %}{{ cg_run_label }}{% endif %}
+            </button>
+        </form>
+        {% endif %}
         {% endif %}
     </section>
+
+    {% if cg_template_status %}
+    {% include "admin/contents/warmuptemplate/generate_action.html" %}
+    <section class="cg-template-status" aria-label="Template generator status">
+        <div><span>Templates created today</span><strong data-template-today>{{ cg_template_status.today_count }}</strong><small>{{ cg_template_status.target_count }} per batch · Saved on this server</small></div>
+        <div><span>Photo source</span><strong>{{ cg_template_status.photo_source.label }}</strong><small>{% if cg_template_status.photo_source.ready %}Ready · no image files stored{% else %}Needs configuration{% endif %}</small></div>
+        <div><span>Schedule time zone</span><strong>{{ cg_template_status.timezone }}</strong><small>Used by the daily time below</small></div>
+        <div><span>Latest template</span><a data-template-latest href="{{ cg_template_status.latest_url|default:'#' }}"{% if not cg_template_status.latest_url %} hidden{% endif %}>Open preview →</a><strong data-template-latest-empty{% if cg_template_status.latest_url %} hidden{% endif %}>None yet</strong><small>HTML stays local</small></div>
+    </section>
+    {% if cg_template_status.last_error %}
+    <div class="cg-template-error" role="status">
+        <strong>Last recorded generation failure</strong>
+        {% if cg_template_status.last_error_at %}<small>{{ cg_template_status.last_error_at|date:"Y-m-d H:i" }}</small>{% endif %}
+        <p>{{ cg_template_status.last_error }}</p>
+    </div>
+    {% endif %}
+    <div class="cg-template-sample-link"><a href="{{ cg_template_status.sample_url }}">Explore the design gallery →</a><span>Empty HTML templates · No additional AI cost</span></div>
+    <div class="cg-template-sample-link"><span>Image and button destination: {{ cg_template_status.destination_url }}</span></div>
+    {% endif %}
 
     <div class="cg-settings-shell">
         {{ block.super }}

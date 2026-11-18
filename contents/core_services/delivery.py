@@ -66,6 +66,12 @@ def deliver_content(delivery_id):
         if delivery.status == "success":
             return delivery
 
+        if delivery.content.content_type == "warmup_template":
+            delivery.status = "failed"
+            delivery.last_error = "Warmup templates are local-only; MTA integration is not configured."
+            delivery.save(update_fields=["status", "last_error", "updated_at"])
+            return delivery
+
         validate_callback_url(delivery.destination_url)
 
         delivery.status = "processing"

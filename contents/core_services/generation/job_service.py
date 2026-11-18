@@ -290,6 +290,7 @@ class PersistGenerationResult:
     duplicate_reason: str = ""
 
 
+@transaction.atomic
 def _persist_generated_content(
     *,
     job,
@@ -376,7 +377,7 @@ def _run_generation_job(job_id):
 
         # The API marks a dispatched job as running before the worker receives it.
         # The advisory lock, rather than that UI status, proves worker ownership.
-        if job.should_stop or job.status in {"stopped", "completed"}:
+        if job.should_stop or job.status not in {"pending", "running"}:
             return
 
         reset_job_for_start(job)

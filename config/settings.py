@@ -296,6 +296,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 60.0,
         "args": (False,),
     },
+    "check-daily-warmup-template-generation-every-minute": {
+        "task": "contents.tasks.run_daily_warmup_template_task",
+        "schedule": 60.0,
+        "args": (False,),
+    },
     "recover-stuck-generation-jobs-every-5-minutes": {
         "task": (
             "contents.tasks."
@@ -516,3 +521,9 @@ else:
 
 # Authentication key used for content callback delivery.
 MTA_API_KEY = os.getenv("mta_api_key", "")
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
+WARMUP_TEMPLATE_PHOTO_PROVIDER = os.getenv("WARMUP_TEMPLATE_PHOTO_PROVIDER", "auto").strip().lower() or "auto"
+WARMUP_TEMPLATE_LINK_URL = os.getenv(
+    "WARMUP_TEMPLATE_LINK_URL",
+    "https://medium.com/ai-advances/algorithms-dont-discriminate-people-do-b779ee074644",
+).strip()

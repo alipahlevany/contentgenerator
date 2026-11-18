@@ -52,6 +52,37 @@ class AIGenerationTests(SimpleTestCase):
         self.assertEqual(request["instructions"], "System")
         self.assertEqual(request["input"], "User")
 
+    def test_small_structured_request_can_override_output_limit(self):
+        schema = {
+            "type": "json_schema",
+            "name": "test_brief",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {"headline": {"type": "string"}},
+                "required": ["headline"],
+                "additionalProperties": False,
+            },
+        }
+        generate_content(
+            "System", "User", max_output_tokens=300, text_format=schema,
+            model_name="gpt-6-luna", temperature=0.8,
+        )
+        request = self.client.responses.create.call_args.kwargs
+        self.assertEqual(request["max_output_tokens"], 300)
+        self.assertEqual(request["text"], {"format": schema})
+        self.assertEqual(request["temperature"], 0.8)
+
+    def test_template_model_override_is_metered_as_selected_model(self):
+        self.app_settings.model_name = "gpt-6-sol"
+        with patch("contents.core_services.ai.record_response_usage") as meter:
+            generate_content("System", "User", model_name="gpt-6-luna")
+        request = self.client.responses.create.call_args.kwargs
+        self.assertEqual(request["model"], "gpt-6-luna")
+        self.assertEqual(request["service_tier"], "default")
+        meter.assert_called_once()
+        self.assertEqual(meter.call_args.args[1], "gpt-6-luna")
+
     def test_custom_legacy_model_keeps_supported_request_parameters(self):
         self.app_settings.model_name = "gpt-4.1"
         generate_content("System", "User")

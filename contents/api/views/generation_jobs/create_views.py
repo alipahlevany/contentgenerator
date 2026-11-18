@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_view
 from drf_spectacular.utils import (
     OpenApiResponse,
     extend_schema,
@@ -20,6 +21,7 @@ from .list_create import GenerationJobListCreateAPIView
     tags=["Content Generation"],
     parameters=[API_KEY_HEADER],
 )
+@extend_schema_view(get=extend_schema(operation_id="list_content_generation_jobs"))
 class ContentGenerationJobCreateAPIView(
     GenerationJobListCreateAPIView
 ):
@@ -57,6 +59,7 @@ class ContentGenerationJobCreateAPIView(
     tags=["Reply Generation"],
     parameters=[API_KEY_HEADER],
 )
+@extend_schema_view(get=extend_schema(operation_id="list_reply_generation_jobs"))
 class ReplyGenerationJobCreateAPIView(
     GenerationJobListCreateAPIView
 ):
@@ -95,6 +98,7 @@ class ReplyGenerationJobCreateAPIView(
     tags=["Greeting Generation"],
     parameters=[API_KEY_HEADER],
 )
+@extend_schema_view(get=extend_schema(operation_id="list_greeting_generation_jobs"))
 class GreetingGenerationJobCreateAPIView(
     GenerationJobListCreateAPIView
 ):

@@ -33,8 +33,14 @@ app.conf.task_routes = {
     "contents.tasks.run_daily_greeting_generation_task": {
         "queue": "generation_greeting",
     },
-    "contents.tasks.recover_stuck_generation_jobs": {
+    "contents.tasks.run_daily_warmup_template_task": {
         "queue": "generation_standard",
+    },
+    "contents.tasks.generate_warmup_template_task": {
+        "queue": "generation_standard",
+    },
+    "contents.tasks.recover_stuck_generation_jobs": {
+        "queue": "maintenance",
     },
 }
 

@@ -72,6 +72,7 @@ class GenerationJobAdmin(admin.ModelAdmin):
         "pool_mode_display",
         "generated_count",
         "skipped_count",
+        "recovery_count",
         "remaining_display",
         "current_step",
         "progress_bar",
@@ -103,6 +104,7 @@ class GenerationJobAdmin(admin.ModelAdmin):
                     "status_badge",
                     "generated_count",
                     "skipped_count",
+                    "recovery_count",
                     "remaining_display",
                     "current_step",
                     "progress_bar",
@@ -317,11 +319,13 @@ class GenerationJobAdmin(admin.ModelAdmin):
         job.status = "pending"
         job.should_stop = False
         job.error_message = ""
+        job.recovery_count = 0
         job.save(
             update_fields=[
                 "status",
                 "should_stop",
                 "error_message",
+                "recovery_count",
                 "updated_at",
             ]
         )
