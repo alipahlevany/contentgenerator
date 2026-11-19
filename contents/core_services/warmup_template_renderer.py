@@ -72,7 +72,7 @@ def _content_block(palette, *, inset=False, letter=False):
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         f'style="table-layout:fixed;background:{background};"><tr>'
         f'<td bgcolor="{background}" style="padding:{padding};border-radius:8px;'
-        f'color:{palette["ink"]};font-family:{font};font-size:{17 if letter else 16}px;line-height:1.85;text-align:left;'
+        f'color:{palette["ink"]};font-family:{font};font-size:{17 if letter else 16}px;line-height:1.85;text-align:center;'
         f'overflow-wrap:anywhere;word-break:break-word;">{CONTENT_TOKEN}</td>'
         '</tr></table>'
     )

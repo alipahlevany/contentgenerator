@@ -43,6 +43,7 @@ class WarmupTemplateRendererTests(SimpleTestCase):
                 markup = render_warmup_html(self.photo, day, 0)
                 self.assertEqual(validate_warmup_html(markup, self.photo), markup)
                 self.assertEqual(markup.count("{{content}}"), 1)
+                self.assertIn('line-height:1.85;text-align:center;', markup)
                 self.assertEqual(markup.count("{{unsubscribe}}"), 1)
                 self.assertEqual(markup.count("<img "), 1)
                 self.assertNotIn(self.photo["photo_page"], markup)
