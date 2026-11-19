@@ -18,6 +18,7 @@ from contents.core_services.warmup_template_renderer import (
     validate_warmup_html,
     validate_destination_url,
 )
+from contents.core_services.warmup_articles import ARTICLE_MARKER, choose_article
 from contents.models import Content, WarmupButtonRotation
 from contents.core_services.warmup_buttons import BUTTON_BANK_VERSION, BUTTON_LABELS
 
@@ -248,7 +249,7 @@ def generate_warmup_template(run_date, sequence, batch_key=None):
         existing = Content.objects.filter(content_type="warmup_template", title=title).first()
         if existing:
             return existing
-        destination_url = validate_destination_url(settings.WARMUP_TEMPLATE_LINK_URL)
+        destination_url = validate_destination_url(choose_article(run_date, sequence))
         photo = _get_remote_photo(sequence, run_date)
         # Photo I/O happens before taking the database lock. The label and HTML
         # commit together: retries and failed saves never consume a label.
@@ -270,6 +271,7 @@ def generate_warmup_template(run_date, sequence, batch_key=None):
             user_prompt = (
                 f"Empty HTML shell. {photo.get('provider', 'pexels').title()} photo ID: {photo['id']}. "
                 f"Button label: {BUTTON_BANK_VERSION}:{button_index:04d}. "
+                f"{ARTICLE_MARKER}{destination_url}\n"
                 "Melal supplies the existing message through {{content}}."
             )
             content = Content.objects.create(

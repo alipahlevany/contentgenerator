@@ -28,6 +28,9 @@ class WarmupTemplateFlowTests(TestCase):
     def setUp(self):
         cache.clear()
         self.addCleanup(cache.clear)
+        article_patch = patch("contents.core_services.warmup_templates.choose_article", return_value="https://medium.com/test/story-123")
+        article_patch.start()
+        self.addCleanup(article_patch.stop)
         self.settings_record = AppSettings.objects.create(
             auto_daily_warmup_template_enabled=True, daily_warmup_template_count=3,
             daily_warmup_template_delay_seconds=2, daily_warmup_template_hour=5,

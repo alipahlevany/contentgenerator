@@ -97,7 +97,7 @@ class LiveMelalConnectorTests(TransactionTestCase):
             MELAL_TEMPLATE_ENABLED=True,MELAL_TEMPLATE_ENDPOINT=os.environ["MELAL_SIM_URL"],
             MELAL_TEMPLATE_API_KEY=os.environ["MELAL_SIM_KEY"],MELAL_TEMPLATE_ALLOW_LOCAL_HTTP=True,
             MELAL_TEMPLATE_SOURCE=os.environ["MELAL_SIM_SOURCE"],
-        ), patch("contents.core_services.warmup_templates._get_remote_photo",return_value=photo), patch(
+        ), patch("contents.core_services.warmup_templates.choose_article",return_value="https://medium.com/test/story-123"), patch("contents.core_services.warmup_templates._get_remote_photo",return_value=photo), patch(
             "contents.tasks.send_melal_template.delay",side_effect=send_melal_template.run
         ):
             saved=generate_warmup_template(date(2026,11,18),0,"connector-local-live")

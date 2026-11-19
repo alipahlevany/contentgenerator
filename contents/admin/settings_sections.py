@@ -481,7 +481,7 @@ class WarmupTemplateGenerationSettingsAdmin(BaseSectionSettingsAdmin):
             "target_count": (
                 active_settings.daily_warmup_template_count if active_settings else None
             ),
-            "destination_url": settings.WARMUP_TEMPLATE_LINK_URL,
+            "article_source": "Medium topic RSS; one article URL per generated template",
             "timezone": timezone.get_current_timezone_name(),
             "last_error": (
                 active_settings.last_warmup_template_error if active_settings else ""

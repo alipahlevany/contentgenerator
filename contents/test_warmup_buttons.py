@@ -11,6 +11,7 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_
 
 from contents.admin.warmup_template import SAMPLE_PHOTO
 from contents.core_services.warmup_buttons import BUTTON_BANK_VERSION, BUTTON_LABELS
+from contents.core_services.warmup_articles import choose_article
 from contents.core_services.warmup_template_renderer import render_warmup_html, validate_warmup_html
 from contents.core_services.warmup_templates import generate_warmup_template
 from contents.models import Content, WarmupButtonRotation
@@ -52,6 +53,9 @@ class ButtonRotationTests(TestCase):
         self.photo_patch = patch("contents.core_services.warmup_templates._get_remote_photo", return_value=PHOTO)
         self.photo_patch.start()
         self.addCleanup(self.photo_patch.stop)
+        article_patch = patch("contents.core_services.warmup_templates.choose_article", return_value="https://medium.com/test/story-123")
+        article_patch.start()
+        self.addCleanup(article_patch.stop)
 
     def test_full_cycle_survives_cache_reset_and_changes_of_batch(self):
         ids = []
@@ -79,6 +83,17 @@ class ButtonRotationTests(TestCase):
         self.assertIn("english-v1:0042", saved.prompt)
         self.assertEqual(WarmupButtonRotation.objects.get().next_position, 43)
 
+    def test_new_templates_save_different_article_links(self):
+        urls = ["https://medium.com/test/story-a", "https://medium.com/test/story-b"]
+        with patch("contents.core_services.warmup_templates.choose_article", wraps=choose_article), patch("contents.core_services.warmup_articles._feed_stories", return_value=urls), self.settings(WARMUP_TEMPLATE_ARTICLE_TOPICS=("technology",)):
+            first = generate_warmup_template(DAY, 0, "article-links")
+            second = generate_warmup_template(DAY, 1, "article-links")
+        links = [next(url for url in urls if url in item.generated_content) for item in (first, second)]
+        self.assertNotEqual(*links)
+        for item, url in zip((first, second), links):
+            self.assertEqual(item.generated_content.count(url), 2)
+            self.assertIn(f"Article URL: {url}\n", item.prompt)
+
 
 @override_settings(CACHES=LOCAL_CACHE)
 class ConcurrentButtonRotationTests(TransactionTestCase):
@@ -98,7 +113,7 @@ class ConcurrentButtonRotationTests(TransactionTestCase):
             finally:
                 close_old_connections()
 
-        with patch("contents.core_services.warmup_templates._get_remote_photo", side_effect=photo):
+        with patch("contents.core_services.warmup_templates.choose_article", return_value="https://medium.com/test/story-123"), patch("contents.core_services.warmup_templates._get_remote_photo", side_effect=photo):
             with ThreadPoolExecutor(max_workers=2) as pool:
                 prompts = list(pool.map(generate, (0, 1)))
         self.assertEqual(len(set(prompts)), 2)

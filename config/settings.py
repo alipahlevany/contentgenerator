@@ -527,6 +527,12 @@ WARMUP_TEMPLATE_LINK_URL = os.getenv(
     "WARMUP_TEMPLATE_LINK_URL",
     "https://medium.com/ai-advances/algorithms-dont-discriminate-people-do-b779ee074644",
 ).strip()
+WARMUP_TEMPLATE_ARTICLE_TOPICS = tuple(
+    topic.strip().lower() for topic in os.getenv(
+        "WARMUP_TEMPLATE_ARTICLE_TOPICS",
+        "technology,creativity,productivity,design,travel,science,food,nature,books,artificial-intelligence",
+    ).split(",") if topic.strip().replace("-", "").isalpha()
+)
 
 # Dedicated template connector. Enable after configuring the Melal import API.
 MELAL_TEMPLATE_ENABLED = os.getenv("MELAL_TEMPLATE_ENABLED", "false").lower() == "true"

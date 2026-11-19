@@ -13,7 +13,7 @@ All dashboard labels, controls, help text and template UI are English. Django's 
 ## Setup and scheduling
 
 1. `WARMUP_TEMPLATE_PHOTO_PROVIDER=auto` selects Pexels when `PEXELS_API_KEY` is present, otherwise Picsum. Set `picsum` or `pexels` explicitly to pin the provider. Picsum needs no photo API key.
-2. `WARMUP_TEMPLATE_LINK_URL` is the original HTTPS article destination for the image and button. Recipient-specific tracking links are rejected.
+2. New templates select a Medium story from topic RSS feeds. `WARMUP_TEMPLATE_ARTICLE_TOPICS` is a comma-separated list of Medium topic slugs. The selected URL is saved in the template prompt and used by both the image and button. `WARMUP_TEMPLATE_LINK_URL` remains a sample-preview destination only. Recipient-specific tracking links are rejected.
 3. Apply the existing template migrations (`0057` and `0058`), collect static assets and restart the web app and workers when installing the feature. This design revision adds no database migration.
 4. Save the count (1–50), daily time and delay under **Warmup Template Settings**. The time uses the application's `TIME_ZONE`. **Generate now** works independently of the daily schedule and queues the saved count.
 
@@ -29,7 +29,7 @@ The settings summary counts only `warmup_template` content. Its latest-preview l
 
 Template generation makes **zero OpenAI requests**, so its additional OpenAI API cost is **$0**, regardless of the configured template count. The existing content generator still has its own API costs. Hosting, email sending and any externally selected photo service are separate. `WARMUP_TEMPLATE_MODEL` is no longer used; it can be removed from old environment files during normal configuration maintenance.
 
-Only a stable image URL is saved; this application never downloads or stores photo bytes. Photos are centered in their image area and displayed at a maximum width of 400px, shrinking to fit smaller mobile screens. Picsum URLs retain a 1200 × 800 source for sharp images; their displayed desktop height is about 267px. Picsum catalogue metadata is cached for 24 hours. Pexels requests small search metadata responses. Photo selection prefers IDs not used for 45 days; when the finite Picsum catalogue is exhausted, it rotates the oldest eligible image, excluding those used within 24 hours. Photo availability still depends on the hosting provider.
+Only image and article URLs are saved; this application never downloads or stores photo or article bytes. Photos are centered in their image area and displayed at a maximum width of 400px, shrinking to fit smaller mobile screens. Picsum URLs retain a 1200 × 800 source for sharp images; their displayed desktop height is about 267px. Picsum catalogue metadata is cached for 24 hours and Medium RSS metadata for six hours. Pexels requests small search metadata responses. Photo selection prefers IDs not used for 45 days; when the finite Picsum catalogue is exhausted, it rotates the oldest eligible image, excluding those used within 24 hours. Article selection prefers URLs unused for 45 days and never repeats one within 24 hours. If no article is available, generation reports an error instead of reusing a fixed destination. Availability still depends on the external providers.
 
 Templates remain compact HTML. PostgreSQL row/index overhead and cached metadata use additional space, but there is no local image library to maintain.
 
