@@ -1,8 +1,40 @@
+import logging
+from datetime import timedelta
+
+from django.db.models import Q
+from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from contents.core_services.delivery import validate_callback_url
 from contents.models import ContentDelivery, ExternalClient
+
+
+logger = logging.getLogger(__name__)
+
+
+def dispatch_delivery(delivery_id):
+    from contents.tasks import deliver_content_callback
+    try:
+        deliver_content_callback.delay(delivery_id)
+    except Exception:
+        logger.warning("Callback %s awaits the periodic dispatcher.", delivery_id)
+        return False
+    return True
+
+
+def recover_pending_deliveries():
+    cutoff = timezone.now() - timedelta(minutes=5)
+    candidates = ContentDelivery.objects.filter(
+        Q(status="pending") | Q(status="processing", last_attempt_at__lt=cutoff),
+        purpose="callback", updated_at__lt=cutoff, attempt_count__lt=4,
+    ).exclude(content__content_type="warmup_template")
+    count = 0
+    for pk in list(candidates.order_by("pk").values_list("pk", flat=True)[:100]):
+        claimed = candidates.filter(pk=pk).update(updated_at=timezone.now())
+        if claimed and dispatch_delivery(pk):
+            count += 1
+    return count
 
 
 def queue_content_deliveries(content):
@@ -64,9 +96,7 @@ def queue_content_deliveries(content):
         queued_delivery_ids.append(delivery_id)
 
         def enqueue(pk=delivery_id):
-            from contents.tasks import deliver_content_callback
-
-            deliver_content_callback.delay(pk)
+            dispatch_delivery(pk)
 
         transaction.on_commit(enqueue)
 

@@ -79,24 +79,22 @@ class EmailReplyGenerator(BaseGenerator):
             sorted(self.ALLOWED_PLACEHOLDERS)
         )
 
-        system_prompt = f"""
-Write a natural, ready-to-send email reply body in the requested language.
-Use a warm, professional, conversational tone appropriate to that language.
-Be clear and useful; avoid stock customer-service phrases, repeated courtesies,
-and unnecessary introductions. Vary openings rather than always saying thanks.
-Invent no facts, names, dates, deadlines, promises, links, contact details,
-order numbers, or company information. Use placeholders only when necessary,
-and only these exact tokens: {placeholder_list}.
-Use 40-120 words in 2-4 short paragraphs; aim for 50-70 words.
-Return only the body, with no subject, label, explanation, signature, or initials.
-End with a complete sentence.
-        """.strip()
-
-        user_prompt = f"""
-Write one email reply in {language_name} with fresh wording and paragraph flow.
-Variation: {variation_key} (never include this identifier in the reply).
-{retry_feedback}
-        """.strip()
+        # Keep shared instructions stable and compact; put variation and
+        # retry-specific guidance only in the user input. Do not shorten the
+        # answer budget: truncation can cause extra paid generation attempts.
+        system_prompt = (
+            "Write only a ready-to-send email reply body in the requested language. "
+            "Be natural, warm, professional and useful; vary openings and flow. "
+            "Avoid stock phrases, repeated courtesies and unnecessary introductions. "
+            "Invent no facts, identities, dates, deadlines, promises, URLs or contact/order details. "
+            f"If needed, use only these exact placeholders: {placeholder_list}. "
+            "40-120 words, ideally 50-70, in 2-4 short paragraphs. "
+            "No subject, labels, explanation, signature or initials. "
+            "Finish the sentence. Never print the variation ID."
+        )
+        user_prompt = f"Language: {language_name}. Variation: {variation_key}."
+        if retry_feedback:
+            user_prompt += f"\n{retry_feedback.strip()}"
 
         return {
             "system_prompt": system_prompt,

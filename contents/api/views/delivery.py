@@ -17,6 +17,7 @@ from contents.core_services.idempotency import execute_idempotent
 from contents.models import Content, ContentDelivery
 from contents.permissions import HasValidAPIKey
 from contents.tasks import deliver_content_callback
+from contents.core_services.delivery_queue import dispatch_delivery
 
 
 class ContentDeliveryAPIView(APIView):
@@ -81,7 +82,7 @@ class ContentDeliveryAPIView(APIView):
             )
             if created:
                 transaction.on_commit(
-                    lambda: deliver_content_callback.delay(delivery.pk)
+                    lambda: dispatch_delivery(delivery.pk)
                 )
 
         return api_success(

@@ -15,10 +15,25 @@ from contents.core_services.generation_jobs.actions import start_generation_job
 from contents.core_services.job_health import MAX_AUTOMATIC_RECOVERIES, recover_stuck_jobs
 from contents.models import Content, ContentDelivery, ExternalClient, GenerationJob
 from contents.services import run_generation_job
-from contents.tasks import run_generation_job_task
+from contents.tasks import run_generation_job_task, queue_generation_job
 
 
 class GenerationRecoveryTests(TransactionTestCase):
+    @patch("contents.tasks.run_generation_job_task.apply_async")
+    def test_failed_first_publication_remains_recoverable(self, publish):
+        job = GenerationJob.objects.create(generation_type="greeting", count=10)
+        publish.side_effect = ConnectionError("broker offline")
+        with self.assertRaises(ConnectionError):
+            queue_generation_job(job.pk, job.generation_type)
+        job.refresh_from_db()
+        self.assertIsNotNone(job.dispatch_requested_at)
+        self.assertIsNone(job.last_attempt_at)
+        GenerationJob.objects.filter(pk=job.pk).update(updated_at=timezone.now()-timedelta(minutes=61))
+        publish.side_effect = None
+        self.assertEqual(recover_stuck_jobs(), 1)
+        self.assertEqual(publish.call_count, 2)
+        self.assertEqual(publish.call_args.kwargs["queue"], "generation_greeting")
+
     def stale_job(self, minutes=10, **kwargs):
         values = dict(status="running", count=10, generated_count=4,
                       attempted_count=6, skipped_count=2, current_step=6,

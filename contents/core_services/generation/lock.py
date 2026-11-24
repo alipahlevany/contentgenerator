@@ -7,8 +7,8 @@ from django.db import connection
 
 
 @contextmanager
-def generation_job_lock(job_id):
-    digest = hashlib.sha256(f"generation-job:{job_id}".encode()).digest()
+def advisory_lock(name):
+    digest = hashlib.sha256(name.encode()).digest()
     key = int.from_bytes(digest[:8], byteorder="big", signed=True)
     with connection.cursor() as cursor:
         cursor.execute("SELECT pg_try_advisory_lock(%s)", [key])
@@ -19,3 +19,7 @@ def generation_job_lock(job_id):
         if acquired:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT pg_advisory_unlock(%s)", [key])
+
+
+def generation_job_lock(job_id):
+    return advisory_lock(f"generation-job:{job_id}")

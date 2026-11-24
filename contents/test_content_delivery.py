@@ -44,6 +44,26 @@ class ContentDeliveryTests(TestCase):
             status="generated",
         )
 
+    @patch("contents.tasks.deliver_content_callback.delay")
+    @patch("contents.core_services.delivery.socket.getaddrinfo", return_value=PUBLIC_DNS)
+    def test_broker_failure_is_recovered_without_losing_saved_content(self, dns, publish):
+        from datetime import timedelta
+        from django.utils import timezone
+        from contents.core_services.delivery_queue import recover_pending_deliveries
+        publish.side_effect = ConnectionError("broker unavailable")
+        with self.captureOnCommitCallbacks(execute=True):
+            ids = queue_content_deliveries(self.content)
+        self.assertEqual(len(ids), 2)
+        self.assertEqual(recover_pending_deliveries(), 0)
+        ContentDelivery.objects.filter(pk__in=ids).update(
+            updated_at=timezone.now() - timedelta(minutes=6)
+        )
+        publish.side_effect = None
+        publish.reset_mock()
+        self.assertEqual(recover_pending_deliveries(), 2)
+        self.assertEqual(publish.call_count, 2)
+        self.assertEqual(recover_pending_deliveries(), 0)
+
     def setUp(self):
         self.api = APIClient()
         self.url = reverse(
@@ -153,7 +173,7 @@ class ContentDeliveryTests(TestCase):
     @patch("contents.core_services.delivery.socket.getaddrinfo", return_value=PUBLIC_DNS)
     @patch("contents.core_services.delivery.requests.post")
     def test_5xx_is_retryable_but_4xx_and_redirect_are_not(self, post, _):
-        for status_code, retryable in ((503, True), (400, False), (302, False)):
+        for status_code, retryable in ((503, True), (408, True), (429, True), (400, False), (302, False)):
             delivery = self.create_delivery()
             post.side_effect = None
             post.return_value = Mock(status_code=status_code, text="")

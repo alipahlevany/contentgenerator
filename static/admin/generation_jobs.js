@@ -47,3 +47,70 @@
         if (open) { open.open = false; open.querySelector('summary').focus(); }
     });
 })();
+
+// Refresh only progress cells; keep filters, selections and unsaved edits intact.
+(() => {
+    'use strict';
+    const markers = [...document.querySelectorAll('[data-job-id][data-progress-url]')];
+    if (!markers.length) return;
+    const ids = [...new Set(markers.map(node => node.dataset.jobId))];
+    const url = new URL(markers[0].dataset.progressUrl, window.location.origin);
+    url.searchParams.set('ids', ids.join(','));
+    const indicator = document.createElement('p');
+    indicator.setAttribute('role', 'status');
+    indicator.textContent = 'Live updates connecting…';
+    (document.querySelector('.cg-jobs-heading') || document.querySelector('#content')).append(indicator);
+    let timer;
+    let busy = false;
+    let failures = 0;
+    let stopped = false;
+    const update = async () => {
+        clearTimeout(timer);
+        if (busy || stopped || document.hidden) return;
+        busy = true;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+            const response = await fetch(url, {
+                credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+                headers: {'Accept': 'application/json'},
+            });
+            if (response.redirected || response.status === 401 || response.status === 403) {
+                stopped = true;
+                throw new Error('session');
+            }
+            if (!response.ok) throw new Error('network');
+            const data = await response.json();
+            for (const job of data.jobs) {
+                const marker = document.querySelector(`[data-job-id="${job.id}"]`);
+                if (!marker) continue;
+                const row = marker.closest('tr');
+                for (const [field, html] of Object.entries(job.html)) {
+                    const cell = row ? row.querySelector(`.field-${field}`)
+                        : document.querySelector(`.field-${field} .readonly`);
+                    if (cell && cell.innerHTML !== html) cell.innerHTML = html;
+                }
+                if (!row) for (const [field, value] of Object.entries(job.values)) {
+                    const cell = document.querySelector(`.field-${field} .readonly`);
+                    if (cell) cell.textContent = value === null ? '—' : String(value);
+                }
+            }
+            failures = 0;
+            indicator.textContent = `Live · Updated ${new Date().toLocaleTimeString()}`;
+        } catch (_) {
+            failures += 1;
+            indicator.textContent = stopped ? 'Live updates paused. Sign in again.' : 'Connection interrupted · Retrying…';
+        } finally {
+            clearTimeout(timeout);
+            busy = false;
+            if (!stopped && !document.hidden) timer = setTimeout(update, Math.min(30000, 3000 * 2 ** Math.min(failures, 4)));
+        }
+    };
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearTimeout(timer);
+        else update();
+    });
+    window.addEventListener('pagehide', () => { stopped = true; clearTimeout(timer); });
+    window.addEventListener('pageshow', event => { if (event.persisted) { stopped = false; update(); } });
+    update();
+})();

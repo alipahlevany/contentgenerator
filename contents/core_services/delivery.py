@@ -9,6 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from contents.models import ContentDelivery
+from contents.core_services.generation.lock import advisory_lock
 
 
 class RetryableDeliveryError(Exception):
@@ -55,6 +56,15 @@ def validate_callback_url(url):
 
 
 def deliver_content(delivery_id):
+    # Keep ownership across the HTTP request without holding a DB transaction.
+    # A second Celery message must not POST the same row concurrently.
+    with advisory_lock(f"content-delivery:{delivery_id}") as acquired:
+        if not acquired:
+            return ContentDelivery.objects.get(pk=delivery_id)
+        return _deliver_content(delivery_id)
+
+
+def _deliver_content(delivery_id):
     with transaction.atomic():
         delivery = (
             ContentDelivery.objects
@@ -187,7 +197,7 @@ def deliver_content(delivery_id):
         message,
     )
 
-    if response.status_code >= 500:
+    if response.status_code in (408, 429) or response.status_code >= 500:
         raise RetryableDeliveryError(message)
 
     return ContentDelivery.objects.get(pk=delivery.pk)

@@ -375,7 +375,7 @@ SPECTACULAR_SETTINGS = {
         "Authentication\n"
         "--------------\n"
         "Every protected request must include this header:\n\n"
-        "Authorization: Api-Key YOUR_API_KEY\n\n"
+        "X-API-Key: YOUR_API_KEY\n\n"
 
         "Typical Workflow\n"
         "----------------\n"
@@ -544,5 +544,11 @@ MELAL_TEMPLATE_ALLOW_LOCAL_HTTP = False
 CELERY_BEAT_SCHEDULE["dispatch-melal-template-outbox"] = {
     "task": "contents.tasks.dispatch_melal_templates",
     "schedule": 60.0,
+    "options": {"queue": "maintenance"},
+}
+
+CELERY_BEAT_SCHEDULE["recover-callback-deliveries"] = {
+    "task": "contents.tasks.recover_callback_deliveries",
+    "schedule": 300.0,
     "options": {"queue": "maintenance"},
 }

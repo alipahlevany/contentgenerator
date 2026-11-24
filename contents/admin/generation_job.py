@@ -1,4 +1,6 @@
 from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
@@ -247,13 +249,14 @@ class GenerationJobAdmin(admin.ModelAdmin):
         percent = 0 if not obj.count else int((obj.generated_count / obj.count) * 100)
         percent = max(0, min(percent, 100))
         return format_html(
-            '<div class="cg-job-progress cg-job-progress--{}">'
+            '<div data-job-id="{}" data-progress-url="{}" class="cg-job-progress cg-job-progress--{}">'
             '<div class="cg-job-progress__meta"><strong>{}%</strong>'
             '<span>{} / {}</span></div>'
             '<div class="cg-job-progress__track" role="progressbar" '
             'aria-label="Generation progress" aria-valuemin="0" '
             'aria-valuemax="100" aria-valuenow="{}">'
             '<span style="width:{}%"></span></div></div>',
+            obj.pk, reverse("admin:contents_generationjob_progress"),
             obj.status, percent, f"{obj.generated_count:,}", f"{obj.count:,}",
             percent, percent,
         )
@@ -263,6 +266,8 @@ class GenerationJobAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
+            path("progress/", self.admin_site.admin_view(self.live_progress),
+                 name="contents_generationjob_progress"),
             path(
                 "<int:job_id>/start/",
                 self.admin_site.admin_view(self.start_job),
@@ -275,6 +280,31 @@ class GenerationJobAdmin(admin.ModelAdmin):
             ),
         ]
         return custom_urls + urls
+
+    def live_progress(self, request):
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
+        raw_ids = request.GET.get("ids", "").split(",")
+        if len(raw_ids) > 100 or any(not value.isdecimal() or len(value) > 18 for value in raw_ids):
+            return JsonResponse({"error": "Provide up to 100 job IDs."}, status=400)
+        jobs = self.get_queryset(request).filter(pk__in=[int(value) for value in raw_ids])
+        rows = []
+        for job in jobs:
+            if not self.has_view_or_change_permission(request, job):
+                continue
+            html = {field: str(getattr(self, field)(job)) for field in (
+                "status_badge", "generated_badge", "skipped_badge",
+                "remaining_badge", "progress_bar", "job_actions", "target_count",
+            )}
+            rows.append({"id": job.pk, "html": html, "values": {
+                "generated_count": job.generated_count, "skipped_count": job.skipped_count,
+                "remaining_display": self._remaining(job), "current_step": job.current_step,
+                "recovery_count": job.recovery_count, "error_message": job.error_message,
+                "updated_at": timezone.localtime(job.updated_at).strftime("%Y-%m-%d %H:%M:%S %Z"),
+            }})
+        response = JsonResponse({"jobs": rows})
+        response["Cache-Control"] = "no-store"
+        return response
 
     def job_actions(self, obj):
         start_url = reverse("admin:contents_generationjob_start", args=[obj.id])

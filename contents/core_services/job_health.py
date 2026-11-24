@@ -21,11 +21,12 @@ MAX_AUTOMATIC_RECOVERIES = 3
 def find_stuck_jobs():
     now = timezone.now()
     # Unstarted pending jobs may be admin drafts. Only recover pending work
-    # with evidence that it previously ran (or was explicitly recovered).
+    # with evidence of dispatch intent, a previous run, or explicit recovery.
     stale = Q(status="running", updated_at__lt=now - timedelta(minutes=STUCK_JOB_MINUTES))
     stale |= (
         Q(status="pending", updated_at__lt=now - timedelta(minutes=PENDING_JOB_MINUTES))
-        & (Q(last_attempt_at__isnull=False) | Q(recovery_count__gt=0))
+        & (Q(last_attempt_at__isnull=False) | Q(recovery_count__gt=0)
+           | Q(dispatch_requested_at__isnull=False))
     )
     return GenerationJob.objects.filter(stale, should_stop=False)
 

@@ -519,6 +519,7 @@ class ContentDelivery(models.Model):
     attempt_count = models.PositiveIntegerField(default=0)
     last_error = models.TextField(blank=True, default="")
     last_attempt_at = models.DateTimeField(null=True, blank=True)
+
     delivered_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -675,6 +676,8 @@ class GenerationJob(models.Model):
     empty_output_count = models.PositiveIntegerField(default=0)
 
     last_attempt_at = models.DateTimeField(null=True, blank=True)
+
+    dispatch_requested_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     max_attempts = models.PositiveIntegerField(null=True, blank=True)
 

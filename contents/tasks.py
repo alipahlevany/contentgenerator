@@ -119,6 +119,10 @@ def queue_generation_job(
     if auto_resume:
         kwargs["auto_resume"] = True
 
+    # Persist intent before publishing: broker failure must remain recoverable
+    # even when this job has not made its first generation attempt yet.
+    now = timezone.now()
+    GenerationJob.objects.filter(pk=job_id).update(dispatch_requested_at=now, updated_at=now)
     return run_generation_job_task.apply_async(
         args=[job_id],
         kwargs=kwargs,
@@ -816,3 +820,9 @@ def dispatch_melal_templates():
     ).order_by("next_attempt_at").values_list("pk", flat=True)[:50]
     for pk in ids:
         dispatch(pk)
+
+
+@shared_task(queue="maintenance")
+def recover_callback_deliveries():
+    from contents.core_services.delivery_queue import recover_pending_deliveries
+    return recover_pending_deliveries()
