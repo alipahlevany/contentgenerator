@@ -37,7 +37,7 @@ API_KEY_HEADER = OpenApiParameter(
     required=True,
     description=(
         "External API key generated in Django Admin under "
-        "System Settings. Include this header in every protected request."
+        "External clients. Use the destination client key, not an OpenAI key."
     ),
 )
 

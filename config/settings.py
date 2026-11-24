@@ -350,6 +350,10 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Content Generator API",
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "contents.api.schema.document_api_contract",
+    ],
     "DESCRIPTION": (
         "Production-ready REST API for AI Content "
         "Generator.\n\n"
@@ -369,13 +373,14 @@ SPECTACULAR_SETTINGS = {
         "- Retrieve datasets such as Languages, Topics, "
         "Audiences, Goals, Prompt Templates, and Content "
         "Rules\n"
-        "- Read and update application settings\n"
-        "- Run automatic daily generation\n\n"
+        "- Export existing replies, greetings and contents per client\n"
+        "- Queue content delivery to a configured callback\n\n"
 
         "Authentication\n"
         "--------------\n"
         "Every protected request must include this header:\n\n"
-        "X-API-Key: YOUR_API_KEY\n\n"
+        "X-API-Key: YOUR_CLIENT_API_KEY\n\n"
+        "Use the destination key from Admin > External clients, not an OpenAI key.\n\n"
 
         "Typical Workflow\n"
         "----------------\n"
