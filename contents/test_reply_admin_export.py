@@ -128,3 +128,5 @@ class ReplyAdminActionTests(TestCase):
         old_page = self.client.get(reverse('admin:contents_emailreply_changelist'))
         self.assertNotContains(old_page, 'Download selected replies as CSV')
         self.assertContains(page, 'Reply library')
+        self.assertContains(page, 'Download replies for another system')
+        self.assertContains(page, 'View export history')

@@ -46,6 +46,7 @@ class ReplyExportActionForm(forms.Form):
 class ReplyExportAdmin(BaseContentAdmin):
     content_type_value = "email_reply"
     actions = ("download_replies_csv", "download_replies_json")
+    change_list_template = "admin/contents/reply_export/change_list.html"
     list_display_links = None
 
     class Media:
@@ -100,7 +101,7 @@ class ReplyExportAdmin(BaseContentAdmin):
                     form.add_error("export_destination", "This destination is inactive. Ask an administrator to review it.")
         if not supplied or not form.is_valid() or client is None:
             return TemplateResponse(request, "admin/contents/emailreply/export_destination.html", {
-                **self.admin_site.each_context(request), "title": "Export replies for a client or campaign",
+                **self.admin_site.each_context(request), "title": "Download selected replies",
                 "opts": self.model._meta, "form": form,
                 "cancel_url": reverse("admin:contents_replyexport_changelist"),
                 "selected_ids": request.POST.getlist("_selected_action"),
@@ -137,7 +138,7 @@ class ReplyExportAdmin(BaseContentAdmin):
                 "created_at": reply.created_at.isoformat(),
             }
 
-    @admin.action(description="Download selected replies as CSV")
+    @admin.action(description="Download selected replies (CSV file)")
     def download_replies_csv(self, request, queryset):
         return self._download_for_client(request, queryset, self._csv_response)
 
@@ -157,7 +158,7 @@ class ReplyExportAdmin(BaseContentAdmin):
             )
         return response
 
-    @admin.action(description="Download selected replies as JSON")
+    @admin.action(description="Download selected replies (JSON file)")
     def download_replies_json(self, request, queryset):
         return self._download_for_client(request, queryset, self._json_response)
 
