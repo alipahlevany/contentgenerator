@@ -498,6 +498,15 @@ class ContentExport(models.Model):
         )
 
 
+class ReplyContentExport(ContentExport):
+    """Reply-only view of export records; shares the existing export table."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "Reply export history"
+        verbose_name_plural = "Reply export history"
+
+
 class ContentDelivery(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),

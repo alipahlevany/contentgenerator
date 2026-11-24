@@ -1,0 +1,19 @@
+{% extends "admin/change_list.html" %}
+{% block content_title %}
+  {{ block.super }}
+  <section style="margin:12px 0 20px;padding:18px 20px;border:1px solid var(--hairline-color);border-radius:12px;background:var(--body-bg);color:var(--body-fg);line-height:1.6">
+    <h2 style="margin:0 0 8px">Reply export totals</h2>
+    <p style="margin:0 0 14px">Successful export records: <strong>{{ successful_reply_records }}</strong> · Unique reply IDs successfully exported: <strong>{{ successful_unique_replies }}</strong>. A changed reply can have more than one export record, so the unique count is the number of different replies.</p>
+    <table style="width:auto;min-width:480px;border-collapse:collapse">
+      <thead><tr><th style="padding:6px 12px;text-align:left">Destination</th><th style="padding:6px 12px;text-align:right">Unique replies</th><th style="padding:6px 12px;text-align:right">Successful records</th><th style="padding:6px 12px"></th></tr></thead>
+      <tbody>
+      {% for total in reply_export_totals %}
+        <tr><td style="padding:6px 12px">{{ total.client__name }}</td><td style="padding:6px 12px;text-align:right">{{ total.unique_replies }}</td><td style="padding:6px 12px;text-align:right">{{ total.successful_records }}</td><td style="padding:6px 12px"><a href="?client__id__exact={{ total.client_id }}&status__exact=success">View exported reply references</a></td></tr>
+      {% empty %}
+        <tr><td colspan="4" style="padding:6px 12px">No reply export history yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p style="margin:14px 0 0">Each row below identifies the reply by its exact reply ID and title, the destination, export status, and time.</p>
+  </section>
+{% endblock %}

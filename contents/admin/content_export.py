@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from contents.models import ContentExport
+from django.db.models import Count, Q
+
+from contents.models import ContentExport, ReplyContentExport
 
 
 @admin.register(ContentExport)
@@ -193,3 +195,42 @@ class ContentExportAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return True
+
+
+@admin.register(ReplyContentExport)
+class ReplyContentExportAdmin(ContentExportAdmin):
+    change_list_template = "admin/contents/reply_export/history_change_list.html"
+    list_display = (
+        "reply_reference",
+        "client",
+        "status_badge",
+        "short_content_hash",
+        "remote_id",
+        "exported_at",
+        "created_at",
+    )
+    list_filter = ("client", "status", "exported_at", "created_at")
+    search_fields = ContentExportAdmin.search_fields
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(content__content_type="email_reply")
+
+    @admin.display(description="Reply reference", ordering="content_id")
+    def reply_reference(self, obj):
+        return format_html("<strong>Reply #{} — {}</strong>", obj.content_id, obj.content.title)
+
+    def changelist_view(self, request, extra_context=None):
+        # These totals are based on the full reply export history, independent
+        # of pagination. Distinct reply IDs avoid counting a re-exported
+        # changed version as another reply.
+        rows = self.get_queryset(request).values("client_id", "client__name").annotate(
+            successful_records=Count("id", filter=Q(status="success")),
+            unique_replies=Count("content_id", filter=Q(status="success"), distinct=True),
+        ).order_by("client__name")
+        extra_context = {
+            **(extra_context or {}),
+            "reply_export_totals": rows,
+            "successful_reply_records": self.get_queryset(request).filter(status="success").count(),
+            "successful_unique_replies": self.get_queryset(request).filter(status="success").values("content_id").distinct().count(),
+        }
+        return super().changelist_view(request, extra_context=extra_context)
