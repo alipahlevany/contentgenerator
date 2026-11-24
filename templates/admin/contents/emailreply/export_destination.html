@@ -5,9 +5,8 @@
 <form method="post" class="reply-export-form">
   {% csrf_token %}
   <section class="reply-export-notice" aria-label="How reply exports work">
-    <h2>Download new replies. Skip repeats.</h2>
-    <p><strong>{{ selected_count }} repl{{ selected_count|pluralize:"y,ies" }} selected.</strong> Choose a client or campaign below, or create a new destination.</p>
-    <p><strong>Next time, choose the same destination.</strong> Replies already exported there will be skipped, even if you switch between CSV and JSON. Updated reply versions may be exported again.</p>
+    <h2>{{ selected_count }} repl{{ selected_count|pluralize:"y,ies" }} selected</h2>
+    <p>Choose a destination. Previously exported replies will be skipped.</p>
   </section>
   {{ form.non_field_errors }}
   <p>{{ form.export_client.label_tag }} {{ form.export_client }} {{ form.export_client.errors }}</p>
@@ -15,9 +14,10 @@
   <input type="hidden" name="action" value="{{ action }}">
   <input type="hidden" name="select_across" value="{{ select_across }}">
   {% for pk in selected_ids %}<input type="hidden" name="_selected_action" value="{{ pk }}">{% endfor %}
-  <div class="submit-row"><input type="submit" class="default" value="Download new replies"><a href="{{ cancel_url }}">Cancel</a></div>
-  <p class="reply-export-help">A destination is a label for tracking downloads. It does not send replies automatically.</p>
-  <p class="reply-export-help">History is recorded when the file is prepared. If the download is interrupted, contact an administrator before retrying.</p>
+  <div class="submit-row"><input type="submit" class="default" value="Download replies"><a href="{{ cancel_url }}">Cancel</a></div>
+  <details class="reply-export-help"><summary>About downloads</summary>
+    <p>Destinations track downloads; they do not send replies. Updated versions may be exported again. History is recorded when the file is prepared. If a download fails, contact an administrator before retrying.</p>
+  </details>
 </form>
 <script src="{% static 'admin/export_destination.js' %}" defer></script>
 {% endblock %}

@@ -48,6 +48,9 @@ class ReplyExportAdmin(BaseContentAdmin):
     actions = ("download_replies_csv", "download_replies_json")
     list_display_links = None
 
+    class Media:
+        css = {"all": ("admin/reply_export.css",)}
+
     def has_add_permission(self, request):
         return False
 
@@ -112,7 +115,8 @@ class ReplyExportAdmin(BaseContentAdmin):
                 client=client, content_type="email_reply", selected_queryset=queryset,
             )
             if not result.exported_contents:
-                self.message_user(request, f'No file downloaded for "{client.name}". The selected replies were already exported, are not eligible, or the daily limit has been reached. Select new replies and keep the same destination to avoid repeats.', messages.WARNING)
+                message = "Daily export limit reached for this destination." if result.quota_exceeded else "No new replies to export for this destination."
+                self.message_user(request, message, messages.INFO, extra_tags="reply-export-result")
                 return None
             response = renderer(result.exported_contents)
             response["X-Exported-Count"] = str(len(result.exported_contents))
@@ -164,6 +168,3 @@ class ReplyExportAdmin(BaseContentAdmin):
         )
         response["Content-Disposition"] = 'attachment; filename="email_replies.json"'
         return response
-
-
-

@@ -5,3 +5,10 @@
 .reply-export-form label { display: block; font-weight: 700; margin: 0 0 10px; font-size: 16px; }
 .reply-export-form select, .reply-export-form input[type=text] { width: 100%; max-width: 540px; min-height: 46px; box-sizing: border-box; }
 .reply-export-help { line-height: 1.6; color: var(--body-fg); }
+
+ul.messagelist li.reply-export-result {
+  background: var(--body-bg); color: var(--body-fg);
+  border: 1px solid var(--hairline-color); border-left: 3px solid var(--link-fg);
+  padding: 16px 20px; box-shadow: none; line-height: 1.5;
+}
+.reply-export-help summary { cursor: pointer; margin: 16px 0; }
