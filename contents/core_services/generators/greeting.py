@@ -56,7 +56,7 @@ class GreetingGenerator(BaseGenerator):
     # A narrower prompt target leaves enough room around the hard
     # validation limits. This reduces length-related retries while keeping
     # the final greeting concise.
-    TARGET_WORD_LIMITS = (20, 26)
+    TARGET_WORD_LIMITS = (24, 28)
 
     STYLE_DIRECTIONS = (
         (
@@ -108,6 +108,22 @@ class GreetingGenerator(BaseGenerator):
         "a relaxed, professional manner",
         "an unhurried, friendly hello",
         "a balanced, warm and practical tone",
+        "a wish for a little breathing room",
+        "a wish for a clear and comfortable day",
+        "a moment of calm in an ordinary day",
+        "a pleasant pause between daily tasks",
+        "a simple wish for things to go smoothly",
+        "a light and easy start to the conversation",
+        "a wish for a steady, manageable day",
+        "the value of a small, pleasant moment",
+        "a friendly greeting with quiet confidence",
+        "a wish for a bit of ease and good company",
+        "a cordial hello without an occasion",
+        "a wish for a comfortable pace today",
+        "a kind thought without making assumptions",
+        "a short welcome with a practical warmth",
+        "a wish for room to enjoy simple things",
+        "a relaxed greeting with no expectation of a reply",
     )
     STRUCTURES = (
         "One sentence: a warm thought with a natural continuation.",
@@ -118,6 +134,32 @@ class GreetingGenerator(BaseGenerator):
         "Two sentences with different grammatical openings.",
         "One sentence without starting with Hello or I hope.",
         "Two sentences: a short first sentence and a fuller second one.",
+        "One sentence beginning with a direct salutation and ending with a good wish.",
+        "Two sentences: a warm wish first, then a brief personal hello.",
+        "One sentence with two balanced clauses and no semicolon.",
+        "Two sentences: start with a plain greeting and vary the second sentence's rhythm.",
+    )
+    OPENING_MOVES = (
+        "Begin with a direct hello.",
+        "Begin with a gentle good wish.",
+        "Begin by saying it is nice to greet the reader.",
+        "Begin with a brief welcome.",
+        "Begin with a courteous first-person sentence.",
+        "Begin with a natural greeting without using a greeting word.",
+        "Begin with a small, positive thought.",
+        "Begin by sending a warm note.",
+        "Begin with a concise, calm salutation.",
+        "Begin with a wish for ease.",
+        "Begin with a friendly acknowledgment of the reader.",
+        "Begin with an understated expression of goodwill.",
+    )
+    WISH_DETAILS = (
+        "a comfortable pace", "a clear mind", "a pleasant pause",
+        "a little breathing room", "an easy moment", "a steady day",
+        "small reasons to smile", "room for good things", "a calm stretch",
+        "simple pleasures", "a smooth path through daily tasks",
+        "a welcome bit of quiet", "lightness in ordinary moments",
+        "good energy", "a relaxed rhythm", "a moment of ease",
     )
 
     LABEL_PATTERN = re.compile(
@@ -147,6 +189,17 @@ class GreetingGenerator(BaseGenerator):
         key //= len(self.THEMES)
         structure = self.STRUCTURES[key % len(self.STRUCTURES)]
         return theme, structure
+
+    def distinct_details(self, variation_key):
+        try:
+            key = int(variation_key or 0)
+        except (TypeError, ValueError):
+            key = 0
+        key //= len(self.STYLE_DIRECTIONS) * len(self.THEMES) * len(self.STRUCTURES)
+        opening = self.OPENING_MOVES[key % len(self.OPENING_MOVES)]
+        key //= len(self.OPENING_MOVES)
+        detail = self.WISH_DETAILS[key % len(self.WISH_DETAILS)]
+        return opening, detail
 
     def get_pool_log_message(
         self,
@@ -197,23 +250,20 @@ class GreetingGenerator(BaseGenerator):
         )
 
         min_words, max_words = self.word_limits(language)
-        target_min, target_max = (17, 23) if min_words == 12 else self.TARGET_WORD_LIMITS
+        target_min, target_max = (20, 25) if min_words == 12 else self.TARGET_WORD_LIMITS
         style_name, style_instruction = self.style_direction(
             variation_key
         )
 
         theme, structure = self.writing_direction(variation_key)
+        opening, detail = self.distinct_details(variation_key)
 
         system_prompt = f"""
-Write a warm, professional email greeting in native {language_name}.
-Start directly with a salutation or a sincere good wish to the recipient.
-Sound like a considerate person: plain, modest, cordial, never poetic or salesy.
-Write the greeting itself, without commenting on emails, words, writing,
-conversations, reading, replies, or what comes next. No advice or requests.
-Invent no prior contact, recipient details, or occasion. Use time-neutral
-salutations: no morning, evening, or start-of-week greetings.
-Avoid tired formulas such as "I hope this email finds you well", flattery,
-abstract maxims, names, placeholders, signatures, links, and emojis.
+Write a warm, natural email greeting in native {language_name}.
+Be personal and modest, never salesy. Invent no recipient facts, prior contact,
+or occasion. Use time-neutral wording, with no questions, requests, links,
+signatures, placeholders, or emojis. Avoid tired formulas such as
+"I hope this email finds you well". Do not mention the email itself.
 Aim for {target_min} to {target_max} words in 1-2 complete sentences.
 Return only the greeting; hard limit {min_words}-{max_words} space-separated words.
         """.strip()
@@ -223,7 +273,10 @@ Language: {language_name}
 Tone: {style_name}. {style_instruction}
 Focus: {theme}.
 Structure: {structure}
-Use fresh native phrasing, not translations of these directions.
+Opening: {opening}
+Good-wish detail: {detail}; express it naturally in {language_name}, not literally.
+Make the selected focus and structure clearly recognizable in the result.
+Use fresh native phrasing; avoid generic "have a nice day" wording.
 Count words: target {target_min}-{target_max}; valid {min_words}-{max_words}.
 Variation {variation_key} (omit this identifier).
 {retry_feedback}

@@ -1,4 +1,8 @@
+import csv
+import json
+
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -140,6 +144,7 @@ class ContentAdmin(BaseContentAdmin):
 
 class EmailReplyAdmin(BaseContentAdmin):
     content_type_value = "email_reply"
+    actions = ("download_replies_csv", "download_replies_json")
 
     list_display = (
         "id",
@@ -152,6 +157,45 @@ class EmailReplyAdmin(BaseContentAdmin):
         "status",
         "created_at",
     )
+
+    @staticmethod
+    def _export_rows(queryset):
+        for reply in queryset.select_related("language").order_by("id").iterator():
+            yield {
+                "id": reply.id,
+                "title": reply.title,
+                "language": reply.language.code if reply.language else "",
+                "body": reply.generated_content,
+                "status": reply.status,
+                "source_job_id": reply.generation_job_id or "",
+                "created_at": reply.created_at.isoformat(),
+            }
+
+    @admin.action(description="Download selected replies as CSV")
+    def download_replies_csv(self, request, queryset):
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="email_replies.csv"'
+        response.write("\ufeff")
+        writer = csv.writer(response)
+        fields = ("id", "title", "language", "body", "status", "source_job_id", "created_at")
+        writer.writerow(fields)
+        for row in self._export_rows(queryset):
+            # Keep spreadsheet software from evaluating model output as a formula.
+            writer.writerow(
+                "'" + str(row[field]) if str(row[field]).lstrip().startswith(("=", "+", "-", "@"))
+                else row[field]
+                for field in fields
+            )
+        return response
+
+    @admin.action(description="Download selected replies as JSON")
+    def download_replies_json(self, request, queryset):
+        response = HttpResponse(
+            json.dumps(list(self._export_rows(queryset)), ensure_ascii=False, indent=2),
+            content_type="application/json; charset=utf-8",
+        )
+        response["Content-Disposition"] = 'attachment; filename="email_replies.json"'
+        return response
 
 
 

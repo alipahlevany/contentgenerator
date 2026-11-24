@@ -139,7 +139,7 @@ class GreetingGenerationTests(TestCase):
         )
 
         self.assertIn(
-            "Aim for 20 to 26 words",
+            "Aim for 24 to 28 words",
             prompt_data["system_prompt"],
         )
 
@@ -198,6 +198,15 @@ class GreetingGenerationTests(TestCase):
         for prompt, (theme, structure) in zip(prompts, directions):
             self.assertIn(theme, prompt)
             self.assertIn(structure, prompt)
+
+    def test_variation_also_changes_opening_and_wish_detail(self):
+        generator = get_generator("greeting")
+        base = len(generator.STYLE_DIRECTIONS) * len(generator.THEMES) * len(generator.STRUCTURES)
+        self.assertNotEqual(generator.distinct_details(0)[0], generator.distinct_details(base)[0])
+        self.assertNotEqual(
+            generator.distinct_details(0)[1],
+            generator.distinct_details(base * len(generator.OPENING_MOVES))[1],
+        )
 
     @patch("contents.core_services.generation.job_service.generate_content")
     def test_duplicate_greeting_stays_rejected_and_informs_retry(self, generate):

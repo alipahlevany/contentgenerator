@@ -117,6 +117,11 @@ Variation: {variation_key} (never include this identifier in the reply).
                 + ", ".join(sorted(invalid))
             )
 
+        # The exact-token check above does not catch incomplete delimiters.
+        without_valid_tokens = self.PLACEHOLDER_PATTERN.sub("", text)
+        if "[[" in without_valid_tokens or "]]" in without_valid_tokens:
+            raise GeneratorOutputError("Malformed reply placeholder.")
+
     def extract_output(
         self,
         generated_text,
