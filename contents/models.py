@@ -382,6 +382,15 @@ class EmailReply(Content):
         verbose_name_plural = "Email Replies"
 
 
+class ReplyExport(Content):
+    """A separate admin workspace for exporting replies, using existing content."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "Reply export"
+        verbose_name_plural = "Reply exports"
+
+
 class ContentExport(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),

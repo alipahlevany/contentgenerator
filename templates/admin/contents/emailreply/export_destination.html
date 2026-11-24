@@ -1,19 +1,23 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/reply_export.css' %}">{% endblock %}
 {% block content %}
-<form method="post">
+<form method="post" class="reply-export-form">
   {% csrf_token %}
-  <p>{{ selected_count }} selected replies. Choose who or what they are for.</p>
-  <p>Previously exported versions are excluded for this destination across CSV, JSON and API exports.</p>
+  <section class="reply-export-notice" aria-label="How reply exports work">
+    <h2>Download new replies. Skip repeats.</h2>
+    <p><strong>{{ selected_count }} repl{{ selected_count|pluralize:"y,ies" }} selected.</strong> Choose a client or campaign below, or create a new destination.</p>
+    <p><strong>Next time, choose the same destination.</strong> Replies already exported there will be skipped, even if you switch between CSV and JSON. Updated reply versions may be exported again.</p>
+  </section>
   {{ form.non_field_errors }}
   <p>{{ form.export_client.label_tag }} {{ form.export_client }} {{ form.export_client.errors }}</p>
   <div id="new-export-destination"><p>{{ form.export_destination.label_tag }} {{ form.export_destination }} {{ form.export_destination.errors }}</p><p>{{ form.export_destination.help_text }}</p></div>
   <input type="hidden" name="action" value="{{ action }}">
   <input type="hidden" name="select_across" value="{{ select_across }}">
   {% for pk in selected_ids %}<input type="hidden" name="_selected_action" value="{{ pk }}">{% endfor %}
-  <div class="submit-row"><input type="submit" class="default" value="Create file & record export"><a href="{% url 'admin:contents_emailreply_changelist' %}">Cancel</a></div>
-  <p>A new name creates an export destination. No API key or automatic delivery is enabled.</p>
-  <p>History is recorded when the file is prepared. If the download is interrupted, contact an administrator before retrying.</p>
+  <div class="submit-row"><input type="submit" class="default" value="Download new replies"><a href="{{ cancel_url }}">Cancel</a></div>
+  <p class="reply-export-help">A destination is a label for tracking downloads. It does not send replies automatically.</p>
+  <p class="reply-export-help">History is recorded when the file is prepared. If the download is interrupted, contact an administrator before retrying.</p>
 </form>
 <script src="{% static 'admin/export_destination.js' %}" defer></script>
 {% endblock %}
