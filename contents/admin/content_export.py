@@ -132,6 +132,11 @@ class ContentExportAdmin(admin.ModelAdmin):
             "failed": "#dc3545",
             "pending": "#fd7e14",
         }
+        labels = {
+            "success": "Sent successfully",
+            "failed": "Failed",
+            "pending": "Pending — not confirmed sent",
+        }
 
         color = colors.get(
             obj.status,
@@ -146,7 +151,7 @@ class ContentExportAdmin(admin.ModelAdmin):
                 "{}</span>"
             ),
             color,
-            obj.get_status_display(),
+            labels.get(obj.status, obj.get_status_display()),
         )
 
     @admin.display(
@@ -204,6 +209,7 @@ class ReplyContentExportAdmin(ContentExportAdmin):
         "reply_reference",
         "client",
         "status_badge",
+        "result_details",
         "short_content_hash",
         "remote_id",
         "exported_at",
@@ -219,18 +225,40 @@ class ReplyContentExportAdmin(ContentExportAdmin):
     def reply_reference(self, obj):
         return format_html("<strong>Reply #{} — {}</strong>", obj.content_id, obj.content.title)
 
+    @admin.display(description="Result")
+    def result_details(self, obj):
+        if obj.status == "failed":
+            message = (obj.error_message or "No error details were recorded.").strip()
+            if len(message) > 140:
+                message = f"{message[:137]}..."
+            return format_html('<span style="color:#ba2121">{}</span>', message)
+        if obj.status == "pending":
+            return "No successful delivery confirmation recorded."
+        return "Destination accepted this export."
+
     def changelist_view(self, request, extra_context=None):
         # These totals are based on the full reply export history, independent
         # of pagination. Distinct reply IDs avoid counting a re-exported
         # changed version as another reply.
         rows = self.get_queryset(request).values("client_id", "client__name").annotate(
+            total_records=Count("id"),
             successful_records=Count("id", filter=Q(status="success")),
-            unique_replies=Count("content_id", filter=Q(status="success"), distinct=True),
+            successful_replies=Count("content_id", filter=Q(status="success"), distinct=True),
+            failed_records=Count("id", filter=Q(status="failed")),
+            failed_replies=Count("content_id", filter=Q(status="failed"), distinct=True),
+            pending_records=Count("id", filter=Q(status="pending")),
+            pending_replies=Count("content_id", filter=Q(status="pending"), distinct=True),
         ).order_by("client__name")
+        history = self.get_queryset(request)
         extra_context = {
             **(extra_context or {}),
             "reply_export_totals": rows,
-            "successful_reply_records": self.get_queryset(request).filter(status="success").count(),
-            "successful_unique_replies": self.get_queryset(request).filter(status="success").values("content_id").distinct().count(),
+            "reply_export_record_count": history.count(),
+            "successful_reply_records": history.filter(status="success").count(),
+            "successful_unique_replies": history.filter(status="success").values("content_id").distinct().count(),
+            "failed_reply_records": history.filter(status="failed").count(),
+            "failed_unique_replies": history.filter(status="failed").values("content_id").distinct().count(),
+            "pending_reply_records": history.filter(status="pending").count(),
+            "pending_unique_replies": history.filter(status="pending").values("content_id").distinct().count(),
         }
         return super().changelist_view(request, extra_context=extra_context)
