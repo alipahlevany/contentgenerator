@@ -10,7 +10,7 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from contents.admin.content import EmailReplyAdmin
-from contents.models import Content
+from contents.models import Content, ExternalClient, ContentExport
 
 
 class ReplyAdminExportTests(SimpleTestCase):
@@ -29,7 +29,7 @@ class ReplyAdminExportTests(SimpleTestCase):
         self.queryset.select_related.return_value.order_by.return_value.iterator.return_value = iter([self.reply])
 
     def test_csv_download_preserves_multiline_reply_and_escapes_formula(self):
-        response = self.admin.download_replies_csv(None, self.queryset)
+        response = self.admin._csv_response(self.queryset)
         rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(rows[0]["title"], "'=unsafe title")
@@ -37,7 +37,7 @@ class ReplyAdminExportTests(SimpleTestCase):
         self.assertEqual(rows[0]["language"], "en")
 
     def test_json_download_contains_selected_reply(self):
-        response = self.admin.download_replies_json(None, self.queryset)
+        response = self.admin._json_response(self.queryset)
         rows = json.loads(response.content)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["id"], 17)
@@ -58,10 +58,56 @@ class ReplyAdminActionTests(TestCase):
             title="Other", content_type="email_reply", prompt="prompt",
             generated_content="Other reply", status="generated",
         )
+        recipient = ExternalClient.objects.create(name="Recipient", code="recipient", api_key="test-key")
         response = self.client.post(
             reverse("admin:contents_emailreply_changelist"),
-            {"action": "download_replies_csv", "_selected_action": [selected.pk], "index": 0},
+            {"action": "download_replies_csv", "export_client": recipient.pk, "_selected_action": [selected.pk], "index": 0},
         )
         self.assertEqual(response.status_code, 200)
         rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
         self.assertEqual([row["body"] for row in rows], ["Selected reply"])
+
+        self.assertEqual(ContentExport.objects.filter(client=recipient, status="success").count(), 1)
+        again = self.client.post(
+            reverse("admin:contents_emailreply_changelist"),
+            {"action": "download_replies_json", "export_client": recipient.pk, "_selected_action": [selected.pk], "index": 0},
+        )
+        self.assertEqual(again.status_code, 302)
+        other = ExternalClient.objects.create(name="Other recipient", code="other-recipient", api_key="test-other")
+        different = self.client.post(
+            reverse("admin:contents_emailreply_changelist"),
+            {"action": "download_replies_json", "export_client": other.pk, "_selected_action": [selected.pk], "index": 0},
+        )
+        self.assertEqual(json.loads(different.content)[0]["body"], "Selected reply")
+
+    def test_missing_or_invalid_recipient_does_not_record_exports(self):
+        user = get_user_model().objects.create_superuser('export-check', 'check@example.com', 'test-password')
+        self.client.force_login(user)
+        reply = Content.objects.create(title='Reply', prompt='p', content_type='email_reply', generated_content='Body', status='generated')
+        for value in ('', 'invalid', '999999'):
+            response = self.client.post(reverse('admin:contents_emailreply_changelist'), {
+                'action': 'download_replies_csv', 'export_client': value,
+                '_selected_action': [reply.pk], 'index': 0,
+            })
+            self.assertNotIn('Content-Disposition', response)
+        self.assertEqual(ContentExport.objects.count(), 0)
+
+    def test_export_prompts_then_creates_named_destination(self):
+        user = get_user_model().objects.create_superuser('destination-admin', 'destination@example.com', 'test-password')
+        self.client.force_login(user)
+        reply = Content.objects.create(title='Reply', prompt='p', content_type='email_reply', generated_content='Body', status='generated')
+        url = reverse('admin:contents_emailreply_changelist')
+        selection = {'action': 'download_replies_json', '_selected_action': [reply.pk], 'index': 0}
+        page = self.client.post(url, selection)
+        self.assertContains(page, 'Where is this export going?')
+        self.assertEqual(ExternalClient.objects.count(), 0)
+        response = self.client.post(url, dict(selection, export_client='__new__', export_destination='Customer campaign'))
+        self.assertEqual(response['Content-Type'], 'application/json; charset=utf-8')
+        client = ExternalClient.objects.get(name='Customer campaign')
+        self.assertFalse(client.receives_standard_content)
+        self.assertFalse(client.api_key_hash)
+        self.assertFalse(client.api_key)
+        again = self.client.post(url, dict(selection, export_client='__new__', export_destination='Customer campaign'))
+        self.assertEqual(again.status_code, 302)
+        self.assertEqual(ExternalClient.objects.count(), 1)
+        self.assertEqual(ContentExport.objects.count(), 1)

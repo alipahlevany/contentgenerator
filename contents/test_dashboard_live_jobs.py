@@ -34,4 +34,4 @@ class DashboardLiveJobsTests(TestCase):
         response = self.client.get(reverse('admin:index'))
         self.assertContains(response, 'id="live-runs-body"')
         self.assertContains(response, 'generation_type=email_reply')
-        self.assertContains(response, 'Your content, in motion')
+        self.assertContains(response, 'Keep good content')

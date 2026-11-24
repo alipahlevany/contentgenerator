@@ -142,7 +142,7 @@ class DashboardAccessTests(TestCase):
         Content.objects.create(title="HTML test", generated_content='</script><script>alert("test")</script>', content_type="greeting", status="generated")
         response = self.client.get("/admin/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Your content, in motion")
+        self.assertContains(response, "Keep good content")
         self.assertContains(response, 'id="dashboard-data"')
         self.assertNotContains(response, '</script><script>alert("test")</script>')
         self.assertContains(response, "csrfmiddlewaretoken")

@@ -97,6 +97,7 @@ def export_contents_for_client(
     validated_data,
     client,
     content_type,
+    selected_queryset=None,
 ) -> ExportResult:
     requested_count = validated_data["count"]
     exported_contents = []
@@ -128,17 +129,12 @@ def export_contents_for_client(
             )
         )
 
-        candidate_ids = list(
-            build_export_queryset(
-                validated_data=validated_data,
-                client=client,
-                content_type=content_type,
-            )
-            .values_list(
-                "id",
-                flat=True,
-            )[:effective_count]
+        eligible = build_export_queryset(
+            validated_data=validated_data, client=client, content_type=content_type,
         )
+        if selected_queryset is not None:
+            eligible = eligible.filter(pk__in=selected_queryset.values("pk"))
+        candidate_ids = list(eligible.values_list("id", flat=True)[:effective_count])
 
         candidates = list(
             Content.objects
