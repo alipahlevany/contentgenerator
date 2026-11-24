@@ -38,3 +38,19 @@ class KeyReplacementTests(TestCase):
         csrf = Client(enforce_csrf_checks=True)
         csrf.force_login(self.user)
         self.assertEqual(csrf.post(self.url, {}).status_code, 403)
+
+    def test_https_confirmation_preserves_csrf_and_accepts_valid_form(self):
+        import re
+        browser = Client(enforce_csrf_checks=True)
+        browser.force_login(self.user)
+        page = browser.get(self.url, secure=True)
+        self.assertEqual(page['Referrer-Policy'], 'same-origin')
+        token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', page.content.decode()).group(1)
+        data = {'confirmation': page.context_data['confirmation'], 'csrfmiddlewaretoken': token}
+        # A valid token does not authorize cross-origin requests.
+        rejected = browser.post(self.url, data, secure=True, HTTP_ORIGIN='https://untrusted.example')
+        self.assertEqual(rejected.status_code, 403)
+        accepted = browser.post(self.url, data, secure=True, HTTP_REFERER='https://testserver' + self.url)
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted['Referrer-Policy'], 'no-referrer')
+        self.assertIn('no-store', accepted['Cache-Control'])

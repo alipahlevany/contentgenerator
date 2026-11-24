@@ -54,7 +54,9 @@ class ExternalClientAdmin(admin.ModelAdmin):
                 context.update(title="Replace API key", confirmation=signing.dumps(token_data, salt="replace-client-key"))
                 response = TemplateResponse(request, "admin/contents/externalclient/replace_api_key.html", context)
             response["Cache-Control"] = "private, no-store"
-            response["Referrer-Policy"] = "no-referrer"
+            # Keep same-origin Referer on the confirmation form for HTTPS CSRF checks.
+            # The page displaying the new secret still sends no referrer.
+            response["Referrer-Policy"] = "same-origin" if request.method == "GET" else "no-referrer"
             return response
 
     list_display = (
