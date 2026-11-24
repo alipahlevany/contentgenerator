@@ -5,7 +5,7 @@
     <h2 style="margin:0 0 8px">Reply export results</h2>
     <p style="margin:0 0 14px">
       <strong>{{ reply_export_record_count }}</strong> total export attempts ·
-      <strong>{{ successful_unique_replies }}</strong> unique replies sent successfully
+      <strong>{{ successful_unique_replies }}</strong> unique replies returned in successful API responses
       ({{ successful_reply_records }} successful records) ·
       <strong>{{ failed_unique_replies }}</strong> unique replies with failed attempts
       ({{ failed_reply_records }} failed records) ·
@@ -16,7 +16,7 @@
     <table style="width:auto;min-width:760px;border-collapse:collapse">
       <thead><tr>
         <th style="padding:6px 12px;text-align:left">Destination</th>
-        <th style="padding:6px 12px;text-align:right">Successful replies</th>
+        <th style="padding:6px 12px;text-align:right">Replies returned by API</th>
         <th style="padding:6px 12px;text-align:right">Failed attempts</th>
         <th style="padding:6px 12px;text-align:right">Pending attempts</th>
         <th style="padding:6px 12px;text-align:right">Total attempts</th>

@@ -133,7 +133,7 @@ class ContentExportAdmin(admin.ModelAdmin):
             "pending": "#fd7e14",
         }
         labels = {
-            "success": "Sent successfully",
+            "success": "Returned by API (receipt unconfirmed)",
             "failed": "Failed",
             "pending": "Pending — not confirmed sent",
         }
@@ -234,7 +234,7 @@ class ReplyContentExportAdmin(ContentExportAdmin):
             return format_html('<span style="color:#ba2121">{}</span>', message)
         if obj.status == "pending":
             return "No successful delivery confirmation recorded."
-        return "Destination accepted this export."
+        return "Included in a successful API response; client-side receipt or storage is not confirmed."
 
     def changelist_view(self, request, extra_context=None):
         # These totals are based on the full reply export history, independent
