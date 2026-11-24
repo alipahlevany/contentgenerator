@@ -1,7 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth.hashers import make_password
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import path, reverse
+from django.core import signing
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+from django.http import Http404, HttpResponseNotAllowed
+from django.views.decorators.debug import sensitive_post_parameters
 from django.utils.html import format_html
 
 from contents.models import ExternalClient
@@ -9,6 +14,49 @@ from contents.models import ExternalClient
 
 @admin.register(ExternalClient)
 class ExternalClientAdmin(admin.ModelAdmin):
+    change_form_template = "admin/contents/externalclient/change_form.html"
+
+    def get_urls(self):
+        return [path(
+            "<int:object_id>/replace-api-key/",
+            self.admin_site.admin_view(sensitive_post_parameters()(self.replace_api_key)),
+            name="contents_externalclient_replace_api_key",
+        )] + super().get_urls()
+
+    def replace_api_key(self, request, object_id):
+        if request.method not in ("GET", "POST"):
+            return HttpResponseNotAllowed(["GET", "POST"])
+        with transaction.atomic():
+            client = ExternalClient.objects.select_for_update().filter(pk=object_id).first()
+            if client is None:
+                raise Http404
+            if not self.has_change_permission(request, client):
+                raise PermissionDenied
+            change_url = reverse("admin:contents_externalclient_change", args=(client.pk,))
+            context = {
+                **self.admin_site.each_context(request), "opts": self.model._meta,
+                "client": client, "client_change_url": change_url,
+                "client_list_url": reverse("admin:contents_externalclient_changelist"),
+            }
+            token_data = {"client": client.pk, "prefix": client.api_key_prefix}
+            if request.method == "POST":
+                try:
+                    confirmed = signing.loads(request.POST.get("confirmation", ""), salt="replace-client-key", max_age=600)
+                except signing.BadSignature:
+                    raise PermissionDenied("Confirmation expired. Open the confirmation page again.")
+                if confirmed != token_data:
+                    raise PermissionDenied("This key has already changed. Open the client page again.")
+                raw_key = client.rotate_api_key()
+                self.log_change(request, client, "Replaced API key.")
+                context.update(title="API key replaced", api_key=raw_key, replaced=True)
+                response = TemplateResponse(request, "admin/contents/externalclient/api_key_created.html", context)
+            else:
+                context.update(title="Replace API key", confirmation=signing.dumps(token_data, salt="replace-client-key"))
+                response = TemplateResponse(request, "admin/contents/externalclient/replace_api_key.html", context)
+            response["Cache-Control"] = "private, no-store"
+            response["Referrer-Policy"] = "no-referrer"
+            return response
+
     list_display = (
         "name",
         "code",

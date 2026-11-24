@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div style="max-width:720px">
+  <h2>{{ client.name }} · {{ client.code }}</h2>
+  <p>The old key cannot be recovered. Replacing it immediately disables the current key for this client.</p>
+  <p>Update this client's integration with the new key. Other clients are not affected.</p>
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="confirmation" value="{{ confirmation }}">
+    <div class="submit-row">
+      <input type="submit" value="Replace key &amp; show new key">
+      <a href="{{ client_change_url }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

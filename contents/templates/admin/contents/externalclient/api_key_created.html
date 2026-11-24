@@ -182,11 +182,10 @@
             <div class="api-key-header">
                 <div class="api-key-icon">✓</div>
 
-                <h1>API key generated successfully</h1>
+                <h1>{% if replaced %}API key replaced{% else %}API key generated successfully{% endif %}</h1>
 
                 <p>
-                    Your external client has been created and its API
-                    credentials are ready.
+                    {% if replaced %}The previous key is now invalid. Update your integration with the new key.{% else %}Your external client has been created and its API credentials are ready.{% endif %}
                 </p>
             </div>
 
