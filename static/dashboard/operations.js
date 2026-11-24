@@ -294,3 +294,143 @@
   render();
   refreshAccountUsage();
 })();
+
+(() => {
+  'use strict';
+  const body = document.getElementById('live-runs-body');
+  if (!body) return;
+  const state = document.getElementById('live-runs-status');
+  const count = document.getElementById('live-runs-count');
+  const names = {greeting:'Greetings', email_reply:'Email replies', standard:'Standard content', warmup_template:'Email templates'};
+  let timer, busy = false, failures = 0, stopped = false, previous = '';
+  const node = (tag, value, className) => {
+    const element = document.createElement(tag);
+    if (value !== undefined) element.textContent = value;
+    if (className) element.className = className;
+    return element;
+  };
+  const number = value => new Intl.NumberFormat('en-US').format(value);
+  async function poll() {
+    clearTimeout(timer);
+    if (busy || stopped || document.hidden) return;
+    busy = true;
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch(document.body.dataset.liveJobsUrl, {credentials:'same-origin', cache:'no-store', signal:controller.signal});
+      if (response.redirected || response.status === 403 || response.status === 401) { stopped = true; throw new Error('session'); }
+      if (!response.ok) throw new Error('network');
+      const data = await response.json();
+      const signature = JSON.stringify(data);
+      if (signature !== previous) {
+        const fragment = document.createDocumentFragment();
+        for (const job of data.jobs) {
+          const card = node('article', undefined, 'live-run');
+          const header = node('header');
+          const link = node('a', `${names[job.generation_type] || 'Generation'} #${job.id}`);
+          link.href = `/admin/contents/generationjob/${Number(job.id)}/change/`;
+          header.append(link, node('span', job.status === 'running' ? 'Running' : 'Pending', 'badge neutral'));
+          const summary = node('div', undefined, 'live-count');
+          summary.append(node('strong', number(job.generated_count)), node('small', `of ${number(job.count)} saved`));
+          const progress = node('progress');
+          progress.max = Math.max(1, job.count); progress.value = job.generated_count;
+          progress.setAttribute('aria-label', `Run ${job.id} saved outputs`);
+          card.append(header, summary, progress, node('p', `${number(Math.max(0,job.count-job.generated_count))} remaining · ${number(job.skipped_count)} skipped`));
+          fragment.append(card);
+        }
+        if (!data.jobs.length) fragment.append(node('p', 'No active runs. Start a generation above when you’re ready.', 'empty-state'));
+        body.replaceChildren(fragment);
+        previous = signature;
+      }
+      count.textContent = `${data.total} active or pending · Showing ${data.jobs.length} · Updates every 5 seconds`;
+      state.textContent = 'Live · ' + new Date().toLocaleTimeString();
+      failures = 0;
+    } catch (_) {
+      failures++;
+      state.textContent = stopped ? 'Sign in to reconnect' : 'Reconnecting…';
+      count.textContent = 'Updates paused. Last received progress is shown.';
+    } finally {
+      clearTimeout(deadline); busy = false;
+      if (!document.hidden && !stopped) timer = setTimeout(poll, Math.min(30000,5000 * 2 ** Math.min(failures,3)));
+    }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(timer); else poll(); });
+  window.addEventListener('pagehide', () => { stopped = true; clearTimeout(timer); });
+  window.addEventListener('pageshow', event => { if (event.persisted) { stopped = false; poll(); } });
+  poll();
+})();
+
+// Keyboard-first navigation, using the links already available in this workspace.
+(() => {
+  'use strict';
+  const dialog = document.getElementById('command-dialog');
+  const input = document.getElementById('command-search');
+  const results = document.getElementById('command-results');
+  if (!dialog || !input || !results) return;
+  const seen = new Set();
+  const links = [...document.querySelectorAll('.nav-link, .studio-launcher a')].filter(link => {
+    if (seen.has(link.href)) return false;
+    seen.add(link.href); return true;
+  }).map(link => ({href:link.href, label:(link.href.includes('/add/?') ? 'Create · ' : '') + (link.querySelector('strong') || link).textContent.replace('FOCUS','').trim()}));
+  const render = () => {
+    const query = input.value.trim().toLowerCase();
+    const matching = links.filter(link => link.label.toLowerCase().includes(query));
+    results.replaceChildren(...matching.map(link => {
+      const a = document.createElement('a'); a.href = link.href; a.textContent = link.label;
+      return a;
+    }));
+    document.getElementById('command-empty').hidden = matching.length !== 0;
+  };
+  const open = () => { if (dialog.open) return; input.value = ''; render(); dialog.showModal(); input.focus(); };
+  document.getElementById('command-open').addEventListener('click',open);
+  document.getElementById('command-close').addEventListener('click',()=>dialog.close());
+  input.addEventListener('input',render);
+  input.addEventListener('keydown',event => {
+    if (event.key === 'ArrowDown') { event.preventDefault(); results.querySelector('a')?.focus(); }
+    if (event.key === 'Enter' && results.children.length === 1) results.firstElementChild.click();
+  });
+  dialog.addEventListener('click',event => {
+    if (event.target !== dialog) return;
+    const box = dialog.getBoundingClientRect();
+    if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) dialog.close();
+  });
+  document.addEventListener('keydown',event => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); open(); }
+  });
+  document.querySelector('.command-trigger kbd').textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ K' : 'Ctrl K';
+})();
+
+// Animate presentation only: counters always display their actual latest value.
+(() => {
+  'use strict';
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const animations = new Set();
+  const animate = (element, frames, options) => {
+    if (reduced.matches || document.hidden || !element.animate) return;
+    const animation = element.animate(frames, options);
+    animations.add(animation);
+    animation.finished.catch(()=>{}).finally(()=>animations.delete(animation));
+  };
+  reduced.addEventListener('change',()=>{ if (reduced.matches) animations.forEach(animation=>animation.cancel()); });
+  document.addEventListener('visibilitychange',()=>{ if (document.hidden) animations.forEach(animation=>animation.cancel()); });
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      observer.unobserve(entry.target);
+      animate(entry.target, [{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'translateY(0)'}],{duration:420,easing:'cubic-bezier(.2,.7,.2,1)'});
+    });
+  }, {threshold:0.08});
+  document.querySelectorAll('.studio-launcher a,.metric,.panel,.greeting-panel').forEach(element=>observer.observe(element));
+  document.querySelectorAll('.metric-number').forEach(element=>{
+    let previous = element.textContent;
+    new MutationObserver(()=>{
+      if (previous === element.textContent) return;
+      previous = element.textContent;
+      animate(element,[{opacity:.45,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],{duration:300,easing:'ease-out'});
+    }).observe(element,{childList:true,characterData:true,subtree:true});
+  });
+  const live = document.getElementById('live-runs-body');
+  if (live) new MutationObserver(()=>{
+    live.querySelectorAll('.live-count strong').forEach(element=>animate(element,[{opacity:.5},{opacity:1}],{duration:350}));
+  }).observe(live,{childList:true});
+})();

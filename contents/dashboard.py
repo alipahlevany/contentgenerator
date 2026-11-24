@@ -29,3 +29,20 @@ def openai_account_usage(request):
         response = JsonResponse(get_openai_usage(request.GET.get("days", 7)))
     response['Cache-Control'] = 'private, no-store'
     return response
+
+
+@staff_member_required
+@require_GET
+def dashboard_live_jobs(request):
+    from contents.models import GenerationJob
+    if not request.user.has_perm("contents.view_generationjob") and not request.user.has_perm("contents.change_generationjob"):
+        return JsonResponse({"detail": "Job access required."}, status=403)
+    jobs = GenerationJob.objects.filter(status__in=("running", "pending"))
+    response = JsonResponse({
+        "total": jobs.count(),
+        "jobs": list(jobs.order_by("-status", "-created_at").values(
+            "id", "generation_type", "status", "generated_count", "skipped_count", "count"
+        )[:6]),
+    })
+    response["Cache-Control"] = "private, no-store"
+    return response
