@@ -387,8 +387,8 @@ class ReplyExport(Content):
 
     class Meta:
         proxy = True
-        verbose_name = "Reply export"
-        verbose_name_plural = "Reply exports"
+        verbose_name = "Reply library"
+        verbose_name_plural = "Reply library"
 
 
 class ContentExport(models.Model):
