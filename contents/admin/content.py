@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 
 from contents.models import Content, EmailReply, Greeting
+from contents.core_services.generators.email_reply import reply_display_title
 from .reply_download import ReplyDownloadActionsMixin
 
 
@@ -146,7 +147,7 @@ class EmailReplyAdmin(ReplyDownloadActionsMixin, BaseContentAdmin):
 
     list_display = (
         "id",
-        "title",
+        "reply_title",
         "source_job",
         "language",
         "topic",
@@ -158,6 +159,15 @@ class EmailReplyAdmin(ReplyDownloadActionsMixin, BaseContentAdmin):
 
     class Media:
         css = {"all": ("admin/reply_export.css",)}
+
+    list_display_links = ("id", "reply_title")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("language")
+
+    @admin.display(description="Reply", ordering="title")
+    def reply_title(self, obj):
+        return reply_display_title(obj)
 
 
 

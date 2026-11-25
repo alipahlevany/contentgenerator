@@ -1,10 +1,30 @@
-import uuid
 import re
 
 from contents.core_services.generators.base import (
     BaseGenerator,
     GeneratorOutputError,
 )
+
+
+LEGACY_REPLY_TITLE = re.compile(r"^Email Reply [0-9a-f]{12}$", re.IGNORECASE)
+
+
+def build_reply_title(body, language=None):
+    """Build a short, human-readable label from a generated reply."""
+    language_name = getattr(language, "name", language)
+    language_name = " ".join(str(language_name or "").split())
+    opening = " ".join(str(body or "").split())
+    if len(opening) > 64:
+        opening = opening[:61].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
+    prefix = f"{language_name} reply" if language_name else "Email reply"
+    return f"{prefix} — {opening}"[:255] if opening else prefix
+
+
+def reply_display_title(content):
+    """Replace legacy UUID-like reply labels in admin views with readable titles."""
+    if LEGACY_REPLY_TITLE.fullmatch(content.title or ""):
+        return build_reply_title(content.generated_content, content.language)
+    return content.title
 
 
 class EmailReplyGenerator(BaseGenerator):
@@ -99,7 +119,8 @@ class EmailReplyGenerator(BaseGenerator):
         return {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
-            "fallback_title": f"Email Reply {uuid.uuid4().hex[:12]}",
+            # Used only as a safe fallback if extraction ever returns no title.
+            "fallback_title": "Email reply",
         }
 
     def _validate_placeholders(self, text):
@@ -131,4 +152,5 @@ class EmailReplyGenerator(BaseGenerator):
 
         self._validate_placeholders(body)
 
-        return fallback_title, body
+        title = build_reply_title(body, language) if language else fallback_title
+        return title, body

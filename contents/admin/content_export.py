@@ -4,6 +4,7 @@ from django.utils.html import format_html
 from django.db.models import Count, Q
 
 from contents.models import ContentExport, ReplyContentExport
+from contents.core_services.generators.email_reply import reply_display_title
 
 
 @admin.register(ContentExport)
@@ -226,11 +227,20 @@ class ReplyContentExportAdmin(ContentExportAdmin):
         css = {"all": ("admin/reply_export.css",)}
 
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(content__content_type="email_reply")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("content__language")
+            .filter(content__content_type="email_reply")
+        )
 
     @admin.display(description="Reply reference", ordering="content_id")
     def reply_reference(self, obj):
-        return format_html("<strong>Reply #{} — {}</strong>", obj.content_id, obj.content.title)
+        return format_html(
+            "<strong>Reply #{} — {}</strong>",
+            obj.content_id,
+            reply_display_title(obj.content),
+        )
 
     def changelist_view(self, request, extra_context=None):
         # These totals are based on the full reply export history, independent
