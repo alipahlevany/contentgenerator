@@ -4,7 +4,6 @@ from django.utils.html import format_html
 from django.db.models import Count, Q
 
 from contents.models import ContentExport, ReplyContentExport
-from contents.core_services.generators.email_reply import reply_display_title
 
 
 @admin.register(ContentExport)
@@ -236,10 +235,13 @@ class ReplyContentExportAdmin(ContentExportAdmin):
 
     @admin.display(description="Reply reference", ordering="content_id")
     def reply_reference(self, obj):
+        language = getattr(obj.content.language, "name", "")
+        reference = f"Reply #{obj.content_id}"
+        if language:
+            reference = f"{reference} · {language}"
         return format_html(
-            "<strong>Reply #{} — {}</strong>",
-            obj.content_id,
-            reply_display_title(obj.content),
+            "<strong>{}</strong>",
+            reference,
         )
 
     def changelist_view(self, request, extra_context=None):
@@ -253,14 +255,12 @@ class ReplyContentExportAdmin(ContentExportAdmin):
             pending_replies=Count("content_id", filter=Q(status="pending"), distinct=True),
         ).order_by("client__name")
         history = self.get_queryset(request)
-        total_replies = history.values("content_id").distinct().count()
         exported_replies = history.filter(status="success").values("content_id").distinct().count()
         failed_replies = history.filter(status="failed").values("content_id").distinct().count()
         pending_replies = history.filter(status="pending").values("content_id").distinct().count()
         extra_context = {
             **(extra_context or {}),
             "reply_export_totals": rows,
-            "total_replies": total_replies,
             "exported_replies": exported_replies,
             "failed_replies": failed_replies,
             "pending_replies": pending_replies,

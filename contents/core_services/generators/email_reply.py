@@ -14,8 +14,8 @@ def build_reply_title(body, language=None):
     language_name = getattr(language, "name", language)
     language_name = " ".join(str(language_name or "").split())
     opening = " ".join(str(body or "").split())
-    if len(opening) > 64:
-        opening = opening[:61].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
+    if len(opening) > 34:
+        opening = opening[:31].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
     prefix = f"{language_name} reply" if language_name else "Email reply"
     return f"{prefix} — {opening}"[:255] if opening else prefix
 
