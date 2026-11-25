@@ -32,6 +32,7 @@ class AdminNavigationGroupsTests(SimpleTestCase):
                     model("GenerationJob"),
                     model("GenerationJobLog"),
                     model("WarmupTemplate"),
+                    model("WarmupTemplateGenerationSettings"),
                 ],
             },
             {
@@ -47,7 +48,7 @@ class AdminNavigationGroupsTests(SimpleTestCase):
         grouped = grouped_generation_apps(self.apps)
         self.assertEqual(
             [app["name"] for app in grouped],
-            ["Greeting", "Replies", "Standard", "Shared generation tools", "Authentication and Authorization"],
+            ["Greeting", "Replies", "Standard", "Templates", "Shared generation tools", "Authentication and Authorization"],
         )
         self.assertEqual(
             [item["name"] for item in grouped[0]["models"]],
@@ -60,6 +61,10 @@ class AdminNavigationGroupsTests(SimpleTestCase):
         self.assertEqual(
             [item["name"] for item in grouped[2]["models"]],
             ["Standard content", "Standard settings", "Standard generation jobs", "Standard export history"],
+        )
+        self.assertEqual(
+            [item["name"] for item in grouped[3]["models"]],
+            ["Warmup templates", "Template settings"],
         )
         self.assertIn(
             "generation_type__exact=greeting",

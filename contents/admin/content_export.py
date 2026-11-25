@@ -137,17 +137,9 @@ class ContentExportAdmin(admin.ModelAdmin):
             "pending": "#fd7e14",
         }
         labels = {
-            "success": (
-                "Download prepared (receipt unconfirmed)"
-                if obj.export_method == "manual_download"
-                else (
-                    "Earlier export (method untracked)"
-                    if obj.export_method == "unknown"
-                    else "Returned by API (receipt unconfirmed)"
-                )
-            ),
+            "success": "Exported",
             "failed": "Failed",
-            "pending": "Pending — not confirmed sent",
+            "pending": "Pending",
         }
 
         color = colors.get(
@@ -224,16 +216,14 @@ class ReplyContentExportAdmin(ContentExportAdmin):
     list_display = (
         "reply_reference",
         "client",
-        "export_method_label",
         "status_badge",
-        "result_details",
-        "short_content_hash",
-        "remote_id",
-        "exported_at",
         "created_at",
     )
     list_filter = ("client", "status", "exported_at", "created_at")
     search_fields = ContentExportAdmin.search_fields
+
+    class Media:
+        css = {"all": ("admin/reply_export.css",)}
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(content__content_type="email_reply")
@@ -242,52 +232,27 @@ class ReplyContentExportAdmin(ContentExportAdmin):
     def reply_reference(self, obj):
         return format_html("<strong>Reply #{} — {}</strong>", obj.content_id, obj.content.title)
 
-    @admin.display(description="Result")
-    def result_details(self, obj):
-        if obj.status == "failed":
-            message = (obj.error_message or "No error details were recorded.").strip()
-            if len(message) > 140:
-                message = f"{message[:137]}..."
-            return format_html('<span style="color:#ba2121">{}</span>', message)
-        if obj.status == "pending":
-            return "No successful export has been recorded."
-        if obj.export_method == "manual_download":
-            return "Included in the downloaded CSV/JSON file. Receipt or storage by its destination is not confirmed."
-        if obj.export_method == "unknown":
-            return "Recorded before the export method was tracked; the exact route is unavailable."
-        return "Included in a successful API response. Client-side receipt or storage is not confirmed."
-
     def changelist_view(self, request, extra_context=None):
         # These totals are based on the full reply export history, independent
         # of pagination. Distinct reply IDs avoid counting a re-exported
         # changed version as another reply.
         rows = self.get_queryset(request).values("client_id", "client__name").annotate(
-            total_records=Count("id"),
-            successful_records=Count("id", filter=Q(status="success")),
-            api_records=Count("id", filter=Q(status="success", export_method="api")),
-            manual_records=Count("id", filter=Q(status="success", export_method="manual_download")),
-            api_replies=Count("content_id", filter=Q(status="success", export_method="api"), distinct=True),
-            manual_replies=Count("content_id", filter=Q(status="success", export_method="manual_download"), distinct=True),
-            unknown_records=Count("id", filter=Q(status="success", export_method="unknown")),
-            unknown_replies=Count("content_id", filter=Q(status="success", export_method="unknown"), distinct=True),
-            failed_records=Count("id", filter=Q(status="failed")),
+            total_replies=Count("content_id", distinct=True),
+            exported_replies=Count("content_id", filter=Q(status="success"), distinct=True),
             failed_replies=Count("content_id", filter=Q(status="failed"), distinct=True),
-            pending_records=Count("id", filter=Q(status="pending")),
             pending_replies=Count("content_id", filter=Q(status="pending"), distinct=True),
         ).order_by("client__name")
         history = self.get_queryset(request)
+        total_replies = history.values("content_id").distinct().count()
+        exported_replies = history.filter(status="success").values("content_id").distinct().count()
+        failed_replies = history.filter(status="failed").values("content_id").distinct().count()
+        pending_replies = history.filter(status="pending").values("content_id").distinct().count()
         extra_context = {
             **(extra_context or {}),
             "reply_export_totals": rows,
-            "reply_export_record_count": history.count(),
-            "successful_reply_records": history.filter(status="success").count(),
-            "successful_unique_replies": history.filter(status="success").values("content_id").distinct().count(),
-            "reply_api_records": history.filter(status="success", export_method="api").count(),
-            "reply_manual_records": history.filter(status="success", export_method="manual_download").count(),
-            "reply_unknown_records": history.filter(status="success", export_method="unknown").count(),
-            "failed_reply_records": history.filter(status="failed").count(),
-            "failed_unique_replies": history.filter(status="failed").values("content_id").distinct().count(),
-            "pending_reply_records": history.filter(status="pending").count(),
-            "pending_unique_replies": history.filter(status="pending").values("content_id").distinct().count(),
+            "total_replies": total_replies,
+            "exported_replies": exported_replies,
+            "failed_replies": failed_replies,
+            "pending_replies": pending_replies,
         }
         return super().changelist_view(request, extra_context=extra_context)

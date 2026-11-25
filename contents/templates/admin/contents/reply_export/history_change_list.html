@@ -1,50 +1,50 @@
 {% extends "admin/change_list.html" %}
 {% block content_title %}
   {{ block.super }}
-  <section style="margin:12px 0 20px;padding:18px 20px;border:1px solid var(--hairline-color);border-radius:12px;background:var(--body-bg);color:var(--body-fg);line-height:1.6;overflow-x:auto">
-    <h2 style="margin:0 0 8px">Reply export results</h2>
-    <p style="margin:0 0 14px">
-      <strong>{{ reply_export_record_count }}</strong> total export attempts ·
-      <strong>{{ successful_unique_replies }}</strong> unique replies exported successfully
-      ({{ successful_reply_records }} successful records: {{ reply_api_records }} via API, {{ reply_manual_records }} by CSV/JSON download, {{ reply_unknown_records }} earlier with an untracked method) ·
-      <strong>{{ failed_unique_replies }}</strong> unique replies with failed attempts
-      ({{ failed_reply_records }} failed records) ·
-      <strong>{{ pending_unique_replies }}</strong> unique replies with pending attempts
-      ({{ pending_reply_records }} pending records).
-    </p>
-    <p style="margin:0 0 12px">“Pending” means the system has no success confirmation yet. A reply can appear under more than one status if it had multiple attempts.</p>
-    <table style="width:auto;min-width:760px;border-collapse:collapse">
-      <thead><tr>
-        <th style="padding:6px 12px;text-align:left">Destination</th>
-        <th style="padding:6px 12px;text-align:right">API replies</th>
-        <th style="padding:6px 12px;text-align:right">Manual downloads</th>
-        <th style="padding:6px 12px;text-align:right">Earlier / unknown</th>
-        <th style="padding:6px 12px;text-align:right">Failed attempts</th>
-        <th style="padding:6px 12px;text-align:right">Pending attempts</th>
-        <th style="padding:6px 12px;text-align:right">Total attempts</th>
-        <th style="padding:6px 12px"></th>
-      </tr></thead>
-      <tbody>
-      {% for total in reply_export_totals %}
-        <tr>
-          <td style="padding:6px 12px">{{ total.client__name }}</td>
-          <td style="padding:6px 12px;text-align:right">{{ total.api_replies }} <small>({{ total.api_records }} records)</small></td>
-          <td style="padding:6px 12px;text-align:right">{{ total.manual_replies }} <small>({{ total.manual_records }} records)</small></td>
-          <td style="padding:6px 12px;text-align:right">{{ total.unknown_replies }} <small>({{ total.unknown_records }} records)</small></td>
-          <td style="padding:6px 12px;text-align:right">{{ total.failed_records }}</td>
-          <td style="padding:6px 12px;text-align:right">{{ total.pending_records }}</td>
-          <td style="padding:6px 12px;text-align:right">{{ total.total_records }}</td>
-          <td style="padding:6px 12px;white-space:nowrap">
-            <a href="?client__id__exact={{ total.client_id }}&status__exact=success">Successful references</a> ·
-            <a href="?client__id__exact={{ total.client_id }}&status__exact=failed">Failed references</a> ·
-            <a href="?client__id__exact={{ total.client_id }}&status__exact=pending">Pending references</a>
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="8" style="padding:6px 12px">No reply export attempts have been recorded.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    <p style="margin:14px 0 0">Every history row below shows the exact reply ID and title, destination, result, and time. Failed rows include the recorded error; open a row for the full error details.</p>
+  <section class="reply-history-summary" aria-label="Reply export summary">
+    <div class="reply-history-heading">
+      <div>
+        <h2>Reply export summary</h2>
+        <p>Unique replies per destination; retries can appear in more than one status.</p>
+      </div>
+      <div class="reply-history-total"><strong>{{ total_replies }}</strong><span>Total replies</span></div>
+    </div>
+    <div class="reply-history-stats">
+      <div class="reply-stat reply-stat-exported"><strong>{{ exported_replies }}</strong><span>Exported</span></div>
+      <div class="reply-stat reply-stat-failed"><strong>{{ failed_replies }}</strong><span>Failed</span></div>
+      <div class="reply-stat reply-stat-pending"><strong>{{ pending_replies }}</strong><span>Pending</span></div>
+    </div>
+    <div class="reply-history-destinations">
+      <h3>By destination</h3>
+      <div class="reply-history-table-wrap">
+        <table>
+          <thead><tr>
+            <th scope="col">Destination</th>
+            <th scope="col">Exported</th>
+            <th scope="col">Failed</th>
+            <th scope="col">Pending</th>
+            <th scope="col">Total</th>
+            <th scope="col"><span class="visually-hidden">Filter</span></th>
+          </tr></thead>
+          <tbody>
+            {% for total in reply_export_totals %}
+              <tr>
+                <th scope="row">{{ total.client__name }}</th>
+                <td>{{ total.exported_replies }}</td>
+                <td>{{ total.failed_replies }}</td>
+                <td>{{ total.pending_replies }}</td>
+                <td>{{ total.total_replies }}</td>
+                <td class="reply-history-links">
+                  <a href="?client__id__exact={{ total.client_id }}">View history</a>
+                  <a href="?client__id__exact={{ total.client_id }}&status__exact=failed">View failures</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6">No reply exports yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </section>
 {% endblock %}

@@ -40,6 +40,14 @@ _GROUPS = (
         "job_label": "Standard generation jobs",
         "export_type": "standard",
     },
+    {
+        "key": "templates",
+        "name": "Templates",
+        "models": {
+            "WarmupTemplate": "Warmup templates",
+            "WarmupTemplateGenerationSettings": "Template settings",
+        },
+    },
 )
 
 
@@ -62,7 +70,7 @@ def _model_group_link(model, *, name, query=None):
 
 @register.simple_tag
 def grouped_generation_apps(app_list):
-    """Return the admin models arranged into Greeting, Replies and Standard."""
+    """Return the admin models arranged into their generation sections."""
     apps = deepcopy(app_list or [])
     contents_app = next(
         (app for app in apps if app.get("app_label") == "contents"),
