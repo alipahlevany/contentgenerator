@@ -23,16 +23,17 @@
 <link rel="stylesheet" href="{% static 'ui/controls.css' %}?v=20261101-controls">
 <link rel="stylesheet" href="{% static 'admin/list_controls.css' %}?v=20261101-catalog">
 {% if opts.model_name == 'generationjob' %}
-<link rel="stylesheet" href="{% static 'admin/generation_jobs.css' %}?v=20261101-controls">
+<link rel="stylesheet" href="{% static 'admin/generation_jobs.css' %}?v=20261125-motion">
 {% endif %}
-<link rel="stylesheet" href="{% static 'admin/admin_controls.css' %}?v=20261101-buttons">
+<link rel="stylesheet" href="{% static 'admin/admin_controls.css' %}?v=20261125-motion">
 {% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
 <script src="{% static 'ui/theme.js' %}"></script>
 <script defer src="{% static 'admin/admin_shell.js' %}"></script>
+<script defer src="{% static 'admin/reveal_motion.js' %}?v=20261125-motion"></script>
 {% if opts.model_name == 'generationjob' %}
-<script defer src="{% static 'admin/generation_jobs.js' %}?v=20261124-live-progress"></script>
+<script defer src="{% static 'admin/generation_jobs.js' %}?v=20261125-motion-live-progress"></script>
 {% endif %}
 {% endblock %}

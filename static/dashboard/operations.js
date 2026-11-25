@@ -281,10 +281,20 @@
   $('theme-select').addEventListener('change',event=>{document.documentElement.dataset.theme=event.target.value;try{localStorage.setItem('theme',event.target.value);}catch(error){/* Theme still applies for this page. */}});
   new MutationObserver(()=>$('theme-select').value=document.documentElement.dataset.theme || 'auto').observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   const mobile = window.matchMedia('(max-width:820px)');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  document.querySelectorAll('details').forEach(details => details.addEventListener('toggle', () => {
+    if (!details.open || reducedMotion.matches || !Element.prototype.animate) return;
+    [...details.children].filter(child => child.tagName !== 'SUMMARY').forEach((content, index) => {
+      content.animate(
+        [{opacity:0,transform:'translateY(12px) scale(.99)'},{opacity:1,transform:'translateY(0) scale(1)'}],
+        {duration:340,delay:index*28,easing:'cubic-bezier(.16,1,.3,1)',fill:'both'}
+      );
+    });
+  }));
   function syncMenu(){ $('sidebar').inert = mobile.matches && !$('sidebar').classList.contains('open'); }
   function closeMenu(){ $('sidebar').classList.remove('open');$('nav-overlay').hidden=true;$('menu-toggle').setAttribute('aria-expanded','false');syncMenu(); }
   mobile.addEventListener('change',closeMenu);syncMenu();
-  $('menu-toggle').addEventListener('click',()=>{const open=$('sidebar').classList.toggle('open');$('nav-overlay').hidden=!open;$('menu-toggle').setAttribute('aria-expanded',String(open));syncMenu();});
+  $('menu-toggle').addEventListener('click',()=>{const open=$('sidebar').classList.toggle('open');$('nav-overlay').hidden=!open;$('menu-toggle').setAttribute('aria-expanded',String(open));syncMenu();if(open&&!reducedMotion.matches&&Element.prototype.animate)$('sidebar').querySelectorAll('.nav-link').forEach((link,index)=>link.animate([{opacity:0,transform:'translateX(-10px)'},{opacity:1,transform:'translateX(0)'}],{duration:260,delay:Math.min(index*22,220),easing:'cubic-bezier(.16,1,.3,1)'}));});
   $('nav-overlay').addEventListener('click',closeMenu);
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeMenu();$('chart-tooltip').hidden=true;}});
   setInterval(()=>{if(!document.hidden) refresh();},60000);

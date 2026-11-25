@@ -124,3 +124,10 @@ html[data-cg-theme] #nav-sidebar.cg-nav .cg-nav-quick a.cg-nav-create:hover { ba
 @media(prefers-reduced-motion:reduce) {
     #container #content :is(input[type=submit],input[type=button],button,a.button,.submit-row a,.cancel-link,.paginator a) { transition:none; }
 }
+
+/* Shared reveal motion for expandable admin sections and filter menus. */
+#content details[open] > :not(summary) { animation:admin-disclosure-in 300ms cubic-bezier(.16,1,.3,1) both; transform-origin:top center; }
+@keyframes admin-disclosure-in { from { opacity:0; transform:translateY(9px) scale(.99); } to { opacity:1; transform:translateY(0) scale(1); } }
+@media(prefers-reduced-motion:reduce) {
+    #content details[open] > :not(summary) { animation:none; }
+}

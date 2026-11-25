@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/reply_export.css' %}">{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/reply_export.css' %}?v=20261125-motion">{% endblock %}
 {% block content %}
 <form method="post" class="reply-export-form">
   {% csrf_token %}
