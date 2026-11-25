@@ -378,17 +378,17 @@ class EmailReply(Content):
 
     class Meta:
         proxy = True
-        verbose_name = "Email Reply"
-        verbose_name_plural = "Email Replies"
+        verbose_name = "Generated reply"
+        verbose_name_plural = "Generated replies"
 
 
 class ReplyExport(Content):
-    """A separate admin workspace for exporting replies, using existing content."""
+    """A separate admin workspace for downloading existing generated replies."""
 
     class Meta:
         proxy = True
-        verbose_name = "Reply library"
-        verbose_name_plural = "Reply library"
+        verbose_name = "Downloadable reply"
+        verbose_name_plural = "Downloadable replies"
 
 
 class ContentExport(models.Model):

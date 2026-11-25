@@ -2,8 +2,8 @@
 {% block content_title %}
   {{ block.super }}
   <div style="margin:12px 0 20px;padding:16px 20px;border:1px solid var(--hairline-color);border-radius:12px;background:var(--body-bg);color:var(--body-fg);line-height:1.6">
-    <strong>Download replies for another system</strong><br>
-    Select replies below, choose a CSV or JSON download from Action, then choose the destination. Previously downloaded replies are skipped for that destination.
-    <a href="{% url 'admin:contents_replycontentexport_changelist' %}" style="display:inline-block;margin-left:12px">See exactly which replies were exported</a>
+    <strong>Download generated replies</strong><br>
+    This list contains generated replies you can select for a manual CSV or JSON download. Its total is the library size, not the number exported to a client.
+    <a href="{% url 'admin:contents_replycontentexport_changelist' %}" style="display:inline-block;margin-left:12px">View API export history</a>
   </div>
 {% endblock %}
