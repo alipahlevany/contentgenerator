@@ -382,15 +382,6 @@ class EmailReply(Content):
         verbose_name_plural = "Generated replies"
 
 
-class ReplyExport(Content):
-    """A separate admin workspace for downloading existing generated replies."""
-
-    class Meta:
-        proxy = True
-        verbose_name = "Downloadable reply"
-        verbose_name_plural = "Downloadable replies"
-
-
 class ContentExport(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
@@ -425,6 +416,19 @@ class ContentExport(models.Model):
         max_length=20,
         choices=STATUS_CHOICES,
         default="pending",
+        db_index=True,
+    )
+
+    EXPORT_METHOD_CHOICES = [
+        ("api", "API pull"),
+        ("manual_download", "Manual CSV/JSON download"),
+        ("unknown", "Earlier record — method untracked"),
+    ]
+
+    export_method = models.CharField(
+        max_length=20,
+        choices=EXPORT_METHOD_CHOICES,
+        default="api",
         db_index=True,
     )
 

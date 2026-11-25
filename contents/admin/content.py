@@ -3,6 +3,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 
 from contents.models import Content, EmailReply, Greeting
+from .reply_download import ReplyDownloadActionsMixin
 
 
 class BaseContentAdmin(admin.ModelAdmin):
@@ -138,9 +139,10 @@ class ContentAdmin(BaseContentAdmin):
     content_type_value = "standard"
 
 
-class EmailReplyAdmin(BaseContentAdmin):
+class EmailReplyAdmin(ReplyDownloadActionsMixin, BaseContentAdmin):
     content_type_value = "email_reply"
-    actions = ()
+    actions = ("download_replies_csv", "download_replies_json")
+    change_list_template = "admin/contents/emailreply/change_list.html"
 
     list_display = (
         "id",
@@ -153,6 +155,9 @@ class EmailReplyAdmin(BaseContentAdmin):
         "status",
         "created_at",
     )
+
+    class Media:
+        css = {"all": ("admin/reply_export.css",)}
 
 
 

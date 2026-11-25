@@ -5,8 +5,8 @@
     <h2 style="margin:0 0 8px">Reply export results</h2>
     <p style="margin:0 0 14px">
       <strong>{{ reply_export_record_count }}</strong> total export attempts ·
-      <strong>{{ successful_unique_replies }}</strong> unique replies returned in successful API responses
-      ({{ successful_reply_records }} successful records) ·
+      <strong>{{ successful_unique_replies }}</strong> unique replies exported successfully
+      ({{ successful_reply_records }} successful records: {{ reply_api_records }} via API, {{ reply_manual_records }} by CSV/JSON download, {{ reply_unknown_records }} earlier with an untracked method) ·
       <strong>{{ failed_unique_replies }}</strong> unique replies with failed attempts
       ({{ failed_reply_records }} failed records) ·
       <strong>{{ pending_unique_replies }}</strong> unique replies with pending attempts
@@ -16,7 +16,9 @@
     <table style="width:auto;min-width:760px;border-collapse:collapse">
       <thead><tr>
         <th style="padding:6px 12px;text-align:left">Destination</th>
-        <th style="padding:6px 12px;text-align:right">Replies returned by API</th>
+        <th style="padding:6px 12px;text-align:right">API replies</th>
+        <th style="padding:6px 12px;text-align:right">Manual downloads</th>
+        <th style="padding:6px 12px;text-align:right">Earlier / unknown</th>
         <th style="padding:6px 12px;text-align:right">Failed attempts</th>
         <th style="padding:6px 12px;text-align:right">Pending attempts</th>
         <th style="padding:6px 12px;text-align:right">Total attempts</th>
@@ -26,7 +28,9 @@
       {% for total in reply_export_totals %}
         <tr>
           <td style="padding:6px 12px">{{ total.client__name }}</td>
-          <td style="padding:6px 12px;text-align:right">{{ total.successful_replies }} <small>({{ total.successful_records }} records)</small></td>
+          <td style="padding:6px 12px;text-align:right">{{ total.api_replies }} <small>({{ total.api_records }} records)</small></td>
+          <td style="padding:6px 12px;text-align:right">{{ total.manual_replies }} <small>({{ total.manual_records }} records)</small></td>
+          <td style="padding:6px 12px;text-align:right">{{ total.unknown_replies }} <small>({{ total.unknown_records }} records)</small></td>
           <td style="padding:6px 12px;text-align:right">{{ total.failed_records }}</td>
           <td style="padding:6px 12px;text-align:right">{{ total.pending_records }}</td>
           <td style="padding:6px 12px;text-align:right">{{ total.total_records }}</td>
@@ -37,7 +41,7 @@
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="6" style="padding:6px 12px">No reply export attempts have been recorded.</td></tr>
+        <tr><td colspan="8" style="padding:6px 12px">No reply export attempts have been recorded.</td></tr>
       {% endfor %}
       </tbody>
     </table>

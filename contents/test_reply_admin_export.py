@@ -9,13 +9,13 @@ from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
-from contents.admin.reply_export import ReplyExportAdmin
+from contents.admin.content import EmailReplyAdmin
 from contents.models import Content, ExternalClient, ContentExport
 
 
 class ReplyAdminExportTests(SimpleTestCase):
     def setUp(self):
-        self.admin = ReplyExportAdmin(model=Mock(), admin_site=Mock())
+        self.admin = EmailReplyAdmin(model=Mock(), admin_site=Mock())
         self.reply = SimpleNamespace(
             id=17,
             title="=unsafe title",
@@ -60,7 +60,7 @@ class ReplyAdminActionTests(TestCase):
         )
         recipient = ExternalClient.objects.create(name="Recipient", code="recipient", api_key="test-key")
         response = self.client.post(
-            reverse("admin:contents_replyexport_changelist"),
+            reverse("admin:contents_emailreply_changelist"),
             {"action": "download_replies_csv", "export_client": recipient.pk, "_selected_action": [selected.pk], "index": 0},
         )
         self.assertEqual(response.status_code, 200)
@@ -69,13 +69,13 @@ class ReplyAdminActionTests(TestCase):
 
         self.assertEqual(ContentExport.objects.filter(client=recipient, status="success").count(), 1)
         again = self.client.post(
-            reverse("admin:contents_replyexport_changelist"),
+            reverse("admin:contents_emailreply_changelist"),
             {"action": "download_replies_json", "export_client": recipient.pk, "_selected_action": [selected.pk], "index": 0},
         )
         self.assertEqual(again.status_code, 302)
         other = ExternalClient.objects.create(name="Other recipient", code="other-recipient", api_key="test-other")
         different = self.client.post(
-            reverse("admin:contents_replyexport_changelist"),
+            reverse("admin:contents_emailreply_changelist"),
             {"action": "download_replies_json", "export_client": other.pk, "_selected_action": [selected.pk], "index": 0},
         )
         self.assertEqual(json.loads(different.content)[0]["body"], "Selected reply")
@@ -85,7 +85,7 @@ class ReplyAdminActionTests(TestCase):
         self.client.force_login(user)
         reply = Content.objects.create(title='Reply', prompt='p', content_type='email_reply', generated_content='Body', status='generated')
         for value in ('', 'invalid', '999999'):
-            response = self.client.post(reverse('admin:contents_replyexport_changelist'), {
+            response = self.client.post(reverse('admin:contents_emailreply_changelist'), {
                 'action': 'download_replies_csv', 'export_client': value,
                 '_selected_action': [reply.pk], 'index': 0,
             })
@@ -96,10 +96,10 @@ class ReplyAdminActionTests(TestCase):
         user = get_user_model().objects.create_superuser('destination-admin', 'destination@example.com', 'test-password')
         self.client.force_login(user)
         reply = Content.objects.create(title='Reply', prompt='p', content_type='email_reply', generated_content='Body', status='generated')
-        url = reverse('admin:contents_replyexport_changelist')
+        url = reverse('admin:contents_emailreply_changelist')
         selection = {'action': 'download_replies_json', '_selected_action': [reply.pk], 'index': 0}
         page = self.client.post(url, selection)
-        self.assertContains(page, 'Export replies for a client or campaign')
+        self.assertContains(page, 'Choose a destination')
         self.assertEqual(ExternalClient.objects.count(), 0)
         response = self.client.post(url, dict(selection, export_client='__new__', export_destination='Customer campaign'))
         self.assertEqual(response['Content-Type'], 'application/json; charset=utf-8')
@@ -118,7 +118,7 @@ class ReplyAdminActionTests(TestCase):
         greeting = Content.objects.create(title='Greeting only', content_type='greeting', prompt='p', generated_content='Hello', status='generated')
         reply = Content.objects.create(title='Reply only', content_type='email_reply', prompt='p', generated_content='Reply', status='generated')
         destination = ExternalClient.objects.create(name='Isolated destination', code='isolated-destination')
-        url = reverse('admin:contents_replyexport_changelist')
+        url = reverse('admin:contents_emailreply_changelist')
         page = self.client.get(url)
         self.assertContains(page, 'Reply only')
         self.assertNotContains(page, 'Greeting only')
@@ -126,7 +126,6 @@ class ReplyAdminActionTests(TestCase):
         self.assertEqual([row['id'] for row in json.loads(response.content)], [reply.pk])
         self.assertFalse(ContentExport.objects.filter(content=greeting).exists())
         old_page = self.client.get(reverse('admin:contents_emailreply_changelist'))
-        self.assertNotContains(old_page, 'Download selected replies as CSV')
-        self.assertContains(page, 'Reply library')
-        self.assertContains(page, 'Download replies for another system')
-        self.assertContains(page, 'View export history')
+        self.assertContains(old_page, 'Generated replies')
+        self.assertContains(old_page, 'CSV or JSON')
+        self.assertContains(old_page, 'Reply export history')

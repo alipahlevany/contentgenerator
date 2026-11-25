@@ -2,19 +2,16 @@ import csv
 import hashlib
 import json
 
-from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ActionForm
+from django import forms
 from django.db import transaction
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import reverse
 
-from contents.models import ExternalClient
 from contents.core_services.exports.service import export_contents_for_client
-
-
-from .content import BaseContentAdmin
-from contents.models import ReplyExport
+from contents.models import ExternalClient
 
 
 class ExportDestinationChoice(forms.ModelChoiceField):
@@ -22,13 +19,19 @@ class ExportDestinationChoice(forms.ModelChoiceField):
         return None if value == "__new__" else super().to_python(value)
 
 
-class ReplyExportActionForm(forms.Form):
+class ReplyExportActionForm(ActionForm):
     export_client = ExportDestinationChoice(
         queryset=ExternalClient.objects.filter(is_active=True).order_by("name"),
-        required=False, label="Export destination",
+        required=False,
+        label="Export destination",
         empty_label="Choose an existing destination…",
     )
-    export_destination = forms.CharField(required=False, max_length=100, label="New destination name", help_text="For example: November campaign or Customer A")
+    export_destination = forms.CharField(
+        required=False,
+        max_length=100,
+        label="New destination name",
+        help_text="For example: November campaign or Customer A",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,45 +40,19 @@ class ReplyExportActionForm(forms.Form):
 
     def clean(self):
         data = super().clean()
-        if self.data.get("export_client") == "__new__" and not data.get("export_destination", "").strip():
+        if (
+            self.data.get("export_client") == "__new__"
+            and not data.get("export_destination", "").strip()
+        ):
             self.add_error("export_destination", "Enter a name for the new destination.")
         return data
 
 
-@admin.register(ReplyExport)
-class ReplyExportAdmin(BaseContentAdmin):
-    content_type_value = "email_reply"
-    actions = ("download_replies_csv", "download_replies_json")
-    change_list_template = "admin/contents/reply_export/change_list.html"
-    list_display_links = None
-
-    class Media:
-        css = {"all": ("admin/reply_export.css",)}
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
-
-
-    list_display = (
-        "id",
-        "title",
-        "source_job",
-        "language",
-        "topic",
-        "audience",
-        "goal",
-        "status",
-        "created_at",
-    )
+class ReplyDownloadActionsMixin:
+    action_form = ReplyExportActionForm
 
     def _download_for_client(self, request, queryset, renderer):
-        form = ReplyExportActionForm(request.POST or None)
+        form = self.action_form(request.POST or None)
         client = None
         supplied = request.POST.get("export_client") or request.POST.get("export_destination")
         if supplied and form.is_valid():
@@ -90,33 +67,49 @@ class ReplyExportAdmin(BaseContentAdmin):
                         form.add_error("export_destination", "You need permission to create a client destination.")
                     else:
                         client, _ = ExternalClient.objects.get_or_create(
-                            name=name, defaults={
+                            name=name,
+                            defaults={
                                 "code": "export-" + hashlib.sha256(name.encode()).hexdigest()[:24],
                                 "receives_standard_content": False,
-                                "receives_email_replies": False, "receives_greetings": False,
+                                "receives_email_replies": False,
+                                "receives_greetings": False,
                                 "notes": "Created as a named destination for manual exports.",
                             },
                         )
                 if client and not client.is_active:
                     form.add_error("export_destination", "This destination is inactive. Ask an administrator to review it.")
+
         if not supplied or not form.is_valid() or client is None:
-            return TemplateResponse(request, "admin/contents/emailreply/export_destination.html", {
-                **self.admin_site.each_context(request), "title": "Download selected replies",
-                "opts": self.model._meta, "form": form,
-                "cancel_url": reverse("admin:contents_replyexport_changelist"),
-                "selected_ids": request.POST.getlist("_selected_action"),
-                "select_across": request.POST.get("select_across", "0"),
-                "action": request.POST.get("action"), "selected_count": queryset.count(),
-            })
-        # Build the file inside the transaction so serialization errors cannot
-        # mark contents as exported when no response was produced.
+            return TemplateResponse(
+                request,
+                "admin/contents/emailreply/export_destination.html",
+                {
+                    **self.admin_site.each_context(request),
+                    "title": "Download selected replies",
+                    "opts": self.model._meta,
+                    "form": form,
+                    "cancel_url": reverse("admin:contents_emailreply_changelist"),
+                    "selected_ids": request.POST.getlist("_selected_action"),
+                    "select_across": request.POST.get("select_across", "0"),
+                    "action": request.POST.get("action"),
+                    "selected_count": queryset.count(),
+                },
+            )
+
         with transaction.atomic():
             result = export_contents_for_client(
                 validated_data={"count": min(queryset.count(), 10000)},
-                client=client, content_type="email_reply", selected_queryset=queryset,
+                client=client,
+                content_type="email_reply",
+                selected_queryset=queryset,
+                export_method="manual_download",
             )
             if not result.exported_contents:
-                message = "Daily export limit reached for this destination." if result.quota_exceeded else "No new replies to export for this destination."
+                message = (
+                    "Daily export limit reached for this destination."
+                    if result.quota_exceeded
+                    else "No new replies to export for this destination."
+                )
                 self.message_user(request, message, messages.INFO, extra_tags="reply-export-result")
                 return None
             response = renderer(result.exported_contents)
@@ -126,7 +119,11 @@ class ReplyExportAdmin(BaseContentAdmin):
 
     @staticmethod
     def _export_rows(queryset):
-        replies = queryset if isinstance(queryset, list) else queryset.select_related("language").order_by("id").iterator()
+        replies = (
+            queryset
+            if isinstance(queryset, list)
+            else queryset.select_related("language").order_by("id").iterator()
+        )
         for reply in replies:
             yield {
                 "id": reply.id,
@@ -150,9 +147,9 @@ class ReplyExportAdmin(BaseContentAdmin):
         fields = ("id", "title", "language", "body", "status", "source_job_id", "created_at")
         writer.writerow(fields)
         for row in self._export_rows(queryset):
-            # Keep spreadsheet software from evaluating model output as a formula.
             writer.writerow(
-                "'" + str(row[field]) if str(row[field]).lstrip().startswith(("=", "+", "-", "@"))
+                "'" + str(row[field])
+                if str(row[field]).lstrip().startswith(("=", "+", "-", "@"))
                 else row[field]
                 for field in fields
             )

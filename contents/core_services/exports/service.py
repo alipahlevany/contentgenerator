@@ -29,6 +29,7 @@ def _mark_export_success(export):
     export.save(
         update_fields=[
             "status",
+            "export_method",
             "exported_at",
             "error_message",
             "updated_at",
@@ -40,6 +41,7 @@ def _record_successful_export(
     *,
     content,
     client,
+    export_method,
 ):
     export = (
         ContentExport.objects
@@ -55,6 +57,7 @@ def _record_successful_export(
         if export.status == "success":
             return False
 
+        export.export_method = export_method
         _mark_export_success(export)
         return True
 
@@ -66,6 +69,7 @@ def _record_successful_export(
                 content_hash=content.content_hash,
                 status="success",
                 exported_at=timezone.now(),
+                export_method=export_method,
             )
 
         return True
@@ -88,6 +92,7 @@ def _record_successful_export(
         if export.status == "success":
             return False
 
+        export.export_method = export_method
         _mark_export_success(export)
         return True
 
@@ -98,6 +103,7 @@ def export_contents_for_client(
     client,
     content_type,
     selected_queryset=None,
+    export_method="api",
 ) -> ExportResult:
     requested_count = validated_data["count"]
     exported_contents = []
@@ -155,6 +161,7 @@ def export_contents_for_client(
             recorded = _record_successful_export(
                 content=content,
                 client=client,
+                export_method=export_method,
             )
 
             if recorded:

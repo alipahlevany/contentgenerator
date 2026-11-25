@@ -42,8 +42,8 @@
       <a class="nav-link active" href="{% url 'admin:index' %}" aria-current="page"><svg><use href="#i-grid"/></svg>Overview<span class="nav-active-dot"></span></a>
       <a class="nav-link" href="{% url 'admin:contents_greeting_changelist' %}"><svg><use href="#i-spark"/></svg>Greetings<span class="nav-tag">STUDIO</span></a>
       <a class="nav-link" href="{% url 'admin:contents_content_changelist' %}"><svg><use href="#i-file"/></svg>Standard content</a>
-      <a class="nav-link" href="{% url 'admin:contents_emailreply_changelist' %}"><svg><use href="#i-mail"/></svg>Email replies</a>
-      <a class="nav-link" href="{% url 'admin:contents_replyexport_changelist' %}"><svg><use href="#i-mail"/></svg>Download replies <span class="nav-tag">CSV / JSON</span></a>
+      <a class="nav-link" href="{% url 'admin:contents_emailreply_changelist' %}"><svg><use href="#i-mail"/></svg>Generated replies</a>
+      <a class="nav-link" href="{% url 'admin:contents_replycontentexport_changelist' %}"><svg><use href="#i-clock"/></svg>Reply export history</a>
     </nav>
     <span class="nav-label">OPERATIONS</span>
     <nav>
@@ -78,7 +78,7 @@
     {% endif %}
 <div class="section-subtitle"><h3>Choose your next output</h3><p>Four studios. One production workflow.</p></div>    <nav class="studio-launcher" aria-label="Content studios">
       <a href="{% url 'admin:contents_generationjob_add' %}?generation_type=greeting"><svg><use href="#i-spark"/></svg><span><strong>Greetings</strong><small>Start a conversation</small></span><span aria-hidden="true">↗</span></a>
-      <a href="{% url 'admin:contents_generationjob_add' %}?generation_type=email_reply"><svg><use href="#i-mail"/></svg><span><strong>Email replies</strong><small>Build your reply library</small></span><span aria-hidden="true">↗</span></a>
+      <a href="{% url 'admin:contents_generationjob_add' %}?generation_type=email_reply"><svg><use href="#i-mail"/></svg><span><strong>Generated replies</strong><small>Build your reply library</small></span><span aria-hidden="true">↗</span></a>
       <a href="{% url 'admin:contents_generationjob_add' %}?generation_type=standard"><svg><use href="#i-file"/></svg><span><strong>Standard content</strong><small>Create your next batch</small></span><span aria-hidden="true">↗</span></a>
       <a href="{% url 'admin:contents_warmuptemplate_changelist' %}"><svg><use href="#i-grid"/></svg><span><strong>Email templates</strong><small>Explore your designs</small></span><span aria-hidden="true">↗</span></a>
     </nav>

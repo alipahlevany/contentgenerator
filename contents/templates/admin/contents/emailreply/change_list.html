@@ -1,0 +1,9 @@
+{% extends "admin/change_list.html" %}
+{% block content_title %}
+  {{ block.super }}
+  <section style="margin:12px 0 20px;padding:16px 20px;border:1px solid var(--hairline-color);border-radius:12px;background:var(--body-bg);color:var(--body-fg);line-height:1.6">
+    <strong>Generated replies</strong><br>
+    This is the reply library. Select rows, then choose CSV or JSON from the action menu to download new replies for a destination. The list count is the library size; recorded exports are shown separately in
+    <a href="{% url 'admin:contents_replycontentexport_changelist' %}">Reply export history</a>.
+  </section>
+{% endblock %}
