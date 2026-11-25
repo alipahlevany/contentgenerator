@@ -1,4 +1,5 @@
 {% extends "admin/base_site.html" %}
+{% load admin_groups %}
 
 {% block content %}
 
@@ -130,6 +131,7 @@
 </div>
 
 <div id="content-main">
-    {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+    {% grouped_generation_apps app_list as grouped_app_list %}
+    {% include "admin/app_list.html" with app_list=grouped_app_list show_changelinks=True %}
 </div>
 {% endblock %}

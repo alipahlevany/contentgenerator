@@ -23,6 +23,7 @@ class ContentExportAdmin(admin.ModelAdmin):
     list_filter = (
         "status",
         "client",
+        "content__content_type",
         "exported_at",
         "created_at",
     )
